@@ -1,19 +1,26 @@
 {
   "name": "ugis",
-  "version": "0.0.112",
+  "version": "0.0.487",
   "private": true,
   "scripts": {
     "start": "node ./bin/www"
   },
   "dependencies": {
-    "express": "~4.9.0",
     "body-parser": "~1.8.1",
+    "brfs": "^1.4.0",
     "cookie-parser": "~1.3.3",
-    "morgan": "~1.3.0",
-    "serve-favicon": "~2.1.3",
+    "csv2geojson": "^4.0.0",
     "debug": "~2.0.0",
+    "express": "~4.9.0",
     "hbs": "~2.7.0",
-    "less-middleware": "1.0.x"
+    "less-middleware": "1.0.x",
+    "morgan": "~1.3.0",
+    "osmtogeojson": "^2.2.5",
+    "polytogeojson": "0.0.1",
+    "serve-favicon": "~2.1.3",
+    "togeojson": "^0.11.1",
+    "topojson": "^1.6.18",
+    "turf-buffer": "^1.0.4"
   },
   "devDependencies": {
     "browserify": "^9.0.3",

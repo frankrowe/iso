@@ -3,27 +3,56 @@
 #ugis {
   height: 100%;
   width: 100%;
+  font-family: arial;
   .app {
     height: 100%;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    align-content: stretch;
+    .flex-row {
+      flex: 1;
+      display: flex;
+    }
   }
+}
+
+.header {
+  height: 20px;
+  border-bottom: 1px solid;
+  width: 100%;
+  h1 {
+    margin: 0 0 0 10px;
+    color: white;
+    font-size: 14px;
+    line-height: 20px;
+  }
+}
+
+.toolbar {
+  height: 50px;
+  border-bottom: 1px solid;
+  width: 100%;
 }
 
 .add-layers {
   width: 50px;
-  height: 100%;
-  float: left;
-  border-right: 1px solid @borderColor;
+  min-height: 100px;
+  flex: none;
+  border-right: 1px solid;
 }
 
 .layer-list {
   width: 200px;
-  height: 100%;
-  float: left;
-  border-right: 1px solid @borderColor;
+  min-height: 100px;
+  flex: none;
+  border-right: 1px solid;
 }
 
 .work-space {
-  height: 100%;
-  float: left;
+  min-height: 100px;
+  min-width: 400px;
+  flex: 1;
 }
