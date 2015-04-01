@@ -7,9 +7,11 @@ var layerStyle = {
 }
 
 var Layer = React.createClass({
-  onClick: function() {
-    this.props.layer.selected = !this.props.layer.selected
-    this.props.onSelect(this.props.layer)
+  onClick: function(e) {
+    if (e.target.tagName === 'DIV' || e.target.tagName === 'SPAN') {
+      this.props.layer.selected = !this.props.layer.selected
+      this.props.onSelect(this.props.layer)
+    }
   },
   onChange: function(e) {
     this.props.layer.enabled = !this.props.layer.enabled
@@ -18,9 +20,9 @@ var Layer = React.createClass({
   render: function() {
     layerStyle.backgroundColor = this.props.layer.selected ? palette.lightest : palette.dark
     return (
-      <div className="layer" style={layerStyle}>
+      <div className="layer ugis-btn" style={layerStyle} onClick={this.onClick}>
       <input type="checkbox" ref="checkbox" checked={this.props.layer.enabled} onChange={this.onChange} />
-      <span className="layer-name" onClick={this.onClick}>{this.props.layer.name}</span>
+      <span className="layer-name">{this.props.layer.name}</span>
       </div>
     )
   }

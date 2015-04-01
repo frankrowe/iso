@@ -342,6 +342,252 @@ function swapdim(a, b, dim) {
 }
 
 },{}],6:[function(require,module,exports){
+/* FileSaver.js
+ * A saveAs() FileSaver implementation.
+ * 2014-12-17
+ *
+ * By Eli Grey, http://eligrey.com
+ * License: X11/MIT
+ *   See https://github.com/eligrey/FileSaver.js/blob/master/LICENSE.md
+ */
+
+/*global self */
+/*jslint bitwise: true, indent: 4, laxbreak: true, laxcomma: true, smarttabs: true, plusplus: true */
+
+/*! @source http://purl.eligrey.com/github/FileSaver.js/blob/master/FileSaver.js */
+
+var saveAs = saveAs
+  // IE 10+ (native saveAs)
+  || (typeof navigator !== "undefined" &&
+      navigator.msSaveOrOpenBlob && navigator.msSaveOrOpenBlob.bind(navigator))
+  // Everyone else
+  || (function(view) {
+	"use strict";
+	// IE <10 is explicitly unsupported
+	if (typeof navigator !== "undefined" &&
+	    /MSIE [1-9]\./.test(navigator.userAgent)) {
+		return;
+	}
+	var
+		  doc = view.document
+		  // only get URL when necessary in case Blob.js hasn't overridden it yet
+		, get_URL = function() {
+			return view.URL || view.webkitURL || view;
+		}
+		, save_link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a")
+		, can_use_save_link = "download" in save_link
+		, click = function(node) {
+			var event = doc.createEvent("MouseEvents");
+			event.initMouseEvent(
+				"click", true, false, view, 0, 0, 0, 0, 0
+				, false, false, false, false, 0, null
+			);
+			node.dispatchEvent(event);
+		}
+		, webkit_req_fs = view.webkitRequestFileSystem
+		, req_fs = view.requestFileSystem || webkit_req_fs || view.mozRequestFileSystem
+		, throw_outside = function(ex) {
+			(view.setImmediate || view.setTimeout)(function() {
+				throw ex;
+			}, 0);
+		}
+		, force_saveable_type = "application/octet-stream"
+		, fs_min_size = 0
+		// See https://code.google.com/p/chromium/issues/detail?id=375297#c7 and
+		// https://github.com/eligrey/FileSaver.js/commit/485930a#commitcomment-8768047
+		// for the reasoning behind the timeout and revocation flow
+		, arbitrary_revoke_timeout = 500 // in ms
+		, revoke = function(file) {
+			var revoker = function() {
+				if (typeof file === "string") { // file is an object URL
+					get_URL().revokeObjectURL(file);
+				} else { // file is a File
+					file.remove();
+				}
+			};
+			if (view.chrome) {
+				revoker();
+			} else {
+				setTimeout(revoker, arbitrary_revoke_timeout);
+			}
+		}
+		, dispatch = function(filesaver, event_types, event) {
+			event_types = [].concat(event_types);
+			var i = event_types.length;
+			while (i--) {
+				var listener = filesaver["on" + event_types[i]];
+				if (typeof listener === "function") {
+					try {
+						listener.call(filesaver, event || filesaver);
+					} catch (ex) {
+						throw_outside(ex);
+					}
+				}
+			}
+		}
+		, FileSaver = function(blob, name) {
+			// First try a.download, then web filesystem, then object URLs
+			var
+				  filesaver = this
+				, type = blob.type
+				, blob_changed = false
+				, object_url
+				, target_view
+				, dispatch_all = function() {
+					dispatch(filesaver, "writestart progress write writeend".split(" "));
+				}
+				// on any filesys errors revert to saving with object URLs
+				, fs_error = function() {
+					// don't create more object URLs than needed
+					if (blob_changed || !object_url) {
+						object_url = get_URL().createObjectURL(blob);
+					}
+					if (target_view) {
+						target_view.location.href = object_url;
+					} else {
+						var new_tab = view.open(object_url, "_blank");
+						if (new_tab == undefined && typeof safari !== "undefined") {
+							//Apple do not allow window.open, see http://bit.ly/1kZffRI
+							view.location.href = object_url
+						}
+					}
+					filesaver.readyState = filesaver.DONE;
+					dispatch_all();
+					revoke(object_url);
+				}
+				, abortable = function(func) {
+					return function() {
+						if (filesaver.readyState !== filesaver.DONE) {
+							return func.apply(this, arguments);
+						}
+					};
+				}
+				, create_if_not_found = {create: true, exclusive: false}
+				, slice
+			;
+			filesaver.readyState = filesaver.INIT;
+			if (!name) {
+				name = "download";
+			}
+			if (can_use_save_link) {
+				object_url = get_URL().createObjectURL(blob);
+				save_link.href = object_url;
+				save_link.download = name;
+				click(save_link);
+				filesaver.readyState = filesaver.DONE;
+				dispatch_all();
+				revoke(object_url);
+				return;
+			}
+			// Object and web filesystem URLs have a problem saving in Google Chrome when
+			// viewed in a tab, so I force save with application/octet-stream
+			// http://code.google.com/p/chromium/issues/detail?id=91158
+			// Update: Google errantly closed 91158, I submitted it again:
+			// https://code.google.com/p/chromium/issues/detail?id=389642
+			if (view.chrome && type && type !== force_saveable_type) {
+				slice = blob.slice || blob.webkitSlice;
+				blob = slice.call(blob, 0, blob.size, force_saveable_type);
+				blob_changed = true;
+			}
+			// Since I can't be sure that the guessed media type will trigger a download
+			// in WebKit, I append .download to the filename.
+			// https://bugs.webkit.org/show_bug.cgi?id=65440
+			if (webkit_req_fs && name !== "download") {
+				name += ".download";
+			}
+			if (type === force_saveable_type || webkit_req_fs) {
+				target_view = view;
+			}
+			if (!req_fs) {
+				fs_error();
+				return;
+			}
+			fs_min_size += blob.size;
+			req_fs(view.TEMPORARY, fs_min_size, abortable(function(fs) {
+				fs.root.getDirectory("saved", create_if_not_found, abortable(function(dir) {
+					var save = function() {
+						dir.getFile(name, create_if_not_found, abortable(function(file) {
+							file.createWriter(abortable(function(writer) {
+								writer.onwriteend = function(event) {
+									target_view.location.href = file.toURL();
+									filesaver.readyState = filesaver.DONE;
+									dispatch(filesaver, "writeend", event);
+									revoke(file);
+								};
+								writer.onerror = function() {
+									var error = writer.error;
+									if (error.code !== error.ABORT_ERR) {
+										fs_error();
+									}
+								};
+								"writestart progress write abort".split(" ").forEach(function(event) {
+									writer["on" + event] = filesaver["on" + event];
+								});
+								writer.write(blob);
+								filesaver.abort = function() {
+									writer.abort();
+									filesaver.readyState = filesaver.DONE;
+								};
+								filesaver.readyState = filesaver.WRITING;
+							}), fs_error);
+						}), fs_error);
+					};
+					dir.getFile(name, {create: false}, abortable(function(file) {
+						// delete file if it already exists
+						file.remove();
+						save();
+					}), abortable(function(ex) {
+						if (ex.code === ex.NOT_FOUND_ERR) {
+							save();
+						} else {
+							fs_error();
+						}
+					}));
+				}), fs_error);
+			}), fs_error);
+		}
+		, FS_proto = FileSaver.prototype
+		, saveAs = function(blob, name) {
+			return new FileSaver(blob, name);
+		}
+	;
+	FS_proto.abort = function() {
+		var filesaver = this;
+		filesaver.readyState = filesaver.DONE;
+		dispatch(filesaver, "abort");
+	};
+	FS_proto.readyState = FS_proto.INIT = 0;
+	FS_proto.WRITING = 1;
+	FS_proto.DONE = 2;
+
+	FS_proto.error =
+	FS_proto.onwritestart =
+	FS_proto.onprogress =
+	FS_proto.onwrite =
+	FS_proto.onabort =
+	FS_proto.onerror =
+	FS_proto.onwriteend =
+		null;
+
+	return saveAs;
+}(
+	   typeof self !== "undefined" && self
+	|| typeof window !== "undefined" && window
+	|| this.content
+));
+// `self` is undefined in Firefox for Android content script context
+// while `this` is nsIContentFrameMessageManager
+// with an attribute `content` that corresponds to the window
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = saveAs;
+} else if ((typeof define !== "undefined" && define !== null) && (define.amd != null)) {
+  define([], function() {
+    return saveAs;
+  });
+}
+
+},{}],7:[function(require,module,exports){
 var _ = require("./lodash.custom.js");
 var rewind = require("geojson-rewind");
 
@@ -1278,7 +1524,7 @@ osmtogeojson.toGeojson = osmtogeojson;
 
 module.exports = osmtogeojson;
 
-},{"./lodash.custom.js":7,"./polygon_features.json":11,"geojson-rewind":8}],7:[function(require,module,exports){
+},{"./lodash.custom.js":8,"./polygon_features.json":12,"geojson-rewind":9}],8:[function(require,module,exports){
 (function (global){
 /**
  * @license
@@ -3076,7 +3322,7 @@ module.exports = osmtogeojson;
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 var geojsonArea = require('geojson-area');
 
 module.exports = rewind;
@@ -3127,7 +3373,7 @@ function cw(_) {
     return geojsonArea.ring(_) >= 0;
 }
 
-},{"geojson-area":9}],9:[function(require,module,exports){
+},{"geojson-area":10}],10:[function(require,module,exports){
 var wgs84 = require('wgs84');
 
 module.exports.geometry = geometry;
@@ -3193,12 +3439,12 @@ function rad(_) {
     return _ * Math.PI / 180;
 }
 
-},{"wgs84":10}],10:[function(require,module,exports){
+},{"wgs84":11}],11:[function(require,module,exports){
 module.exports.RADIUS = 6378137;
 module.exports.FLATTENING = 1/298.257223563;
 module.exports.POLAR_RADIUS = 6356752.3142;
 
-},{}],11:[function(require,module,exports){
+},{}],12:[function(require,module,exports){
 module.exports={
     "building": true,
     "highway": {
@@ -3282,7 +3528,7 @@ module.exports={
     "golf": true
 }
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 module.exports = function (data) {
     var lines = data.split('\n'),
                 isNameLine = true,
@@ -3348,7 +3594,7 @@ module.exports = function (data) {
     return gj;
 };
 
-},{}],13:[function(require,module,exports){
+},{}],14:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -3375,7 +3621,7 @@ var AutoFocusMixin = {
 
 module.exports = AutoFocusMixin;
 
-},{"./focusNode":131}],14:[function(require,module,exports){
+},{"./focusNode":132}],15:[function(require,module,exports){
 /**
  * Copyright 2013-2015 Facebook, Inc.
  * All rights reserved.
@@ -3870,7 +4116,7 @@ var BeforeInputEventPlugin = {
 
 module.exports = BeforeInputEventPlugin;
 
-},{"./EventConstants":26,"./EventPropagators":31,"./ExecutionEnvironment":32,"./FallbackCompositionState":33,"./SyntheticCompositionEvent":105,"./SyntheticInputEvent":109,"./keyOf":153}],15:[function(require,module,exports){
+},{"./EventConstants":27,"./EventPropagators":32,"./ExecutionEnvironment":33,"./FallbackCompositionState":34,"./SyntheticCompositionEvent":106,"./SyntheticInputEvent":110,"./keyOf":154}],16:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -3991,7 +4237,7 @@ var CSSProperty = {
 
 module.exports = CSSProperty;
 
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -4173,7 +4419,7 @@ var CSSPropertyOperations = {
 module.exports = CSSPropertyOperations;
 
 }).call(this,require('_process'))
-},{"./CSSProperty":15,"./ExecutionEnvironment":32,"./camelizeStyleName":120,"./dangerousStyleValue":125,"./hyphenateStyleName":145,"./memoizeStringOnly":155,"./warning":166,"_process":2}],17:[function(require,module,exports){
+},{"./CSSProperty":16,"./ExecutionEnvironment":33,"./camelizeStyleName":121,"./dangerousStyleValue":126,"./hyphenateStyleName":146,"./memoizeStringOnly":156,"./warning":167,"_process":2}],18:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -4273,7 +4519,7 @@ PooledClass.addPoolingTo(CallbackQueue);
 module.exports = CallbackQueue;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./PooledClass":39,"./invariant":147,"_process":2}],18:[function(require,module,exports){
+},{"./Object.assign":39,"./PooledClass":40,"./invariant":148,"_process":2}],19:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -4655,7 +4901,7 @@ var ChangeEventPlugin = {
 
 module.exports = ChangeEventPlugin;
 
-},{"./EventConstants":26,"./EventPluginHub":28,"./EventPropagators":31,"./ExecutionEnvironment":32,"./ReactUpdates":99,"./SyntheticEvent":107,"./isEventSupported":148,"./isTextInputElement":150,"./keyOf":153}],19:[function(require,module,exports){
+},{"./EventConstants":27,"./EventPluginHub":29,"./EventPropagators":32,"./ExecutionEnvironment":33,"./ReactUpdates":100,"./SyntheticEvent":108,"./isEventSupported":149,"./isTextInputElement":151,"./keyOf":154}],20:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -4680,7 +4926,7 @@ var ClientReactRootIndex = {
 
 module.exports = ClientReactRootIndex;
 
-},{}],20:[function(require,module,exports){
+},{}],21:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -4818,7 +5064,7 @@ var DOMChildrenOperations = {
 module.exports = DOMChildrenOperations;
 
 }).call(this,require('_process'))
-},{"./Danger":23,"./ReactMultiChildUpdateTypes":84,"./invariant":147,"./setTextContent":161,"_process":2}],21:[function(require,module,exports){
+},{"./Danger":24,"./ReactMultiChildUpdateTypes":85,"./invariant":148,"./setTextContent":162,"_process":2}],22:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -5117,7 +5363,7 @@ var DOMProperty = {
 module.exports = DOMProperty;
 
 }).call(this,require('_process'))
-},{"./invariant":147,"_process":2}],22:[function(require,module,exports){
+},{"./invariant":148,"_process":2}],23:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -5309,7 +5555,7 @@ var DOMPropertyOperations = {
 module.exports = DOMPropertyOperations;
 
 }).call(this,require('_process'))
-},{"./DOMProperty":21,"./quoteAttributeValueForBrowser":159,"./warning":166,"_process":2}],23:[function(require,module,exports){
+},{"./DOMProperty":22,"./quoteAttributeValueForBrowser":160,"./warning":167,"_process":2}],24:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -5496,7 +5742,7 @@ var Danger = {
 module.exports = Danger;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":32,"./createNodesFromMarkup":124,"./emptyFunction":126,"./getMarkupWrap":139,"./invariant":147,"_process":2}],24:[function(require,module,exports){
+},{"./ExecutionEnvironment":33,"./createNodesFromMarkup":125,"./emptyFunction":127,"./getMarkupWrap":140,"./invariant":148,"_process":2}],25:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -5535,7 +5781,7 @@ var DefaultEventPluginOrder = [
 
 module.exports = DefaultEventPluginOrder;
 
-},{"./keyOf":153}],25:[function(require,module,exports){
+},{"./keyOf":154}],26:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -5675,7 +5921,7 @@ var EnterLeaveEventPlugin = {
 
 module.exports = EnterLeaveEventPlugin;
 
-},{"./EventConstants":26,"./EventPropagators":31,"./ReactMount":82,"./SyntheticMouseEvent":111,"./keyOf":153}],26:[function(require,module,exports){
+},{"./EventConstants":27,"./EventPropagators":32,"./ReactMount":83,"./SyntheticMouseEvent":112,"./keyOf":154}],27:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -5747,7 +5993,7 @@ var EventConstants = {
 
 module.exports = EventConstants;
 
-},{"./keyMirror":152}],27:[function(require,module,exports){
+},{"./keyMirror":153}],28:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -5837,7 +6083,7 @@ var EventListener = {
 module.exports = EventListener;
 
 }).call(this,require('_process'))
-},{"./emptyFunction":126,"_process":2}],28:[function(require,module,exports){
+},{"./emptyFunction":127,"_process":2}],29:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -6115,7 +6361,7 @@ var EventPluginHub = {
 module.exports = EventPluginHub;
 
 }).call(this,require('_process'))
-},{"./EventPluginRegistry":29,"./EventPluginUtils":30,"./accumulateInto":117,"./forEachAccumulated":132,"./invariant":147,"_process":2}],29:[function(require,module,exports){
+},{"./EventPluginRegistry":30,"./EventPluginUtils":31,"./accumulateInto":118,"./forEachAccumulated":133,"./invariant":148,"_process":2}],30:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -6395,7 +6641,7 @@ var EventPluginRegistry = {
 module.exports = EventPluginRegistry;
 
 }).call(this,require('_process'))
-},{"./invariant":147,"_process":2}],30:[function(require,module,exports){
+},{"./invariant":148,"_process":2}],31:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -6616,7 +6862,7 @@ var EventPluginUtils = {
 module.exports = EventPluginUtils;
 
 }).call(this,require('_process'))
-},{"./EventConstants":26,"./invariant":147,"_process":2}],31:[function(require,module,exports){
+},{"./EventConstants":27,"./invariant":148,"_process":2}],32:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -6758,7 +7004,7 @@ var EventPropagators = {
 module.exports = EventPropagators;
 
 }).call(this,require('_process'))
-},{"./EventConstants":26,"./EventPluginHub":28,"./accumulateInto":117,"./forEachAccumulated":132,"_process":2}],32:[function(require,module,exports){
+},{"./EventConstants":27,"./EventPluginHub":29,"./accumulateInto":118,"./forEachAccumulated":133,"_process":2}],33:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -6802,7 +7048,7 @@ var ExecutionEnvironment = {
 
 module.exports = ExecutionEnvironment;
 
-},{}],33:[function(require,module,exports){
+},{}],34:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -6893,7 +7139,7 @@ PooledClass.addPoolingTo(FallbackCompositionState);
 
 module.exports = FallbackCompositionState;
 
-},{"./Object.assign":38,"./PooledClass":39,"./getTextContentAccessor":142}],34:[function(require,module,exports){
+},{"./Object.assign":39,"./PooledClass":40,"./getTextContentAccessor":143}],35:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -7098,7 +7344,7 @@ var HTMLDOMPropertyConfig = {
 
 module.exports = HTMLDOMPropertyConfig;
 
-},{"./DOMProperty":21,"./ExecutionEnvironment":32}],35:[function(require,module,exports){
+},{"./DOMProperty":22,"./ExecutionEnvironment":33}],36:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -7254,7 +7500,7 @@ var LinkedValueUtils = {
 module.exports = LinkedValueUtils;
 
 }).call(this,require('_process'))
-},{"./ReactPropTypes":90,"./invariant":147,"_process":2}],36:[function(require,module,exports){
+},{"./ReactPropTypes":91,"./invariant":148,"_process":2}],37:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -7311,7 +7557,7 @@ var LocalEventTrapMixin = {
 module.exports = LocalEventTrapMixin;
 
 }).call(this,require('_process'))
-},{"./ReactBrowserEventEmitter":42,"./accumulateInto":117,"./forEachAccumulated":132,"./invariant":147,"_process":2}],37:[function(require,module,exports){
+},{"./ReactBrowserEventEmitter":43,"./accumulateInto":118,"./forEachAccumulated":133,"./invariant":148,"_process":2}],38:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -7369,7 +7615,7 @@ var MobileSafariClickEventPlugin = {
 
 module.exports = MobileSafariClickEventPlugin;
 
-},{"./EventConstants":26,"./emptyFunction":126}],38:[function(require,module,exports){
+},{"./EventConstants":27,"./emptyFunction":127}],39:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -7418,7 +7664,7 @@ function assign(target, sources) {
 
 module.exports = assign;
 
-},{}],39:[function(require,module,exports){
+},{}],40:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -7534,7 +7780,7 @@ var PooledClass = {
 module.exports = PooledClass;
 
 }).call(this,require('_process'))
-},{"./invariant":147,"_process":2}],40:[function(require,module,exports){
+},{"./invariant":148,"_process":2}],41:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -7686,7 +7932,7 @@ React.version = '0.13.1';
 module.exports = React;
 
 }).call(this,require('_process'))
-},{"./EventPluginUtils":30,"./ExecutionEnvironment":32,"./Object.assign":38,"./ReactChildren":44,"./ReactClass":45,"./ReactComponent":46,"./ReactContext":50,"./ReactCurrentOwner":51,"./ReactDOM":52,"./ReactDOMTextComponent":63,"./ReactDefaultInjection":66,"./ReactElement":69,"./ReactElementValidator":70,"./ReactInstanceHandles":78,"./ReactMount":82,"./ReactPerf":87,"./ReactPropTypes":90,"./ReactReconciler":93,"./ReactServerRendering":96,"./findDOMNode":129,"./onlyChild":156,"_process":2}],41:[function(require,module,exports){
+},{"./EventPluginUtils":31,"./ExecutionEnvironment":33,"./Object.assign":39,"./ReactChildren":45,"./ReactClass":46,"./ReactComponent":47,"./ReactContext":51,"./ReactCurrentOwner":52,"./ReactDOM":53,"./ReactDOMTextComponent":64,"./ReactDefaultInjection":67,"./ReactElement":70,"./ReactElementValidator":71,"./ReactInstanceHandles":79,"./ReactMount":83,"./ReactPerf":88,"./ReactPropTypes":91,"./ReactReconciler":94,"./ReactServerRendering":97,"./findDOMNode":130,"./onlyChild":157,"_process":2}],42:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -7717,7 +7963,7 @@ var ReactBrowserComponentMixin = {
 
 module.exports = ReactBrowserComponentMixin;
 
-},{"./findDOMNode":129}],42:[function(require,module,exports){
+},{"./findDOMNode":130}],43:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -8070,7 +8316,7 @@ var ReactBrowserEventEmitter = assign({}, ReactEventEmitterMixin, {
 
 module.exports = ReactBrowserEventEmitter;
 
-},{"./EventConstants":26,"./EventPluginHub":28,"./EventPluginRegistry":29,"./Object.assign":38,"./ReactEventEmitterMixin":73,"./ViewportMetrics":116,"./isEventSupported":148}],43:[function(require,module,exports){
+},{"./EventConstants":27,"./EventPluginHub":29,"./EventPluginRegistry":30,"./Object.assign":39,"./ReactEventEmitterMixin":74,"./ViewportMetrics":117,"./isEventSupported":149}],44:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -8197,7 +8443,7 @@ var ReactChildReconciler = {
 
 module.exports = ReactChildReconciler;
 
-},{"./ReactReconciler":93,"./flattenChildren":130,"./instantiateReactComponent":146,"./shouldUpdateReactComponent":163}],44:[function(require,module,exports){
+},{"./ReactReconciler":94,"./flattenChildren":131,"./instantiateReactComponent":147,"./shouldUpdateReactComponent":164}],45:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -8350,7 +8596,7 @@ var ReactChildren = {
 module.exports = ReactChildren;
 
 }).call(this,require('_process'))
-},{"./PooledClass":39,"./ReactFragment":75,"./traverseAllChildren":165,"./warning":166,"_process":2}],45:[function(require,module,exports){
+},{"./PooledClass":40,"./ReactFragment":76,"./traverseAllChildren":166,"./warning":167,"_process":2}],46:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -9296,7 +9542,7 @@ var ReactClass = {
 module.exports = ReactClass;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./ReactComponent":46,"./ReactCurrentOwner":51,"./ReactElement":69,"./ReactErrorUtils":72,"./ReactInstanceMap":79,"./ReactLifeCycle":80,"./ReactPropTypeLocationNames":88,"./ReactPropTypeLocations":89,"./ReactUpdateQueue":98,"./invariant":147,"./keyMirror":152,"./keyOf":153,"./warning":166,"_process":2}],46:[function(require,module,exports){
+},{"./Object.assign":39,"./ReactComponent":47,"./ReactCurrentOwner":52,"./ReactElement":70,"./ReactErrorUtils":73,"./ReactInstanceMap":80,"./ReactLifeCycle":81,"./ReactPropTypeLocationNames":89,"./ReactPropTypeLocations":90,"./ReactUpdateQueue":99,"./invariant":148,"./keyMirror":153,"./keyOf":154,"./warning":167,"_process":2}],47:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -9432,7 +9678,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = ReactComponent;
 
 }).call(this,require('_process'))
-},{"./ReactUpdateQueue":98,"./invariant":147,"./warning":166,"_process":2}],47:[function(require,module,exports){
+},{"./ReactUpdateQueue":99,"./invariant":148,"./warning":167,"_process":2}],48:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -9479,7 +9725,7 @@ var ReactComponentBrowserEnvironment = {
 
 module.exports = ReactComponentBrowserEnvironment;
 
-},{"./ReactDOMIDOperations":56,"./ReactMount":82}],48:[function(require,module,exports){
+},{"./ReactDOMIDOperations":57,"./ReactMount":83}],49:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -9540,7 +9786,7 @@ var ReactComponentEnvironment = {
 module.exports = ReactComponentEnvironment;
 
 }).call(this,require('_process'))
-},{"./invariant":147,"_process":2}],49:[function(require,module,exports){
+},{"./invariant":148,"_process":2}],50:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -10430,7 +10676,7 @@ var ReactCompositeComponent = {
 module.exports = ReactCompositeComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./ReactComponentEnvironment":48,"./ReactContext":50,"./ReactCurrentOwner":51,"./ReactElement":69,"./ReactElementValidator":70,"./ReactInstanceMap":79,"./ReactLifeCycle":80,"./ReactNativeComponent":85,"./ReactPerf":87,"./ReactPropTypeLocationNames":88,"./ReactPropTypeLocations":89,"./ReactReconciler":93,"./ReactUpdates":99,"./emptyObject":127,"./invariant":147,"./shouldUpdateReactComponent":163,"./warning":166,"_process":2}],50:[function(require,module,exports){
+},{"./Object.assign":39,"./ReactComponentEnvironment":49,"./ReactContext":51,"./ReactCurrentOwner":52,"./ReactElement":70,"./ReactElementValidator":71,"./ReactInstanceMap":80,"./ReactLifeCycle":81,"./ReactNativeComponent":86,"./ReactPerf":88,"./ReactPropTypeLocationNames":89,"./ReactPropTypeLocations":90,"./ReactReconciler":94,"./ReactUpdates":100,"./emptyObject":128,"./invariant":148,"./shouldUpdateReactComponent":164,"./warning":167,"_process":2}],51:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -10508,7 +10754,7 @@ var ReactContext = {
 module.exports = ReactContext;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./emptyObject":127,"./warning":166,"_process":2}],51:[function(require,module,exports){
+},{"./Object.assign":39,"./emptyObject":128,"./warning":167,"_process":2}],52:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -10542,7 +10788,7 @@ var ReactCurrentOwner = {
 
 module.exports = ReactCurrentOwner;
 
-},{}],52:[function(require,module,exports){
+},{}],53:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -10720,7 +10966,7 @@ var ReactDOM = mapObject({
 module.exports = ReactDOM;
 
 }).call(this,require('_process'))
-},{"./ReactElement":69,"./ReactElementValidator":70,"./mapObject":154,"_process":2}],53:[function(require,module,exports){
+},{"./ReactElement":70,"./ReactElementValidator":71,"./mapObject":155,"_process":2}],54:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -10784,7 +11030,7 @@ var ReactDOMButton = ReactClass.createClass({
 
 module.exports = ReactDOMButton;
 
-},{"./AutoFocusMixin":13,"./ReactBrowserComponentMixin":41,"./ReactClass":45,"./ReactElement":69,"./keyMirror":152}],54:[function(require,module,exports){
+},{"./AutoFocusMixin":14,"./ReactBrowserComponentMixin":42,"./ReactClass":46,"./ReactElement":70,"./keyMirror":153}],55:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -11290,7 +11536,7 @@ ReactDOMComponent.injection = {
 module.exports = ReactDOMComponent;
 
 }).call(this,require('_process'))
-},{"./CSSPropertyOperations":16,"./DOMProperty":21,"./DOMPropertyOperations":22,"./Object.assign":38,"./ReactBrowserEventEmitter":42,"./ReactComponentBrowserEnvironment":47,"./ReactMount":82,"./ReactMultiChild":83,"./ReactPerf":87,"./escapeTextContentForBrowser":128,"./invariant":147,"./isEventSupported":148,"./keyOf":153,"./warning":166,"_process":2}],55:[function(require,module,exports){
+},{"./CSSPropertyOperations":17,"./DOMProperty":22,"./DOMPropertyOperations":23,"./Object.assign":39,"./ReactBrowserEventEmitter":43,"./ReactComponentBrowserEnvironment":48,"./ReactMount":83,"./ReactMultiChild":84,"./ReactPerf":88,"./escapeTextContentForBrowser":129,"./invariant":148,"./isEventSupported":149,"./keyOf":154,"./warning":167,"_process":2}],56:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -11339,7 +11585,7 @@ var ReactDOMForm = ReactClass.createClass({
 
 module.exports = ReactDOMForm;
 
-},{"./EventConstants":26,"./LocalEventTrapMixin":36,"./ReactBrowserComponentMixin":41,"./ReactClass":45,"./ReactElement":69}],56:[function(require,module,exports){
+},{"./EventConstants":27,"./LocalEventTrapMixin":37,"./ReactBrowserComponentMixin":42,"./ReactClass":46,"./ReactElement":70}],57:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -11507,7 +11753,7 @@ ReactPerf.measureMethods(ReactDOMIDOperations, 'ReactDOMIDOperations', {
 module.exports = ReactDOMIDOperations;
 
 }).call(this,require('_process'))
-},{"./CSSPropertyOperations":16,"./DOMChildrenOperations":20,"./DOMPropertyOperations":22,"./ReactMount":82,"./ReactPerf":87,"./invariant":147,"./setInnerHTML":160,"_process":2}],57:[function(require,module,exports){
+},{"./CSSPropertyOperations":17,"./DOMChildrenOperations":21,"./DOMPropertyOperations":23,"./ReactMount":83,"./ReactPerf":88,"./invariant":148,"./setInnerHTML":161,"_process":2}],58:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -11552,7 +11798,7 @@ var ReactDOMIframe = ReactClass.createClass({
 
 module.exports = ReactDOMIframe;
 
-},{"./EventConstants":26,"./LocalEventTrapMixin":36,"./ReactBrowserComponentMixin":41,"./ReactClass":45,"./ReactElement":69}],58:[function(require,module,exports){
+},{"./EventConstants":27,"./LocalEventTrapMixin":37,"./ReactBrowserComponentMixin":42,"./ReactClass":46,"./ReactElement":70}],59:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -11598,7 +11844,7 @@ var ReactDOMImg = ReactClass.createClass({
 
 module.exports = ReactDOMImg;
 
-},{"./EventConstants":26,"./LocalEventTrapMixin":36,"./ReactBrowserComponentMixin":41,"./ReactClass":45,"./ReactElement":69}],59:[function(require,module,exports){
+},{"./EventConstants":27,"./LocalEventTrapMixin":37,"./ReactBrowserComponentMixin":42,"./ReactClass":46,"./ReactElement":70}],60:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -11775,7 +12021,7 @@ var ReactDOMInput = ReactClass.createClass({
 module.exports = ReactDOMInput;
 
 }).call(this,require('_process'))
-},{"./AutoFocusMixin":13,"./DOMPropertyOperations":22,"./LinkedValueUtils":35,"./Object.assign":38,"./ReactBrowserComponentMixin":41,"./ReactClass":45,"./ReactElement":69,"./ReactMount":82,"./ReactUpdates":99,"./invariant":147,"_process":2}],60:[function(require,module,exports){
+},{"./AutoFocusMixin":14,"./DOMPropertyOperations":23,"./LinkedValueUtils":36,"./Object.assign":39,"./ReactBrowserComponentMixin":42,"./ReactClass":46,"./ReactElement":70,"./ReactMount":83,"./ReactUpdates":100,"./invariant":148,"_process":2}],61:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -11827,7 +12073,7 @@ var ReactDOMOption = ReactClass.createClass({
 module.exports = ReactDOMOption;
 
 }).call(this,require('_process'))
-},{"./ReactBrowserComponentMixin":41,"./ReactClass":45,"./ReactElement":69,"./warning":166,"_process":2}],61:[function(require,module,exports){
+},{"./ReactBrowserComponentMixin":42,"./ReactClass":46,"./ReactElement":70,"./warning":167,"_process":2}],62:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -12005,7 +12251,7 @@ var ReactDOMSelect = ReactClass.createClass({
 
 module.exports = ReactDOMSelect;
 
-},{"./AutoFocusMixin":13,"./LinkedValueUtils":35,"./Object.assign":38,"./ReactBrowserComponentMixin":41,"./ReactClass":45,"./ReactElement":69,"./ReactUpdates":99}],62:[function(require,module,exports){
+},{"./AutoFocusMixin":14,"./LinkedValueUtils":36,"./Object.assign":39,"./ReactBrowserComponentMixin":42,"./ReactClass":46,"./ReactElement":70,"./ReactUpdates":100}],63:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -12218,7 +12464,7 @@ var ReactDOMSelection = {
 
 module.exports = ReactDOMSelection;
 
-},{"./ExecutionEnvironment":32,"./getNodeForCharacterOffset":140,"./getTextContentAccessor":142}],63:[function(require,module,exports){
+},{"./ExecutionEnvironment":33,"./getNodeForCharacterOffset":141,"./getTextContentAccessor":143}],64:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -12335,7 +12581,7 @@ assign(ReactDOMTextComponent.prototype, {
 
 module.exports = ReactDOMTextComponent;
 
-},{"./DOMPropertyOperations":22,"./Object.assign":38,"./ReactComponentBrowserEnvironment":47,"./ReactDOMComponent":54,"./escapeTextContentForBrowser":128}],64:[function(require,module,exports){
+},{"./DOMPropertyOperations":23,"./Object.assign":39,"./ReactComponentBrowserEnvironment":48,"./ReactDOMComponent":55,"./escapeTextContentForBrowser":129}],65:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -12475,7 +12721,7 @@ var ReactDOMTextarea = ReactClass.createClass({
 module.exports = ReactDOMTextarea;
 
 }).call(this,require('_process'))
-},{"./AutoFocusMixin":13,"./DOMPropertyOperations":22,"./LinkedValueUtils":35,"./Object.assign":38,"./ReactBrowserComponentMixin":41,"./ReactClass":45,"./ReactElement":69,"./ReactUpdates":99,"./invariant":147,"./warning":166,"_process":2}],65:[function(require,module,exports){
+},{"./AutoFocusMixin":14,"./DOMPropertyOperations":23,"./LinkedValueUtils":36,"./Object.assign":39,"./ReactBrowserComponentMixin":42,"./ReactClass":46,"./ReactElement":70,"./ReactUpdates":100,"./invariant":148,"./warning":167,"_process":2}],66:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -12548,7 +12794,7 @@ var ReactDefaultBatchingStrategy = {
 
 module.exports = ReactDefaultBatchingStrategy;
 
-},{"./Object.assign":38,"./ReactUpdates":99,"./Transaction":115,"./emptyFunction":126}],66:[function(require,module,exports){
+},{"./Object.assign":39,"./ReactUpdates":100,"./Transaction":116,"./emptyFunction":127}],67:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -12707,7 +12953,7 @@ module.exports = {
 };
 
 }).call(this,require('_process'))
-},{"./BeforeInputEventPlugin":14,"./ChangeEventPlugin":18,"./ClientReactRootIndex":19,"./DefaultEventPluginOrder":24,"./EnterLeaveEventPlugin":25,"./ExecutionEnvironment":32,"./HTMLDOMPropertyConfig":34,"./MobileSafariClickEventPlugin":37,"./ReactBrowserComponentMixin":41,"./ReactClass":45,"./ReactComponentBrowserEnvironment":47,"./ReactDOMButton":53,"./ReactDOMComponent":54,"./ReactDOMForm":55,"./ReactDOMIDOperations":56,"./ReactDOMIframe":57,"./ReactDOMImg":58,"./ReactDOMInput":59,"./ReactDOMOption":60,"./ReactDOMSelect":61,"./ReactDOMTextComponent":63,"./ReactDOMTextarea":64,"./ReactDefaultBatchingStrategy":65,"./ReactDefaultPerf":67,"./ReactElement":69,"./ReactEventListener":74,"./ReactInjection":76,"./ReactInstanceHandles":78,"./ReactMount":82,"./ReactReconcileTransaction":92,"./SVGDOMPropertyConfig":100,"./SelectEventPlugin":101,"./ServerReactRootIndex":102,"./SimpleEventPlugin":103,"./createFullPageComponent":123,"_process":2}],67:[function(require,module,exports){
+},{"./BeforeInputEventPlugin":15,"./ChangeEventPlugin":19,"./ClientReactRootIndex":20,"./DefaultEventPluginOrder":25,"./EnterLeaveEventPlugin":26,"./ExecutionEnvironment":33,"./HTMLDOMPropertyConfig":35,"./MobileSafariClickEventPlugin":38,"./ReactBrowserComponentMixin":42,"./ReactClass":46,"./ReactComponentBrowserEnvironment":48,"./ReactDOMButton":54,"./ReactDOMComponent":55,"./ReactDOMForm":56,"./ReactDOMIDOperations":57,"./ReactDOMIframe":58,"./ReactDOMImg":59,"./ReactDOMInput":60,"./ReactDOMOption":61,"./ReactDOMSelect":62,"./ReactDOMTextComponent":64,"./ReactDOMTextarea":65,"./ReactDefaultBatchingStrategy":66,"./ReactDefaultPerf":68,"./ReactElement":70,"./ReactEventListener":75,"./ReactInjection":77,"./ReactInstanceHandles":79,"./ReactMount":83,"./ReactReconcileTransaction":93,"./SVGDOMPropertyConfig":101,"./SelectEventPlugin":102,"./ServerReactRootIndex":103,"./SimpleEventPlugin":104,"./createFullPageComponent":124,"_process":2}],68:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -12973,7 +13219,7 @@ var ReactDefaultPerf = {
 
 module.exports = ReactDefaultPerf;
 
-},{"./DOMProperty":21,"./ReactDefaultPerfAnalysis":68,"./ReactMount":82,"./ReactPerf":87,"./performanceNow":158}],68:[function(require,module,exports){
+},{"./DOMProperty":22,"./ReactDefaultPerfAnalysis":69,"./ReactMount":83,"./ReactPerf":88,"./performanceNow":159}],69:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -13179,7 +13425,7 @@ var ReactDefaultPerfAnalysis = {
 
 module.exports = ReactDefaultPerfAnalysis;
 
-},{"./Object.assign":38}],69:[function(require,module,exports){
+},{"./Object.assign":39}],70:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -13487,7 +13733,7 @@ ReactElement.isValidElement = function(object) {
 module.exports = ReactElement;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./ReactContext":50,"./ReactCurrentOwner":51,"./warning":166,"_process":2}],70:[function(require,module,exports){
+},{"./Object.assign":39,"./ReactContext":51,"./ReactCurrentOwner":52,"./warning":167,"_process":2}],71:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -13952,7 +14198,7 @@ var ReactElementValidator = {
 module.exports = ReactElementValidator;
 
 }).call(this,require('_process'))
-},{"./ReactCurrentOwner":51,"./ReactElement":69,"./ReactFragment":75,"./ReactNativeComponent":85,"./ReactPropTypeLocationNames":88,"./ReactPropTypeLocations":89,"./getIteratorFn":138,"./invariant":147,"./warning":166,"_process":2}],71:[function(require,module,exports){
+},{"./ReactCurrentOwner":52,"./ReactElement":70,"./ReactFragment":76,"./ReactNativeComponent":86,"./ReactPropTypeLocationNames":89,"./ReactPropTypeLocations":90,"./getIteratorFn":139,"./invariant":148,"./warning":167,"_process":2}],72:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -14047,7 +14293,7 @@ var ReactEmptyComponent = {
 module.exports = ReactEmptyComponent;
 
 }).call(this,require('_process'))
-},{"./ReactElement":69,"./ReactInstanceMap":79,"./invariant":147,"_process":2}],72:[function(require,module,exports){
+},{"./ReactElement":70,"./ReactInstanceMap":80,"./invariant":148,"_process":2}],73:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14079,7 +14325,7 @@ var ReactErrorUtils = {
 
 module.exports = ReactErrorUtils;
 
-},{}],73:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14129,7 +14375,7 @@ var ReactEventEmitterMixin = {
 
 module.exports = ReactEventEmitterMixin;
 
-},{"./EventPluginHub":28}],74:[function(require,module,exports){
+},{"./EventPluginHub":29}],75:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14312,7 +14558,7 @@ var ReactEventListener = {
 
 module.exports = ReactEventListener;
 
-},{"./EventListener":27,"./ExecutionEnvironment":32,"./Object.assign":38,"./PooledClass":39,"./ReactInstanceHandles":78,"./ReactMount":82,"./ReactUpdates":99,"./getEventTarget":137,"./getUnboundedScrollPosition":143}],75:[function(require,module,exports){
+},{"./EventListener":28,"./ExecutionEnvironment":33,"./Object.assign":39,"./PooledClass":40,"./ReactInstanceHandles":79,"./ReactMount":83,"./ReactUpdates":100,"./getEventTarget":138,"./getUnboundedScrollPosition":144}],76:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2015, Facebook, Inc.
@@ -14497,7 +14743,7 @@ var ReactFragment = {
 module.exports = ReactFragment;
 
 }).call(this,require('_process'))
-},{"./ReactElement":69,"./warning":166,"_process":2}],76:[function(require,module,exports){
+},{"./ReactElement":70,"./warning":167,"_process":2}],77:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14539,7 +14785,7 @@ var ReactInjection = {
 
 module.exports = ReactInjection;
 
-},{"./DOMProperty":21,"./EventPluginHub":28,"./ReactBrowserEventEmitter":42,"./ReactClass":45,"./ReactComponentEnvironment":48,"./ReactDOMComponent":54,"./ReactEmptyComponent":71,"./ReactNativeComponent":85,"./ReactPerf":87,"./ReactRootIndex":95,"./ReactUpdates":99}],77:[function(require,module,exports){
+},{"./DOMProperty":22,"./EventPluginHub":29,"./ReactBrowserEventEmitter":43,"./ReactClass":46,"./ReactComponentEnvironment":49,"./ReactDOMComponent":55,"./ReactEmptyComponent":72,"./ReactNativeComponent":86,"./ReactPerf":88,"./ReactRootIndex":96,"./ReactUpdates":100}],78:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14674,7 +14920,7 @@ var ReactInputSelection = {
 
 module.exports = ReactInputSelection;
 
-},{"./ReactDOMSelection":62,"./containsNode":121,"./focusNode":131,"./getActiveElement":133}],78:[function(require,module,exports){
+},{"./ReactDOMSelection":63,"./containsNode":122,"./focusNode":132,"./getActiveElement":134}],79:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -15010,7 +15256,7 @@ var ReactInstanceHandles = {
 module.exports = ReactInstanceHandles;
 
 }).call(this,require('_process'))
-},{"./ReactRootIndex":95,"./invariant":147,"_process":2}],79:[function(require,module,exports){
+},{"./ReactRootIndex":96,"./invariant":148,"_process":2}],80:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -15059,7 +15305,7 @@ var ReactInstanceMap = {
 
 module.exports = ReactInstanceMap;
 
-},{}],80:[function(require,module,exports){
+},{}],81:[function(require,module,exports){
 /**
  * Copyright 2015, Facebook, Inc.
  * All rights reserved.
@@ -15096,7 +15342,7 @@ var ReactLifeCycle = {
 
 module.exports = ReactLifeCycle;
 
-},{}],81:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -15144,7 +15390,7 @@ var ReactMarkupChecksum = {
 
 module.exports = ReactMarkupChecksum;
 
-},{"./adler32":118}],82:[function(require,module,exports){
+},{"./adler32":119}],83:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -16035,7 +16281,7 @@ ReactPerf.measureMethods(ReactMount, 'ReactMount', {
 module.exports = ReactMount;
 
 }).call(this,require('_process'))
-},{"./DOMProperty":21,"./ReactBrowserEventEmitter":42,"./ReactCurrentOwner":51,"./ReactElement":69,"./ReactElementValidator":70,"./ReactEmptyComponent":71,"./ReactInstanceHandles":78,"./ReactInstanceMap":79,"./ReactMarkupChecksum":81,"./ReactPerf":87,"./ReactReconciler":93,"./ReactUpdateQueue":98,"./ReactUpdates":99,"./containsNode":121,"./emptyObject":127,"./getReactRootElementInContainer":141,"./instantiateReactComponent":146,"./invariant":147,"./setInnerHTML":160,"./shouldUpdateReactComponent":163,"./warning":166,"_process":2}],83:[function(require,module,exports){
+},{"./DOMProperty":22,"./ReactBrowserEventEmitter":43,"./ReactCurrentOwner":52,"./ReactElement":70,"./ReactElementValidator":71,"./ReactEmptyComponent":72,"./ReactInstanceHandles":79,"./ReactInstanceMap":80,"./ReactMarkupChecksum":82,"./ReactPerf":88,"./ReactReconciler":94,"./ReactUpdateQueue":99,"./ReactUpdates":100,"./containsNode":122,"./emptyObject":128,"./getReactRootElementInContainer":142,"./instantiateReactComponent":147,"./invariant":148,"./setInnerHTML":161,"./shouldUpdateReactComponent":164,"./warning":167,"_process":2}],84:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16465,7 +16711,7 @@ var ReactMultiChild = {
 
 module.exports = ReactMultiChild;
 
-},{"./ReactChildReconciler":43,"./ReactComponentEnvironment":48,"./ReactMultiChildUpdateTypes":84,"./ReactReconciler":93}],84:[function(require,module,exports){
+},{"./ReactChildReconciler":44,"./ReactComponentEnvironment":49,"./ReactMultiChildUpdateTypes":85,"./ReactReconciler":94}],85:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16498,7 +16744,7 @@ var ReactMultiChildUpdateTypes = keyMirror({
 
 module.exports = ReactMultiChildUpdateTypes;
 
-},{"./keyMirror":152}],85:[function(require,module,exports){
+},{"./keyMirror":153}],86:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -16605,7 +16851,7 @@ var ReactNativeComponent = {
 module.exports = ReactNativeComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./invariant":147,"_process":2}],86:[function(require,module,exports){
+},{"./Object.assign":39,"./invariant":148,"_process":2}],87:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -16717,7 +16963,7 @@ var ReactOwner = {
 module.exports = ReactOwner;
 
 }).call(this,require('_process'))
-},{"./invariant":147,"_process":2}],87:[function(require,module,exports){
+},{"./invariant":148,"_process":2}],88:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -16821,7 +17067,7 @@ function _noMeasure(objName, fnName, func) {
 module.exports = ReactPerf;
 
 }).call(this,require('_process'))
-},{"_process":2}],88:[function(require,module,exports){
+},{"_process":2}],89:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -16849,7 +17095,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = ReactPropTypeLocationNames;
 
 }).call(this,require('_process'))
-},{"_process":2}],89:[function(require,module,exports){
+},{"_process":2}],90:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16873,7 +17119,7 @@ var ReactPropTypeLocations = keyMirror({
 
 module.exports = ReactPropTypeLocations;
 
-},{"./keyMirror":152}],90:[function(require,module,exports){
+},{"./keyMirror":153}],91:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -17222,7 +17468,7 @@ function getPreciseType(propValue) {
 
 module.exports = ReactPropTypes;
 
-},{"./ReactElement":69,"./ReactFragment":75,"./ReactPropTypeLocationNames":88,"./emptyFunction":126}],91:[function(require,module,exports){
+},{"./ReactElement":70,"./ReactFragment":76,"./ReactPropTypeLocationNames":89,"./emptyFunction":127}],92:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -17278,7 +17524,7 @@ PooledClass.addPoolingTo(ReactPutListenerQueue);
 
 module.exports = ReactPutListenerQueue;
 
-},{"./Object.assign":38,"./PooledClass":39,"./ReactBrowserEventEmitter":42}],92:[function(require,module,exports){
+},{"./Object.assign":39,"./PooledClass":40,"./ReactBrowserEventEmitter":43}],93:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -17454,7 +17700,7 @@ PooledClass.addPoolingTo(ReactReconcileTransaction);
 
 module.exports = ReactReconcileTransaction;
 
-},{"./CallbackQueue":17,"./Object.assign":38,"./PooledClass":39,"./ReactBrowserEventEmitter":42,"./ReactInputSelection":77,"./ReactPutListenerQueue":91,"./Transaction":115}],93:[function(require,module,exports){
+},{"./CallbackQueue":18,"./Object.assign":39,"./PooledClass":40,"./ReactBrowserEventEmitter":43,"./ReactInputSelection":78,"./ReactPutListenerQueue":92,"./Transaction":116}],94:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -17578,7 +17824,7 @@ var ReactReconciler = {
 module.exports = ReactReconciler;
 
 }).call(this,require('_process'))
-},{"./ReactElementValidator":70,"./ReactRef":94,"_process":2}],94:[function(require,module,exports){
+},{"./ReactElementValidator":71,"./ReactRef":95,"_process":2}],95:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -17649,7 +17895,7 @@ ReactRef.detachRefs = function(instance, element) {
 
 module.exports = ReactRef;
 
-},{"./ReactOwner":86}],95:[function(require,module,exports){
+},{"./ReactOwner":87}],96:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -17680,7 +17926,7 @@ var ReactRootIndex = {
 
 module.exports = ReactRootIndex;
 
-},{}],96:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -17762,7 +18008,7 @@ module.exports = {
 };
 
 }).call(this,require('_process'))
-},{"./ReactElement":69,"./ReactInstanceHandles":78,"./ReactMarkupChecksum":81,"./ReactServerRenderingTransaction":97,"./emptyObject":127,"./instantiateReactComponent":146,"./invariant":147,"_process":2}],97:[function(require,module,exports){
+},{"./ReactElement":70,"./ReactInstanceHandles":79,"./ReactMarkupChecksum":82,"./ReactServerRenderingTransaction":98,"./emptyObject":128,"./instantiateReactComponent":147,"./invariant":148,"_process":2}],98:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -17875,7 +18121,7 @@ PooledClass.addPoolingTo(ReactServerRenderingTransaction);
 
 module.exports = ReactServerRenderingTransaction;
 
-},{"./CallbackQueue":17,"./Object.assign":38,"./PooledClass":39,"./ReactPutListenerQueue":91,"./Transaction":115,"./emptyFunction":126}],98:[function(require,module,exports){
+},{"./CallbackQueue":18,"./Object.assign":39,"./PooledClass":40,"./ReactPutListenerQueue":92,"./Transaction":116,"./emptyFunction":127}],99:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2015, Facebook, Inc.
@@ -18174,7 +18420,7 @@ var ReactUpdateQueue = {
 module.exports = ReactUpdateQueue;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./ReactCurrentOwner":51,"./ReactElement":69,"./ReactInstanceMap":79,"./ReactLifeCycle":80,"./ReactUpdates":99,"./invariant":147,"./warning":166,"_process":2}],99:[function(require,module,exports){
+},{"./Object.assign":39,"./ReactCurrentOwner":52,"./ReactElement":70,"./ReactInstanceMap":80,"./ReactLifeCycle":81,"./ReactUpdates":100,"./invariant":148,"./warning":167,"_process":2}],100:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -18456,7 +18702,7 @@ var ReactUpdates = {
 module.exports = ReactUpdates;
 
 }).call(this,require('_process'))
-},{"./CallbackQueue":17,"./Object.assign":38,"./PooledClass":39,"./ReactCurrentOwner":51,"./ReactPerf":87,"./ReactReconciler":93,"./Transaction":115,"./invariant":147,"./warning":166,"_process":2}],100:[function(require,module,exports){
+},{"./CallbackQueue":18,"./Object.assign":39,"./PooledClass":40,"./ReactCurrentOwner":52,"./ReactPerf":88,"./ReactReconciler":94,"./Transaction":116,"./invariant":148,"./warning":167,"_process":2}],101:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -18548,7 +18794,7 @@ var SVGDOMPropertyConfig = {
 
 module.exports = SVGDOMPropertyConfig;
 
-},{"./DOMProperty":21}],101:[function(require,module,exports){
+},{"./DOMProperty":22}],102:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -18743,7 +18989,7 @@ var SelectEventPlugin = {
 
 module.exports = SelectEventPlugin;
 
-},{"./EventConstants":26,"./EventPropagators":31,"./ReactInputSelection":77,"./SyntheticEvent":107,"./getActiveElement":133,"./isTextInputElement":150,"./keyOf":153,"./shallowEqual":162}],102:[function(require,module,exports){
+},{"./EventConstants":27,"./EventPropagators":32,"./ReactInputSelection":78,"./SyntheticEvent":108,"./getActiveElement":134,"./isTextInputElement":151,"./keyOf":154,"./shallowEqual":163}],103:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -18774,7 +19020,7 @@ var ServerReactRootIndex = {
 
 module.exports = ServerReactRootIndex;
 
-},{}],103:[function(require,module,exports){
+},{}],104:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -19202,7 +19448,7 @@ var SimpleEventPlugin = {
 module.exports = SimpleEventPlugin;
 
 }).call(this,require('_process'))
-},{"./EventConstants":26,"./EventPluginUtils":30,"./EventPropagators":31,"./SyntheticClipboardEvent":104,"./SyntheticDragEvent":106,"./SyntheticEvent":107,"./SyntheticFocusEvent":108,"./SyntheticKeyboardEvent":110,"./SyntheticMouseEvent":111,"./SyntheticTouchEvent":112,"./SyntheticUIEvent":113,"./SyntheticWheelEvent":114,"./getEventCharCode":134,"./invariant":147,"./keyOf":153,"./warning":166,"_process":2}],104:[function(require,module,exports){
+},{"./EventConstants":27,"./EventPluginUtils":31,"./EventPropagators":32,"./SyntheticClipboardEvent":105,"./SyntheticDragEvent":107,"./SyntheticEvent":108,"./SyntheticFocusEvent":109,"./SyntheticKeyboardEvent":111,"./SyntheticMouseEvent":112,"./SyntheticTouchEvent":113,"./SyntheticUIEvent":114,"./SyntheticWheelEvent":115,"./getEventCharCode":135,"./invariant":148,"./keyOf":154,"./warning":167,"_process":2}],105:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19247,7 +19493,7 @@ SyntheticEvent.augmentClass(SyntheticClipboardEvent, ClipboardEventInterface);
 
 module.exports = SyntheticClipboardEvent;
 
-},{"./SyntheticEvent":107}],105:[function(require,module,exports){
+},{"./SyntheticEvent":108}],106:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19292,7 +19538,7 @@ SyntheticEvent.augmentClass(
 
 module.exports = SyntheticCompositionEvent;
 
-},{"./SyntheticEvent":107}],106:[function(require,module,exports){
+},{"./SyntheticEvent":108}],107:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19331,7 +19577,7 @@ SyntheticMouseEvent.augmentClass(SyntheticDragEvent, DragEventInterface);
 
 module.exports = SyntheticDragEvent;
 
-},{"./SyntheticMouseEvent":111}],107:[function(require,module,exports){
+},{"./SyntheticMouseEvent":112}],108:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19497,7 +19743,7 @@ PooledClass.addPoolingTo(SyntheticEvent, PooledClass.threeArgumentPooler);
 
 module.exports = SyntheticEvent;
 
-},{"./Object.assign":38,"./PooledClass":39,"./emptyFunction":126,"./getEventTarget":137}],108:[function(require,module,exports){
+},{"./Object.assign":39,"./PooledClass":40,"./emptyFunction":127,"./getEventTarget":138}],109:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19536,7 +19782,7 @@ SyntheticUIEvent.augmentClass(SyntheticFocusEvent, FocusEventInterface);
 
 module.exports = SyntheticFocusEvent;
 
-},{"./SyntheticUIEvent":113}],109:[function(require,module,exports){
+},{"./SyntheticUIEvent":114}],110:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19582,7 +19828,7 @@ SyntheticEvent.augmentClass(
 
 module.exports = SyntheticInputEvent;
 
-},{"./SyntheticEvent":107}],110:[function(require,module,exports){
+},{"./SyntheticEvent":108}],111:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19669,7 +19915,7 @@ SyntheticUIEvent.augmentClass(SyntheticKeyboardEvent, KeyboardEventInterface);
 
 module.exports = SyntheticKeyboardEvent;
 
-},{"./SyntheticUIEvent":113,"./getEventCharCode":134,"./getEventKey":135,"./getEventModifierState":136}],111:[function(require,module,exports){
+},{"./SyntheticUIEvent":114,"./getEventCharCode":135,"./getEventKey":136,"./getEventModifierState":137}],112:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19750,7 +19996,7 @@ SyntheticUIEvent.augmentClass(SyntheticMouseEvent, MouseEventInterface);
 
 module.exports = SyntheticMouseEvent;
 
-},{"./SyntheticUIEvent":113,"./ViewportMetrics":116,"./getEventModifierState":136}],112:[function(require,module,exports){
+},{"./SyntheticUIEvent":114,"./ViewportMetrics":117,"./getEventModifierState":137}],113:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19798,7 +20044,7 @@ SyntheticUIEvent.augmentClass(SyntheticTouchEvent, TouchEventInterface);
 
 module.exports = SyntheticTouchEvent;
 
-},{"./SyntheticUIEvent":113,"./getEventModifierState":136}],113:[function(require,module,exports){
+},{"./SyntheticUIEvent":114,"./getEventModifierState":137}],114:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19860,7 +20106,7 @@ SyntheticEvent.augmentClass(SyntheticUIEvent, UIEventInterface);
 
 module.exports = SyntheticUIEvent;
 
-},{"./SyntheticEvent":107,"./getEventTarget":137}],114:[function(require,module,exports){
+},{"./SyntheticEvent":108,"./getEventTarget":138}],115:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19921,7 +20167,7 @@ SyntheticMouseEvent.augmentClass(SyntheticWheelEvent, WheelEventInterface);
 
 module.exports = SyntheticWheelEvent;
 
-},{"./SyntheticMouseEvent":111}],115:[function(require,module,exports){
+},{"./SyntheticMouseEvent":112}],116:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -20162,7 +20408,7 @@ var Transaction = {
 module.exports = Transaction;
 
 }).call(this,require('_process'))
-},{"./invariant":147,"_process":2}],116:[function(require,module,exports){
+},{"./invariant":148,"_process":2}],117:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20191,7 +20437,7 @@ var ViewportMetrics = {
 
 module.exports = ViewportMetrics;
 
-},{}],117:[function(require,module,exports){
+},{}],118:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -20257,7 +20503,7 @@ function accumulateInto(current, next) {
 module.exports = accumulateInto;
 
 }).call(this,require('_process'))
-},{"./invariant":147,"_process":2}],118:[function(require,module,exports){
+},{"./invariant":148,"_process":2}],119:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20291,7 +20537,7 @@ function adler32(data) {
 
 module.exports = adler32;
 
-},{}],119:[function(require,module,exports){
+},{}],120:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20323,7 +20569,7 @@ function camelize(string) {
 
 module.exports = camelize;
 
-},{}],120:[function(require,module,exports){
+},{}],121:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -20365,7 +20611,7 @@ function camelizeStyleName(string) {
 
 module.exports = camelizeStyleName;
 
-},{"./camelize":119}],121:[function(require,module,exports){
+},{"./camelize":120}],122:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20409,7 +20655,7 @@ function containsNode(outerNode, innerNode) {
 
 module.exports = containsNode;
 
-},{"./isTextNode":151}],122:[function(require,module,exports){
+},{"./isTextNode":152}],123:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20495,7 +20741,7 @@ function createArrayFromMixed(obj) {
 
 module.exports = createArrayFromMixed;
 
-},{"./toArray":164}],123:[function(require,module,exports){
+},{"./toArray":165}],124:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -20557,7 +20803,7 @@ function createFullPageComponent(tag) {
 module.exports = createFullPageComponent;
 
 }).call(this,require('_process'))
-},{"./ReactClass":45,"./ReactElement":69,"./invariant":147,"_process":2}],124:[function(require,module,exports){
+},{"./ReactClass":46,"./ReactElement":70,"./invariant":148,"_process":2}],125:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -20647,7 +20893,7 @@ function createNodesFromMarkup(markup, handleScript) {
 module.exports = createNodesFromMarkup;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":32,"./createArrayFromMixed":122,"./getMarkupWrap":139,"./invariant":147,"_process":2}],125:[function(require,module,exports){
+},{"./ExecutionEnvironment":33,"./createArrayFromMixed":123,"./getMarkupWrap":140,"./invariant":148,"_process":2}],126:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20705,7 +20951,7 @@ function dangerousStyleValue(name, value) {
 
 module.exports = dangerousStyleValue;
 
-},{"./CSSProperty":15}],126:[function(require,module,exports){
+},{"./CSSProperty":16}],127:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20739,7 +20985,7 @@ emptyFunction.thatReturnsArgument = function(arg) { return arg; };
 
 module.exports = emptyFunction;
 
-},{}],127:[function(require,module,exports){
+},{}],128:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -20763,7 +21009,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = emptyObject;
 
 }).call(this,require('_process'))
-},{"_process":2}],128:[function(require,module,exports){
+},{"_process":2}],129:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20803,7 +21049,7 @@ function escapeTextContentForBrowser(text) {
 
 module.exports = escapeTextContentForBrowser;
 
-},{}],129:[function(require,module,exports){
+},{}],130:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -20876,7 +21122,7 @@ function findDOMNode(componentOrElement) {
 module.exports = findDOMNode;
 
 }).call(this,require('_process'))
-},{"./ReactCurrentOwner":51,"./ReactInstanceMap":79,"./ReactMount":82,"./invariant":147,"./isNode":149,"./warning":166,"_process":2}],130:[function(require,module,exports){
+},{"./ReactCurrentOwner":52,"./ReactInstanceMap":80,"./ReactMount":83,"./invariant":148,"./isNode":150,"./warning":167,"_process":2}],131:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -20934,7 +21180,7 @@ function flattenChildren(children) {
 module.exports = flattenChildren;
 
 }).call(this,require('_process'))
-},{"./traverseAllChildren":165,"./warning":166,"_process":2}],131:[function(require,module,exports){
+},{"./traverseAllChildren":166,"./warning":167,"_process":2}],132:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -20963,7 +21209,7 @@ function focusNode(node) {
 
 module.exports = focusNode;
 
-},{}],132:[function(require,module,exports){
+},{}],133:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20994,7 +21240,7 @@ var forEachAccumulated = function(arr, cb, scope) {
 
 module.exports = forEachAccumulated;
 
-},{}],133:[function(require,module,exports){
+},{}],134:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21023,7 +21269,7 @@ function getActiveElement() /*?DOMElement*/ {
 
 module.exports = getActiveElement;
 
-},{}],134:[function(require,module,exports){
+},{}],135:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21075,7 +21321,7 @@ function getEventCharCode(nativeEvent) {
 
 module.exports = getEventCharCode;
 
-},{}],135:[function(require,module,exports){
+},{}],136:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21180,7 +21426,7 @@ function getEventKey(nativeEvent) {
 
 module.exports = getEventKey;
 
-},{"./getEventCharCode":134}],136:[function(require,module,exports){
+},{"./getEventCharCode":135}],137:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21227,7 +21473,7 @@ function getEventModifierState(nativeEvent) {
 
 module.exports = getEventModifierState;
 
-},{}],137:[function(require,module,exports){
+},{}],138:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21258,7 +21504,7 @@ function getEventTarget(nativeEvent) {
 
 module.exports = getEventTarget;
 
-},{}],138:[function(require,module,exports){
+},{}],139:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21302,7 +21548,7 @@ function getIteratorFn(maybeIterable) {
 
 module.exports = getIteratorFn;
 
-},{}],139:[function(require,module,exports){
+},{}],140:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -21419,7 +21665,7 @@ function getMarkupWrap(nodeName) {
 module.exports = getMarkupWrap;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":32,"./invariant":147,"_process":2}],140:[function(require,module,exports){
+},{"./ExecutionEnvironment":33,"./invariant":148,"_process":2}],141:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21494,7 +21740,7 @@ function getNodeForCharacterOffset(root, offset) {
 
 module.exports = getNodeForCharacterOffset;
 
-},{}],141:[function(require,module,exports){
+},{}],142:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21529,7 +21775,7 @@ function getReactRootElementInContainer(container) {
 
 module.exports = getReactRootElementInContainer;
 
-},{}],142:[function(require,module,exports){
+},{}],143:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21566,7 +21812,7 @@ function getTextContentAccessor() {
 
 module.exports = getTextContentAccessor;
 
-},{"./ExecutionEnvironment":32}],143:[function(require,module,exports){
+},{"./ExecutionEnvironment":33}],144:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21606,7 +21852,7 @@ function getUnboundedScrollPosition(scrollable) {
 
 module.exports = getUnboundedScrollPosition;
 
-},{}],144:[function(require,module,exports){
+},{}],145:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21639,7 +21885,7 @@ function hyphenate(string) {
 
 module.exports = hyphenate;
 
-},{}],145:[function(require,module,exports){
+},{}],146:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21680,7 +21926,7 @@ function hyphenateStyleName(string) {
 
 module.exports = hyphenateStyleName;
 
-},{"./hyphenate":144}],146:[function(require,module,exports){
+},{"./hyphenate":145}],147:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -21817,7 +22063,7 @@ function instantiateReactComponent(node, parentCompositeType) {
 module.exports = instantiateReactComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":38,"./ReactCompositeComponent":49,"./ReactEmptyComponent":71,"./ReactNativeComponent":85,"./invariant":147,"./warning":166,"_process":2}],147:[function(require,module,exports){
+},{"./Object.assign":39,"./ReactCompositeComponent":50,"./ReactEmptyComponent":72,"./ReactNativeComponent":86,"./invariant":148,"./warning":167,"_process":2}],148:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -21874,7 +22120,7 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 module.exports = invariant;
 
 }).call(this,require('_process'))
-},{"_process":2}],148:[function(require,module,exports){
+},{"_process":2}],149:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21939,7 +22185,7 @@ function isEventSupported(eventNameSuffix, capture) {
 
 module.exports = isEventSupported;
 
-},{"./ExecutionEnvironment":32}],149:[function(require,module,exports){
+},{"./ExecutionEnvironment":33}],150:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21966,7 +22212,7 @@ function isNode(object) {
 
 module.exports = isNode;
 
-},{}],150:[function(require,module,exports){
+},{}],151:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22009,7 +22255,7 @@ function isTextInputElement(elem) {
 
 module.exports = isTextInputElement;
 
-},{}],151:[function(require,module,exports){
+},{}],152:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22034,7 +22280,7 @@ function isTextNode(object) {
 
 module.exports = isTextNode;
 
-},{"./isNode":149}],152:[function(require,module,exports){
+},{"./isNode":150}],153:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22089,7 +22335,7 @@ var keyMirror = function(obj) {
 module.exports = keyMirror;
 
 }).call(this,require('_process'))
-},{"./invariant":147,"_process":2}],153:[function(require,module,exports){
+},{"./invariant":148,"_process":2}],154:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22125,7 +22371,7 @@ var keyOf = function(oneKeyObj) {
 
 module.exports = keyOf;
 
-},{}],154:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22178,7 +22424,7 @@ function mapObject(object, callback, context) {
 
 module.exports = mapObject;
 
-},{}],155:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22211,7 +22457,7 @@ function memoizeStringOnly(callback) {
 
 module.exports = memoizeStringOnly;
 
-},{}],156:[function(require,module,exports){
+},{}],157:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22251,7 +22497,7 @@ function onlyChild(children) {
 module.exports = onlyChild;
 
 }).call(this,require('_process'))
-},{"./ReactElement":69,"./invariant":147,"_process":2}],157:[function(require,module,exports){
+},{"./ReactElement":70,"./invariant":148,"_process":2}],158:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22279,7 +22525,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = performance || {};
 
-},{"./ExecutionEnvironment":32}],158:[function(require,module,exports){
+},{"./ExecutionEnvironment":33}],159:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22307,7 +22553,7 @@ var performanceNow = performance.now.bind(performance);
 
 module.exports = performanceNow;
 
-},{"./performance":157}],159:[function(require,module,exports){
+},{"./performance":158}],160:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22335,7 +22581,7 @@ function quoteAttributeValueForBrowser(value) {
 
 module.exports = quoteAttributeValueForBrowser;
 
-},{"./escapeTextContentForBrowser":128}],160:[function(require,module,exports){
+},{"./escapeTextContentForBrowser":129}],161:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22424,7 +22670,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = setInnerHTML;
 
-},{"./ExecutionEnvironment":32}],161:[function(require,module,exports){
+},{"./ExecutionEnvironment":33}],162:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22466,7 +22712,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = setTextContent;
 
-},{"./ExecutionEnvironment":32,"./escapeTextContentForBrowser":128,"./setInnerHTML":160}],162:[function(require,module,exports){
+},{"./ExecutionEnvironment":33,"./escapeTextContentForBrowser":129,"./setInnerHTML":161}],163:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22510,7 +22756,7 @@ function shallowEqual(objA, objB) {
 
 module.exports = shallowEqual;
 
-},{}],163:[function(require,module,exports){
+},{}],164:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22614,7 +22860,7 @@ function shouldUpdateReactComponent(prevElement, nextElement) {
 module.exports = shouldUpdateReactComponent;
 
 }).call(this,require('_process'))
-},{"./warning":166,"_process":2}],164:[function(require,module,exports){
+},{"./warning":167,"_process":2}],165:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -22686,7 +22932,7 @@ function toArray(obj) {
 module.exports = toArray;
 
 }).call(this,require('_process'))
-},{"./invariant":147,"_process":2}],165:[function(require,module,exports){
+},{"./invariant":148,"_process":2}],166:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22939,7 +23185,7 @@ function traverseAllChildren(children, callback, traverseContext) {
 module.exports = traverseAllChildren;
 
 }).call(this,require('_process'))
-},{"./ReactElement":69,"./ReactFragment":75,"./ReactInstanceHandles":78,"./getIteratorFn":138,"./invariant":147,"./warning":166,"_process":2}],166:[function(require,module,exports){
+},{"./ReactElement":70,"./ReactFragment":76,"./ReactInstanceHandles":79,"./getIteratorFn":139,"./invariant":148,"./warning":167,"_process":2}],167:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -23002,10 +23248,10 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = warning;
 
 }).call(this,require('_process'))
-},{"./emptyFunction":126,"_process":2}],167:[function(require,module,exports){
+},{"./emptyFunction":127,"_process":2}],168:[function(require,module,exports){
 module.exports = require('./lib/React');
 
-},{"./lib/React":40}],168:[function(require,module,exports){
+},{"./lib/React":41}],169:[function(require,module,exports){
 (function (process){
 var toGeoJSON = (function() {
     'use strict';
@@ -23362,7 +23608,7 @@ var toGeoJSON = (function() {
 if (typeof module !== 'undefined') module.exports = toGeoJSON;
 
 }).call(this,require('_process'))
-},{"_process":2,"xmldom":1}],169:[function(require,module,exports){
+},{"_process":2,"xmldom":1}],170:[function(require,module,exports){
 !function() {
   var topojson = {
     version: "1.6.18",
@@ -23898,7 +24144,7 @@ if (typeof module !== 'undefined') module.exports = toGeoJSON;
   else this.topojson = topojson;
 }();
 
-},{}],170:[function(require,module,exports){
+},{}],171:[function(require,module,exports){
 // http://stackoverflow.com/questions/839899/how-do-i-calculate-a-point-on-a-circles-circumference
 // radians = degrees * (pi/180)
 // https://github.com/bjornharrtell/jsts/blob/master/examples/buffer.html
@@ -23976,7 +24222,7 @@ var bufferOp = function(feature, radius) {
   };
 };
 
-},{"geojson-normalize":171,"jsts":172,"turf-featurecollection":176}],171:[function(require,module,exports){
+},{"geojson-normalize":172,"jsts":173,"turf-featurecollection":177}],172:[function(require,module,exports){
 module.exports = normalize;
 
 var types = {
@@ -24021,12 +24267,12 @@ function normalize(gj) {
     }
 }
 
-},{}],172:[function(require,module,exports){
+},{}],173:[function(require,module,exports){
 require('javascript.util');
 var jsts = require('./lib/jsts');
 module.exports = jsts
 
-},{"./lib/jsts":173,"javascript.util":175}],173:[function(require,module,exports){
+},{"./lib/jsts":174,"javascript.util":176}],174:[function(require,module,exports){
 /* The JSTS Topology Suite is a collection of JavaScript classes that
 implement the fundamental operations required to validate a given
 geo-spatial data set to a known topological specification.
@@ -25736,7 +25982,7 @@ return true;if(this.isBoundaryPoint(li,bdyNodes[1]))
 return true;return false;}else{for(var i=bdyNodes.iterator();i.hasNext();){var node=i.next();var pt=node.getCoordinate();if(li.isIntersection(pt))
 return true;}
 return false;}};})();
-},{}],174:[function(require,module,exports){
+},{}],175:[function(require,module,exports){
 (function (global){
 /*
   javascript.util is a port of selected parts of java.util to JavaScript which
@@ -25782,10 +26028,10 @@ L.prototype.iterator=L.prototype.f;function N(a){this.l=a}f("$jscomp.scope.Itera
 r,global.javascript.util.Set=x,global.javascript.util.SortedMap=A,global.javascript.util.SortedSet=B,global.javascript.util.Stack=C,global.javascript.util.TreeMap=H,global.javascript.util.TreeSet=L);}).call(this);
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],175:[function(require,module,exports){
+},{}],176:[function(require,module,exports){
 require('./dist/javascript.util-node.min.js');
 
-},{"./dist/javascript.util-node.min.js":174}],176:[function(require,module,exports){
+},{"./dist/javascript.util-node.min.js":175}],177:[function(require,module,exports){
 /**
  * Takes one or more {@link Feature|Features} and creates a {@link FeatureCollection}
  *
@@ -25811,7 +26057,2410 @@ module.exports = function(features){
   };
 };
 
-},{}],177:[function(require,module,exports){
+},{}],178:[function(require,module,exports){
+var featureCollection = require('turf-featurecollection');
+var each = require('turf-meta').coordEach;
+var point = require('turf-point');
+
+/**
+ * Takes any {@link GeoJSON} object and return all positions as
+ * a {@link FeatureCollection} of {@link Point} features.
+ *
+ * @module turf/explode
+ * @category misc
+ * @param {GeoJSON} input input features
+ * @return {FeatureCollection} a FeatureCollection of {@link Point} features representing the exploded input features
+ * @throws {Error} if it encounters an unknown geometry type
+ * @example
+ * var poly = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [177.434692, -17.77517],
+ *       [177.402076, -17.779093],
+ *       [177.38079, -17.803937],
+ *       [177.40242, -17.826164],
+ *       [177.438468, -17.824857],
+ *       [177.454948, -17.796746],
+ *       [177.434692, -17.77517]
+ *     ]]
+ *   }
+ * };
+ *
+ * var points = turf.explode(poly);
+ *
+ * //=poly
+ *
+ * //=points
+ */
+module.exports = function(layer) {
+  var points = [];
+  each(layer, function(coord) {
+    points.push(point(coord));
+  });
+  return featureCollection(points);
+};
+
+},{"turf-featurecollection":179,"turf-meta":180,"turf-point":181}],179:[function(require,module,exports){
+arguments[4][177][0].apply(exports,arguments)
+},{"dup":177}],180:[function(require,module,exports){
+/**
+ * Lazily iterate over coordinates in any GeoJSON object, similar to
+ * Array.forEach.
+ *
+ * @param {Object} layer any GeoJSON object
+ * @param {Function} callback a method that takes (value)
+ * @param {boolean=} excludeWrapCoord whether or not to include
+ * the final coordinate of LinearRings that wraps the ring in its iteration.
+ * @example
+ * var point = { type: 'Point', coordinates: [0, 0] };
+ * coordEach(point, function(coords) {
+ *   // coords is equal to [0, 0]
+ * });
+ */
+function coordEach(layer, callback, excludeWrapCoord) {
+  var i, j, k, g, geometry, stopG, coords,
+    geometryMaybeCollection,
+    wrapShrink = 0,
+    isGeometryCollection,
+    isFeatureCollection = layer.type === 'FeatureCollection',
+    isFeature = layer.type === 'Feature',
+    stop = isFeatureCollection ? layer.features.length : 1;
+
+  // This logic may look a little weird. The reason why it is that way
+  // is because it's trying to be fast. GeoJSON supports multiple kinds
+  // of objects at its root: FeatureCollection, Features, Geometries.
+  // This function has the responsibility of handling all of them, and that
+  // means that some of the `for` loops you see below actually just don't apply
+  // to certain inputs. For instance, if you give this just a
+  // Point geometry, then both loops are short-circuited and all we do
+  // is gradually rename the input until it's called 'geometry'.
+  //
+  // This also aims to allocate as few resources as possible: just a
+  // few numbers and booleans, rather than any temporary arrays as would
+  // be required with the normalization approach.
+  for (i = 0; i < stop; i++) {
+
+    geometryMaybeCollection = (isFeatureCollection ? layer.features[i].geometry :
+        (isFeature ? layer.geometry : layer));
+    isGeometryCollection = geometryMaybeCollection.type === 'GeometryCollection';
+    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
+
+    for (g = 0; g < stopG; g++) {
+
+      geometry = isGeometryCollection ?
+          geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
+      coords = geometry.coordinates;
+
+      wrapShrink = (excludeWrapCoord &&
+        (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon')) ?
+        1 : 0;
+
+      if (geometry.type === 'Point') {
+        callback(coords);
+      } else if (geometry.type === 'LineString' || geometry.type === 'MultiPoint') {
+        for (j = 0; j < coords.length; j++) callback(coords[j]);
+      } else if (geometry.type === 'Polygon' || geometry.type === 'MultiLineString') {
+        for (j = 0; j < coords.length; j++)
+          for (k = 0; k < coords[j].length - wrapShrink; k++)
+            callback(coords[j][k]);
+      } else if (geometry.type === 'MultiPolygon') {
+        for (j = 0; j < coords.length; j++)
+          for (k = 0; k < coords[j].length; k++)
+            for (l = 0; l < coords[j][k].length - wrapShrink; l++)
+              callback(coords[j][k][l]);
+      } else {
+        throw new Error('Unknown Geometry Type');
+      }
+    }
+  }
+}
+module.exports.coordEach = coordEach;
+
+/**
+ * Lazily reduce coordinates in any GeoJSON object into a single value,
+ * similar to how Array.reduce works. However, in this case we lazily run
+ * the reduction, so an array of all coordinates is unnecessary.
+ *
+ * @param {Object} layer any GeoJSON object
+ * @param {Function} callback a method that takes (memo, value) and returns
+ * a new memo
+ * @param {boolean=} excludeWrapCoord whether or not to include
+ * the final coordinate of LinearRings that wraps the ring in its iteration.
+ * @param {*} memo the starting value of memo: can be any type.
+ */
+function coordReduce(layer, callback, memo, excludeWrapCoord) {
+  coordEach(layer, function(coord) {
+    memo = callback(memo, coord);
+  }, excludeWrapCoord);
+  return memo;
+}
+module.exports.coordReduce = coordReduce;
+
+/**
+ * Lazily iterate over property objects in any GeoJSON object, similar to
+ * Array.forEach.
+ *
+ * @param {Object} layer any GeoJSON object
+ * @param {Function} callback a method that takes (value)
+ * @example
+ * var point = { type: 'Feature', geometry: null, properties: { foo: 1 } };
+ * propEach(point, function(props) {
+ *   // props is equal to { foo: 1}
+ * });
+ */
+function propEach(layer, callback) {
+  var i;
+  switch (layer.type) {
+      case 'FeatureCollection':
+        features = layer.features;
+        for (i = 0; i < layer.features.length; i++) {
+            callback(layer.features[i].properties);
+        }
+        break;
+      case 'Feature':
+        callback(layer.properties);
+        break;
+  }
+}
+module.exports.propEach = propEach;
+
+/**
+ * Lazily reduce properties in any GeoJSON object into a single value,
+ * similar to how Array.reduce works. However, in this case we lazily run
+ * the reduction, so an array of all properties is unnecessary.
+ *
+ * @param {Object} layer any GeoJSON object
+ * @param {Function} callback a method that takes (memo, coord) and returns
+ * a new memo
+ * @param {*} memo the starting value of memo: can be any type.
+ */
+function propReduce(layer, callback, memo) {
+  propEach(layer, function(prop) {
+    memo = callback(memo, prop);
+  });
+  return memo;
+}
+module.exports.propReduce = propReduce;
+
+},{}],181:[function(require,module,exports){
+/**
+ * Takes coordinates and properties (optional) and returns a new {@link Point} feature.
+ *
+ * @module turf/point
+ * @category helper
+ * @param {number} longitude position west to east in decimal degrees
+ * @param {number} latitude position south to north in decimal degrees
+ * @param {Object} properties an Object that is used as the {@link Feature}'s
+ * properties
+ * @return {Point} a Point feature
+ * @example
+ * var pt1 = turf.point([-75.343, 39.984]);
+ *
+ * //=pt1
+ */
+var isArray = Array.isArray || function(arg) {
+  return Object.prototype.toString.call(arg) === '[object Array]';
+};
+module.exports = function(coordinates, properties) {
+  if (!isArray(coordinates)) throw new Error('Coordinates must be an array');
+  if (coordinates.length < 2) throw new Error('Coordinates must be at least 2 numbers long');
+  return {
+    type: "Feature",
+    geometry: {
+      type: "Point",
+      coordinates: coordinates
+    },
+    properties: properties || {}
+  };
+};
+
+},{}],182:[function(require,module,exports){
+/**
+ * Takes a {@link GeoJSON} object of any type and flips all of its coordinates
+ * from `[x, y]` to `[y, x]`.
+ *
+ * @module turf/flip
+ * @category misc
+ * @param {GeoJSON} input input GeoJSON object
+ * @returns {GeoJSON} a GeoJSON object of the same type as `input` with flipped coordinates
+ * @example
+ * var serbia = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [20.566406, 43.421008]
+ *   }
+ * };
+ *
+ * //=serbia
+ *
+ * var saudiArabia = turf.flip(serbia);
+ *
+ * //=saudiArabia
+ */
+module.exports = flipAny;
+
+function flipAny(_) {
+    // ensure that we don't modify features in-place and changes to the
+    // output do not change the previous feature, including changes to nested
+    // properties.
+    var input = JSON.parse(JSON.stringify(_));
+    switch (input.type) {
+        case 'FeatureCollection':
+            for (var i = 0; i < input.features.length; i++)
+                flipGeometry(input.features[i].geometry);
+            return input;
+        case 'Feature':
+            flipGeometry(input.geometry);
+            return input;
+        default:
+            flipGeometry(input);
+            return input;
+    }
+}
+
+function flipGeometry(geometry) {
+    var coords = geometry.coordinates;
+    switch(geometry.type) {
+      case 'Point':
+        flip0(coords);
+        break;
+      case 'LineString':
+      case 'MultiPoint':
+        flip1(coords);
+        break;
+      case 'Polygon':
+      case 'MultiLineString':
+        flip2(coords);
+        break;
+      case 'MultiPolygon':
+        flip3(coords);
+        break;
+      case 'GeometryCollection':
+        geometry.geometries.forEach(flipGeometry);
+        break;
+    }
+}
+
+function flip0(coord) {
+    coord.reverse();
+}
+
+function flip1(coords) {
+  for(var i = 0; i < coords.length; i++) coords[i].reverse();
+}
+
+function flip2(coords) {
+  for(var i = 0; i < coords.length; i++)
+    for(var j = 0; j < coords[i].length; j++) coords[i][j].reverse();
+}
+
+function flip3(coords) {
+  for(var i = 0; i < coords.length; i++)
+    for(var j = 0; j < coords[i].length; j++)
+      for(var k = 0; k < coords[i][j].length; k++) coords[i][j][k].reverse();
+}
+
+},{}],183:[function(require,module,exports){
+var point = require('turf-point');
+var polygon = require('turf-polygon');
+var distance = require('turf-distance');
+var featurecollection = require('turf-featurecollection');
+
+/**
+ * Takes a bounding box and a cell size in degrees and returns a {@link FeatureCollection} of flat-topped
+ * hexagons ({@link Polygon} features) aligned in an "odd-q" vertical grid as
+ * described in [Hexagonal Grids](http://www.redblobgames.com/grids/hexagons/)
+ *
+ * @module turf/hex-grid
+ * @category interpolation
+ * @param {Array<number>} bbox bounding box in [minX, minY, maxX, maxY] order
+ * @param {Number} cellWidth width of cell in specified units
+ * @param {String} units used in calculating cellWidth ('miles' or 'kilometers')
+ * @return {FeatureCollection} units used in calculating cellWidth ('miles' or 'kilometers')
+ * @example
+ * var bbox = [-96,31,-84,40];
+ * var cellWidth = 50;
+ * var units = 'miles';
+ *
+ * var hexgrid = turf.hexGrid(bbox, cellWidth, units);
+ *
+ * //=hexgrid
+ */
+
+//Precompute cosines and sines of angles used in hexagon creation
+// for performance gain
+var cosines = [];
+var sines = [];
+for (var i = 0; i < 6; i++) {
+  var angle = 2 * Math.PI/6 * i;
+  cosines.push(Math.cos(angle));
+  sines.push(Math.sin(angle));
+}
+
+module.exports = function hexgrid(bbox, cell, units) {
+  var xFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[2], bbox[1]]), units));
+  var cellWidth = xFraction * (bbox[2] - bbox[0]);
+  var yFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[0], bbox[3]]), units));
+  var cellHeight = yFraction * (bbox[3] - bbox[1]);
+  var radius = cellWidth / 2;
+
+  var hex_width = radius * 2;
+  var hex_height = Math.sqrt(3)/2 * hex_width;
+
+  var box_width = bbox[2] - bbox[0];
+  var box_height = bbox[3] - bbox[1];
+
+  var x_interval = 3/4 * hex_width;
+  var y_interval = hex_height;
+
+  var x_span = box_width / (hex_width - radius/2);
+  var x_count = Math.ceil(x_span);
+  if (Math.round(x_span) === x_count) {
+    x_count++;
+  }
+
+  var x_adjust = ((x_count * x_interval - radius/2) - box_width)/2 - radius/2;
+
+  var y_count = Math.ceil(box_height / hex_height);
+
+  var y_adjust = (box_height - y_count * hex_height)/2;
+
+  var hasOffsetY = y_count * hex_height - box_height > hex_height/2;
+  if (hasOffsetY) {
+    y_adjust -= hex_height/4;
+  }
+
+  var fc = featurecollection([]);
+  for (var x = 0; x < x_count; x++) {
+    for (var y = 0; y <= y_count; y++) {
+
+      var isOdd = x % 2 === 1;
+      if (y === 0 && isOdd) {
+        continue;
+      }
+
+      if (y === 0 && hasOffsetY) {
+        continue;
+      }
+
+      var center_x = x * x_interval + bbox[0] - x_adjust;
+      var center_y = y * y_interval + bbox[1] + y_adjust;
+
+      if (isOdd) {
+        center_y -= hex_height/2;
+      }
+      fc.features.push(hexagon([center_x, center_y], radius));
+    }
+  }
+
+  return fc;
+};
+
+//Center should be [x, y]
+function hexagon(center, radius) {
+  var vertices = [];
+  for (var i = 0; i < 6; i++) {
+    var x = center[0] + radius * cosines[i];
+    var y = center[1] + radius * sines[i];
+    vertices.push([x,y]);
+  }
+  //first and last vertex must be the same
+  vertices.push(vertices[0]);
+  return polygon([vertices]);
+}
+},{"turf-distance":184,"turf-featurecollection":186,"turf-point":187,"turf-polygon":188}],184:[function(require,module,exports){
+var invariant = require('turf-invariant');
+//http://en.wikipedia.org/wiki/Haversine_formula
+//http://www.movable-type.co.uk/scripts/latlong.html
+
+/**
+ * Takes two {@link Point} features and calculates
+ * the distance between them in degress, radians,
+ * miles, or kilometers. This uses the
+ * [Haversine formula](http://en.wikipedia.org/wiki/Haversine_formula)
+ * to account for global curvature.
+ *
+ * @module turf/distance
+ * @category measurement
+ * @param {Feature} from origin point
+ * @param {Feature} to destination point
+ * @param {String} [units=kilometers] can be degrees, radians, miles, or kilometers
+ * @return {Number} distance between the two points
+ * @example
+ * var point1 = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-75.343, 39.984]
+ *   }
+ * };
+ * var point2 = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-75.534, 39.123]
+ *   }
+ * };
+ * var units = "miles";
+ *
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [point1, point2]
+ * };
+ *
+ * //=points
+ *
+ * var distance = turf.distance(point1, point2, units);
+ *
+ * //=distance
+ */
+module.exports = function(point1, point2, units){
+  invariant.featureOf(point1, 'Point', 'distance');
+  invariant.featureOf(point2, 'Point', 'distance');
+  var coordinates1 = point1.geometry.coordinates;
+  var coordinates2 = point2.geometry.coordinates;
+
+  var dLat = toRad(coordinates2[1] - coordinates1[1]);
+  var dLon = toRad(coordinates2[0] - coordinates1[0]);
+  var lat1 = toRad(coordinates1[1]);
+  var lat2 = toRad(coordinates2[1]);
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  var R;
+  switch(units){
+    case 'miles':
+      R = 3960;
+      break;
+    case 'kilometers':
+      R = 6373;
+      break;
+    case 'degrees':
+      R = 57.2957795;
+      break;
+    case 'radians':
+      R = 1;
+      break;
+    case undefined:
+      R = 6373;
+      break;
+    default:
+      throw new Error('unknown option given to "units"');
+  }
+
+  var distance = R * c;
+  return distance;
+};
+
+function toRad(degree) {
+  return degree * Math.PI / 180;
+}
+
+},{"turf-invariant":185}],185:[function(require,module,exports){
+module.exports.geojsonType = geojsonType;
+module.exports.collectionOf = collectionOf;
+module.exports.featureOf = featureOf;
+
+/**
+ * Enforce expectations about types of GeoJSON objects for Turf.
+ *
+ * @alias geojsonType
+ * @param {GeoJSON} value any GeoJSON object
+ * @param {string} type expected GeoJSON type
+ * @param {String} name name of calling function
+ * @throws Error if value is not the expected type.
+ */
+function geojsonType(value, type, name) {
+    if (!type || !name) throw new Error('type and name required');
+
+    if (!value || value.type !== type) {
+        throw new Error('Invalid input to ' + name + ': must be a ' + type + ', given ' + value.type);
+    }
+}
+
+/**
+ * Enforce expectations about types of {@link Feature} inputs for Turf.
+ * Internally this uses {@link geojsonType} to judge geometry types.
+ *
+ * @alias featureOf
+ * @param {Feature} feature a feature with an expected geometry type
+ * @param {string} type expected GeoJSON type
+ * @param {String} name name of calling function
+ * @throws Error if value is not the expected type.
+ */
+function featureOf(value, type, name) {
+    if (!name) throw new Error('.featureOf() requires a name');
+    if (!value || value.type !== 'Feature' || !value.geometry) {
+        throw new Error('Invalid input to ' + name + ', Feature with geometry required');
+    }
+    if (!value.geometry || value.geometry.type !== type) {
+        throw new Error('Invalid input to ' + name + ': must be a ' + type + ', given ' + value.geometry.type);
+    }
+}
+
+/**
+ * Enforce expectations about types of {@link FeatureCollection} inputs for Turf.
+ * Internally this uses {@link geojsonType} to judge geometry types.
+ *
+ * @alias collectionOf
+ * @param {FeatureCollection} featurecollection a featurecollection for which features will be judged
+ * @param {string} type expected GeoJSON type
+ * @param {String} name name of calling function
+ * @throws Error if value is not the expected type.
+ */
+function collectionOf(value, type, name) {
+    if (!name) throw new Error('.collectionOf() requires a name');
+    if (!value || value.type !== 'FeatureCollection') {
+        throw new Error('Invalid input to ' + name + ', FeatureCollection required');
+    }
+    for (var i = 0; i < value.features.length; i++) {
+        var feature = value.features[i];
+        if (!feature || feature.type !== 'Feature' || !feature.geometry) {
+            throw new Error('Invalid input to ' + name + ', Feature with geometry required');
+        }
+        if (!feature.geometry || feature.geometry.type !== type) {
+            throw new Error('Invalid input to ' + name + ': must be a ' + type + ', given ' + feature.geometry.type);
+        }
+    }
+}
+
+},{}],186:[function(require,module,exports){
+arguments[4][177][0].apply(exports,arguments)
+},{"dup":177}],187:[function(require,module,exports){
+arguments[4][181][0].apply(exports,arguments)
+},{"dup":181}],188:[function(require,module,exports){
+/**
+ * Takes an array of LinearRings and optionally an {@link Object} with properties and returns a GeoJSON {@link Polygon} feature.
+ *
+ * @module turf/polygon
+ * @category helper
+ * @param {Array<Array<Number>>} rings an array of LinearRings
+ * @param {Object} properties an optional properties object
+ * @return {Polygon} a Polygon feature
+ * @throws {Error} throw an error if a LinearRing of the polygon has too few positions
+ * or if a LinearRing of the Polygon does not have matching Positions at the
+ * beginning & end.
+ * @example
+ * var polygon = turf.polygon([[
+ *  [-2.275543, 53.464547],
+ *  [-2.275543, 53.489271],
+ *  [-2.215118, 53.489271],
+ *  [-2.215118, 53.464547],
+ *  [-2.275543, 53.464547]
+ * ]], { name: 'poly1', population: 400});
+ *
+ * //=polygon
+ */
+module.exports = function(coordinates, properties){
+
+  if (coordinates === null) throw new Error('No coordinates passed');
+
+  for (var i = 0; i < coordinates.length; i++) {
+    var ring = coordinates[i];
+    for (var j = 0; j < ring[ring.length - 1].length; j++) {
+      if (ring.length < 4) {
+        throw new Error('Each LinearRing of a Polygon must have 4 or more Positions.');
+      }
+      if (ring[ring.length - 1][j] !== ring[0][j]) {
+        throw new Error('First and last Position are not equivalent.');
+      }
+    }
+  }
+
+  var polygon = {
+    "type": "Feature",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": coordinates
+    },
+    "properties": properties
+  };
+
+  if (!polygon.properties) {
+    polygon.properties = {};
+  }
+
+  return polygon;
+};
+
+},{}],189:[function(require,module,exports){
+/**
+ * Takes a {@link Polygon} feature and returns a {@link FeatureCollection} of {@link Point} features at all self-intersections.
+ *
+ * @module turf/kinks
+ * @category misc
+ * @param {Polygon} polygon a Polygon feature
+ * @returns {FeatureCollection} a FeatureCollection of {@link Point} features representing self-intersections
+ * @example
+ * var poly = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-12.034835, 8.901183],
+ *       [-12.060413, 8.899826],
+ *       [-12.03638, 8.873199],
+ *       [-12.059383, 8.871418],
+ *       [-12.034835, 8.901183]
+ *     ]]
+ *   }
+ * };
+ * 
+ * var kinks = turf.kinks(poly);
+ *
+ * var resultFeatures = kinks.intersections.features.concat(poly);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+
+var polygon = require('turf-polygon');
+var point = require('turf-point');
+var fc = require('turf-featurecollection');
+
+module.exports = function(polyIn) {
+  var poly;
+  var results = {intersections: fc([]), fixed: null};
+  if (polyIn.type === 'Feature') {
+    poly = polyIn.geometry;
+  } else {
+    poly = polyIn;
+  }
+  var intersectionHash = {};
+  poly.coordinates.forEach(function(ring1){
+    poly.coordinates.forEach(function(ring2){
+      for(var i = 0; i < ring1.length-1; i++) {
+        for(var k = 0; k < ring2.length-1; k++) {
+          var intersection = lineIntersects(ring1[i][0],ring1[i][1],ring1[i+1][0],ring1[i+1][1],
+            ring2[k][0],ring2[k][1],ring2[k+1][0],ring2[k+1][1]);
+          if(intersection) {
+            results.intersections.features.push(point([intersection[0], intersection[1]]));
+          }
+        }
+      }
+    })
+  })
+  return results;
+}
+
+
+// modified from http://jsfiddle.net/justin_c_rounds/Gd2S2/light/
+function lineIntersects(line1StartX, line1StartY, line1EndX, line1EndY, line2StartX, line2StartY, line2EndX, line2EndY) {
+  // if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite) and booleans for whether line segment 1 or line segment 2 contain the point
+  var denominator, a, b, numerator1, numerator2, result = {
+    x: null,
+    y: null,
+    onLine1: false,
+    onLine2: false
+  };
+  denominator = ((line2EndY - line2StartY) * (line1EndX - line1StartX)) - ((line2EndX - line2StartX) * (line1EndY - line1StartY));
+  if (denominator == 0) {
+    if(result.x != null && result.y != null) {
+      return result;
+    } else {
+      return false;
+    }
+  }
+  a = line1StartY - line2StartY;
+  b = line1StartX - line2StartX;
+  numerator1 = ((line2EndX - line2StartX) * a) - ((line2EndY - line2StartY) * b);
+  numerator2 = ((line1EndX - line1StartX) * a) - ((line1EndY - line1StartY) * b);
+  a = numerator1 / denominator;
+  b = numerator2 / denominator;
+
+  // if we cast these lines infinitely in both directions, they intersect here:
+  result.x = line1StartX + (a * (line1EndX - line1StartX));
+  result.y = line1StartY + (a * (line1EndY - line1StartY));
+
+  // if line1 is a segment and line2 is infinite, they intersect if:
+  if (a > 0 && a < 1) {
+    result.onLine1 = true;
+  }
+  // if line2 is a segment and line1 is infinite, they intersect if:
+  if (b > 0 && b < 1) {
+    result.onLine2 = true;
+  }
+  // if line1 and line2 are segments, they intersect if both of the above are true
+  if(result.onLine1 && result.onLine2){
+    return [result.x, result.y];
+  }
+  else {
+    return false;
+  }
+}
+
+},{"turf-featurecollection":190,"turf-point":191,"turf-polygon":192}],190:[function(require,module,exports){
+arguments[4][177][0].apply(exports,arguments)
+},{"dup":177}],191:[function(require,module,exports){
+arguments[4][181][0].apply(exports,arguments)
+},{"dup":181}],192:[function(require,module,exports){
+arguments[4][188][0].apply(exports,arguments)
+},{"dup":188}],193:[function(require,module,exports){
+var ss = require('simple-statistics');
+
+/**
+* Takes a {@link FeatureCollection}, a property name, and a set of percentiles and returns a quantile array.
+* @module turf/quantile
+* @category classification
+* @param {FeatureCollection} input a FeatureCollection of any type
+* @param {String} field the property in `input` from which to retrieve quantile values
+* @param {Array<number>} percentiles an Array of percentiles on which to calculate quantile values
+* @return {Array<number>} an array of the break values
+* @example
+* var points = {
+*   "type": "FeatureCollection",
+*   "features": [
+*     {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 5
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [5, 5]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 40
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [1, 3]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 80
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [14, 2]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 90
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [13, 1]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 100
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [19, 7]
+*       }
+*     }
+*   ]
+* };
+*
+* var breaks = turf.quantile(
+*   points, 'population', [25, 50, 75, 99]);
+*
+* //=breaks
+*/
+module.exports = function(fc, field, percentiles){
+  var vals = [];
+  var quantiles = [];
+
+  fc.features.forEach(function(feature){
+    vals.push(feature.properties[field]);
+  });
+  percentiles.forEach(function(percentile){
+    quantiles.push(ss.quantile(vals, percentile * 0.01));
+  });
+  return quantiles;
+};
+
+},{"simple-statistics":194}],194:[function(require,module,exports){
+/* global module */
+// # simple-statistics
+//
+// A simple, literate statistics system. The code below uses the
+// [Javascript module pattern](http://www.adequatelygood.com/2010/3/JavaScript-Module-Pattern-In-Depth),
+// eventually assigning `simple-statistics` to `ss` in browsers or the
+// `exports` object for node.js
+(function() {
+    var ss = {};
+
+    if (typeof module !== 'undefined') {
+        // Assign the `ss` object to exports, so that you can require
+        // it in [node.js](http://nodejs.org/)
+        module.exports = ss;
+    } else {
+        // Otherwise, in a browser, we assign `ss` to the window object,
+        // so you can simply refer to it as `ss`.
+        this.ss = ss;
+    }
+
+    // # [Linear Regression](http://en.wikipedia.org/wiki/Linear_regression)
+    //
+    // [Simple linear regression](http://en.wikipedia.org/wiki/Simple_linear_regression)
+    // is a simple way to find a fitted line
+    // between a set of coordinates.
+    function linear_regression() {
+        var linreg = {},
+            data = [];
+
+        // Assign data to the model. Data is assumed to be an array.
+        linreg.data = function(x) {
+            if (!arguments.length) return data;
+            data = x.slice();
+            return linreg;
+        };
+
+        // Calculate the slope and y-intercept of the regression line
+        // by calculating the least sum of squares
+        linreg.mb = function() {
+            var m, b;
+
+            // Store data length in a local variable to reduce
+            // repeated object property lookups
+            var data_length = data.length;
+
+            //if there's only one point, arbitrarily choose a slope of 0
+            //and a y-intercept of whatever the y of the initial point is
+            if (data_length === 1) {
+                m = 0;
+                b = data[0][1];
+            } else {
+                // Initialize our sums and scope the `m` and `b`
+                // variables that define the line.
+                var sum_x = 0, sum_y = 0,
+                    sum_xx = 0, sum_xy = 0;
+
+                // Use local variables to grab point values
+                // with minimal object property lookups
+                var point, x, y;
+
+                // Gather the sum of all x values, the sum of all
+                // y values, and the sum of x^2 and (x*y) for each
+                // value.
+                //
+                // In math notation, these would be SS_x, SS_y, SS_xx, and SS_xy
+                for (var i = 0; i < data_length; i++) {
+                    point = data[i];
+                    x = point[0];
+                    y = point[1];
+
+                    sum_x += x;
+                    sum_y += y;
+
+                    sum_xx += x * x;
+                    sum_xy += x * y;
+                }
+
+                // `m` is the slope of the regression line
+                m = ((data_length * sum_xy) - (sum_x * sum_y)) /
+                    ((data_length * sum_xx) - (sum_x * sum_x));
+
+                // `b` is the y-intercept of the line.
+                b = (sum_y / data_length) - ((m * sum_x) / data_length);
+            }
+
+            // Return both values as an object.
+            return { m: m, b: b };
+        };
+
+        // a shortcut for simply getting the slope of the regression line
+        linreg.m = function() {
+            return linreg.mb().m;
+        };
+
+        // a shortcut for simply getting the y-intercept of the regression
+        // line.
+        linreg.b = function() {
+            return linreg.mb().b;
+        };
+
+        // ## Fitting The Regression Line
+        //
+        // This is called after `.data()` and returns the
+        // equation `y = f(x)` which gives the position
+        // of the regression line at each point in `x`.
+        linreg.line = function() {
+
+            // Get the slope, `m`, and y-intercept, `b`, of the line.
+            var mb = linreg.mb(),
+                m = mb.m,
+                b = mb.b;
+
+            // Return a function that computes a `y` value for each
+            // x value it is given, based on the values of `b` and `a`
+            // that we just computed.
+            return function(x) {
+                return b + (m * x);
+            };
+        };
+
+        return linreg;
+    }
+
+    // # [R Squared](http://en.wikipedia.org/wiki/Coefficient_of_determination)
+    //
+    // The r-squared value of data compared with a function `f`
+    // is the sum of the squared differences between the prediction
+    // and the actual value.
+    function r_squared(data, f) {
+        if (data.length < 2) return 1;
+
+        // Compute the average y value for the actual
+        // data set in order to compute the
+        // _total sum of squares_
+        var sum = 0, average;
+        for (var i = 0; i < data.length; i++) {
+            sum += data[i][1];
+        }
+        average = sum / data.length;
+
+        // Compute the total sum of squares - the
+        // squared difference between each point
+        // and the average of all points.
+        var sum_of_squares = 0;
+        for (var j = 0; j < data.length; j++) {
+            sum_of_squares += Math.pow(average - data[j][1], 2);
+        }
+
+        // Finally estimate the error: the squared
+        // difference between the estimate and the actual data
+        // value at each point.
+        var err = 0;
+        for (var k = 0; k < data.length; k++) {
+            err += Math.pow(data[k][1] - f(data[k][0]), 2);
+        }
+
+        // As the error grows larger, its ratio to the
+        // sum of squares increases and the r squared
+        // value grows lower.
+        return 1 - (err / sum_of_squares);
+    }
+
+
+    // # [Bayesian Classifier](http://en.wikipedia.org/wiki/Naive_Bayes_classifier)
+    //
+    // This is a naïve bayesian classifier that takes
+    // singly-nested objects.
+    function bayesian() {
+        // The `bayes_model` object is what will be exposed
+        // by this closure, with all of its extended methods, and will
+        // have access to all scope variables, like `total_count`.
+        var bayes_model = {},
+            // The number of items that are currently
+            // classified in the model
+            total_count = 0,
+            // Every item classified in the model
+            data = {};
+
+        // ## Train
+        // Train the classifier with a new item, which has a single
+        // dimension of Javascript literal keys and values.
+        bayes_model.train = function(item, category) {
+            // If the data object doesn't have any values
+            // for this category, create a new object for it.
+            if (!data[category]) data[category] = {};
+
+            // Iterate through each key in the item.
+            for (var k in item) {
+                var v = item[k];
+                // Initialize the nested object `data[category][k][item[k]]`
+                // with an object of keys that equal 0.
+                if (data[category][k] === undefined) data[category][k] = {};
+                if (data[category][k][v] === undefined) data[category][k][v] = 0;
+
+                // And increment the key for this key/value combination.
+                data[category][k][item[k]]++;
+            }
+            // Increment the number of items classified
+            total_count++;
+        };
+
+        // ## Score
+        // Generate a score of how well this item matches all
+        // possible categories based on its attributes
+        bayes_model.score = function(item) {
+            // Initialize an empty array of odds per category.
+            var odds = {}, category;
+            // Iterate through each key in the item,
+            // then iterate through each category that has been used
+            // in previous calls to `.train()`
+            for (var k in item) {
+                var v = item[k];
+                for (category in data) {
+                    // Create an empty object for storing key - value combinations
+                    // for this category.
+                    if (odds[category] === undefined) odds[category] = {};
+
+                    // If this item doesn't even have a property, it counts for nothing,
+                    // but if it does have the property that we're looking for from
+                    // the item to categorize, it counts based on how popular it is
+                    // versus the whole population.
+                    if (data[category][k]) {
+                        odds[category][k + '_' + v] = (data[category][k][v] || 0) / total_count;
+                    } else {
+                        odds[category][k + '_' + v] = 0;
+                    }
+                }
+            }
+
+            // Set up a new object that will contain sums of these odds by category
+            var odds_sums = {};
+
+            for (category in odds) {
+                // Tally all of the odds for each category-combination pair -
+                // the non-existence of a category does not add anything to the
+                // score.
+                for (var combination in odds[category]) {
+                    if (odds_sums[category] === undefined) odds_sums[category] = 0;
+                    odds_sums[category] += odds[category][combination];
+                }
+            }
+
+            return odds_sums;
+        };
+
+        // Return the completed model.
+        return bayes_model;
+    }
+
+    // # sum
+    //
+    // is simply the result of adding all numbers
+    // together, starting from zero.
+    //
+    // This runs on `O(n)`, linear time in respect to the array
+    function sum(x) {
+        var value = 0;
+        for (var i = 0; i < x.length; i++) {
+            value += x[i];
+        }
+        return value;
+    }
+
+    // # mean
+    //
+    // is the sum over the number of values
+    //
+    // This runs on `O(n)`, linear time in respect to the array
+    function mean(x) {
+        // The mean of no numbers is null
+        if (x.length === 0) return null;
+
+        return sum(x) / x.length;
+    }
+
+    // # geometric mean
+    //
+    // a mean function that is more useful for numbers in different
+    // ranges.
+    //
+    // this is the nth root of the input numbers multiplied by each other
+    //
+    // This runs on `O(n)`, linear time in respect to the array
+    function geometric_mean(x) {
+        // The mean of no numbers is null
+        if (x.length === 0) return null;
+
+        // the starting value.
+        var value = 1;
+
+        for (var i = 0; i < x.length; i++) {
+            // the geometric mean is only valid for positive numbers
+            if (x[i] <= 0) return null;
+
+            // repeatedly multiply the value by each number
+            value *= x[i];
+        }
+
+        return Math.pow(value, 1 / x.length);
+    }
+
+
+    // # harmonic mean
+    //
+    // a mean function typically used to find the average of rates
+    //
+    // this is the reciprocal of the arithmetic mean of the reciprocals
+    // of the input numbers
+    //
+    // This runs on `O(n)`, linear time in respect to the array
+    function harmonic_mean(x) {
+        // The mean of no numbers is null
+        if (x.length === 0) return null;
+
+        var reciprocal_sum = 0;
+
+        for (var i = 0; i < x.length; i++) {
+            // the harmonic mean is only valid for positive numbers
+            if (x[i] <= 0) return null;
+
+            reciprocal_sum += 1 / x[i];
+        }
+
+        // divide n by the the reciprocal sum
+        return x.length / reciprocal_sum;
+    }
+
+    // root mean square (RMS)
+    //
+    // a mean function used as a measure of the magnitude of a set
+    // of numbers, regardless of their sign
+    //
+    // this is the square root of the mean of the squares of the 
+    // input numbers
+    //
+    // This runs on `O(n)`, linear time in respect to the array
+    function root_mean_square(x) {
+        if (x.length === 0) return null;
+
+        var sum_of_squares = 0;
+        for (var i = 0; i < x.length; i++) {
+            sum_of_squares += Math.pow(x[i], 2);
+        }
+
+        return Math.sqrt(sum_of_squares / x.length);
+    }
+
+    // # min
+    //
+    // This is simply the minimum number in the set.
+    //
+    // This runs on `O(n)`, linear time in respect to the array
+    function min(x) {
+        var value;
+        for (var i = 0; i < x.length; i++) {
+            // On the first iteration of this loop, min is
+            // undefined and is thus made the minimum element in the array
+            if (x[i] < value || value === undefined) value = x[i];
+        }
+        return value;
+    }
+
+    // # max
+    //
+    // This is simply the maximum number in the set.
+    //
+    // This runs on `O(n)`, linear time in respect to the array
+    function max(x) {
+        var value;
+        for (var i = 0; i < x.length; i++) {
+            // On the first iteration of this loop, max is
+            // undefined and is thus made the maximum element in the array
+            if (x[i] > value || value === undefined) value = x[i];
+        }
+        return value;
+    }
+
+    // # [variance](http://en.wikipedia.org/wiki/Variance)
+    //
+    // is the sum of squared deviations from the mean
+    //
+    // depends on `mean()`
+    function variance(x) {
+        // The variance of no numbers is null
+        if (x.length === 0) return null;
+
+        var mean_value = mean(x),
+            deviations = [];
+
+        // Make a list of squared deviations from the mean.
+        for (var i = 0; i < x.length; i++) {
+            deviations.push(Math.pow(x[i] - mean_value, 2));
+        }
+
+        // Find the mean value of that list
+        return mean(deviations);
+    }
+
+    // # [standard deviation](http://en.wikipedia.org/wiki/Standard_deviation)
+    //
+    // is just the square root of the variance.
+    //
+    // depends on `variance()`
+    function standard_deviation(x) {
+        // The standard deviation of no numbers is null
+        if (x.length === 0) return null;
+
+        return Math.sqrt(variance(x));
+    }
+
+    // The sum of deviations to the Nth power.
+    // When n=2 it's the sum of squared deviations.
+    // When n=3 it's the sum of cubed deviations.
+    //
+    // depends on `mean()`
+    function sum_nth_power_deviations(x, n) {
+        var mean_value = mean(x),
+            sum = 0;
+
+        for (var i = 0; i < x.length; i++) {
+            sum += Math.pow(x[i] - mean_value, n);
+        }
+
+        return sum;
+    }
+
+    // # [variance](http://en.wikipedia.org/wiki/Variance)
+    //
+    // is the sum of squared deviations from the mean
+    //
+    // depends on `sum_nth_power_deviations`
+    function sample_variance(x) {
+        // The variance of no numbers is null
+        if (x.length <= 1) return null;
+
+        var sum_squared_deviations_value = sum_nth_power_deviations(x, 2);
+
+        // Find the mean value of that list
+        return sum_squared_deviations_value / (x.length - 1);
+    }
+
+    // # [standard deviation](http://en.wikipedia.org/wiki/Standard_deviation)
+    //
+    // is just the square root of the variance.
+    //
+    // depends on `sample_variance()`
+    function sample_standard_deviation(x) {
+        // The standard deviation of no numbers is null
+        if (x.length <= 1) return null;
+
+        return Math.sqrt(sample_variance(x));
+    }
+
+    // # [covariance](http://en.wikipedia.org/wiki/Covariance)
+    //
+    // sample covariance of two datasets:
+    // how much do the two datasets move together?
+    // x and y are two datasets, represented as arrays of numbers.
+    //
+    // depends on `mean()`
+    function sample_covariance(x, y) {
+
+        // The two datasets must have the same length which must be more than 1
+        if (x.length <= 1 || x.length != y.length){
+            return null;
+        }
+
+        // determine the mean of each dataset so that we can judge each
+        // value of the dataset fairly as the difference from the mean. this
+        // way, if one dataset is [1, 2, 3] and [2, 3, 4], their covariance
+        // does not suffer because of the difference in absolute values
+        var xmean = mean(x),
+            ymean = mean(y),
+            sum = 0;
+
+        // for each pair of values, the covariance increases when their
+        // difference from the mean is associated - if both are well above
+        // or if both are well below
+        // the mean, the covariance increases significantly.
+        for (var i = 0; i < x.length; i++){
+            sum += (x[i] - xmean) * (y[i] - ymean);
+        }
+
+        // the covariance is weighted by the length of the datasets.
+        return sum / (x.length - 1);
+    }
+
+    // # [correlation](http://en.wikipedia.org/wiki/Correlation_and_dependence)
+    //
+    // Gets a measure of how correlated two datasets are, between -1 and 1
+    //
+    // depends on `sample_standard_deviation()` and `sample_covariance()`
+    function sample_correlation(x, y) {
+        var cov = sample_covariance(x, y),
+            xstd = sample_standard_deviation(x),
+            ystd = sample_standard_deviation(y);
+
+        if (cov === null || xstd === null || ystd === null) {
+            return null;
+        }
+
+        return cov / xstd / ystd;
+    }
+
+    // # [median](http://en.wikipedia.org/wiki/Median)
+    //
+    // The middle number of a list. This is often a good indicator of 'the middle'
+    // when there are outliers that skew the `mean()` value.
+    function median(x) {
+        // The median of an empty list is null
+        if (x.length === 0) return null;
+
+        // Sorting the array makes it easy to find the center, but
+        // use `.slice()` to ensure the original array `x` is not modified
+        var sorted = x.slice().sort(function (a, b) { return a - b; });
+
+        // If the length of the list is odd, it's the central number
+        if (sorted.length % 2 === 1) {
+            return sorted[(sorted.length - 1) / 2];
+        // Otherwise, the median is the average of the two numbers
+        // at the center of the list
+        } else {
+            var a = sorted[(sorted.length / 2) - 1];
+            var b = sorted[(sorted.length / 2)];
+            return (a + b) / 2;
+        }
+    }
+
+    // # [mode](http://bit.ly/W5K4Yt)
+    //
+    // The mode is the number that appears in a list the highest number of times.
+    // There can be multiple modes in a list: in the event of a tie, this
+    // algorithm will return the most recently seen mode.
+    //
+    // This implementation is inspired by [science.js](https://github.com/jasondavies/science.js/blob/master/src/stats/mode.js)
+    //
+    // This runs on `O(n)`, linear time in respect to the array
+    function mode(x) {
+
+        // Handle edge cases:
+        // The median of an empty list is null
+        if (x.length === 0) return null;
+        else if (x.length === 1) return x[0];
+
+        // Sorting the array lets us iterate through it below and be sure
+        // that every time we see a new number it's new and we'll never
+        // see the same number twice
+        var sorted = x.slice().sort(function (a, b) { return a - b; });
+
+        // This assumes it is dealing with an array of size > 1, since size
+        // 0 and 1 are handled immediately. Hence it starts at index 1 in the
+        // array.
+        var last = sorted[0],
+            // store the mode as we find new modes
+            value,
+            // store how many times we've seen the mode
+            max_seen = 0,
+            // how many times the current candidate for the mode
+            // has been seen
+            seen_this = 1;
+
+        // end at sorted.length + 1 to fix the case in which the mode is
+        // the highest number that occurs in the sequence. the last iteration
+        // compares sorted[i], which is undefined, to the highest number
+        // in the series
+        for (var i = 1; i < sorted.length + 1; i++) {
+            // we're seeing a new number pass by
+            if (sorted[i] !== last) {
+                // the last number is the new mode since we saw it more
+                // often than the old one
+                if (seen_this > max_seen) {
+                    max_seen = seen_this;
+                    value = last;
+                }
+                seen_this = 1;
+                last = sorted[i];
+            // if this isn't a new number, it's one more occurrence of
+            // the potential mode
+            } else { seen_this++; }
+        }
+        return value;
+    }
+
+    // # [t-test](http://en.wikipedia.org/wiki/Student's_t-test)
+    //
+    // This is to compute a one-sample t-test, comparing the mean
+    // of a sample to a known value, x.
+    //
+    // in this case, we're trying to determine whether the
+    // population mean is equal to the value that we know, which is `x`
+    // here. usually the results here are used to look up a
+    // [p-value](http://en.wikipedia.org/wiki/P-value), which, for
+    // a certain level of significance, will let you determine that the
+    // null hypothesis can or cannot be rejected.
+    //
+    // Depends on `standard_deviation()` and `mean()`
+    function t_test(sample, x) {
+        // The mean of the sample
+        var sample_mean = mean(sample);
+
+        // The standard deviation of the sample
+        var sd = standard_deviation(sample);
+
+        // Square root the length of the sample
+        var rootN = Math.sqrt(sample.length);
+
+        // Compute the known value against the sample,
+        // returning the t value
+        return (sample_mean - x) / (sd / rootN);
+    }
+
+    // # [2-sample t-test](http://en.wikipedia.org/wiki/Student's_t-test)
+    //
+    // This is to compute two sample t-test.
+    // Tests whether "mean(X)-mean(Y) = difference", (
+    // in the most common case, we often have `difference == 0` to test if two samples
+    // are likely to be taken from populations with the same mean value) with
+    // no prior knowledge on standard deviations of both samples
+    // other than the fact that they have the same standard deviation.
+    //
+    // Usually the results here are used to look up a
+    // [p-value](http://en.wikipedia.org/wiki/P-value), which, for
+    // a certain level of significance, will let you determine that the
+    // null hypothesis can or cannot be rejected.
+    //
+    // `diff` can be omitted if it equals 0.
+    //
+    // [This is used to confirm or deny](http://www.monarchlab.org/Lab/Research/Stats/2SampleT.aspx)
+    // a null hypothesis that the two populations that have been sampled into
+    // `sample_x` and `sample_y` are equal to each other.
+    //
+    // Depends on `sample_variance()` and `mean()`
+    function t_test_two_sample(sample_x, sample_y, difference) {
+        var n = sample_x.length,
+            m = sample_y.length;
+
+        // If either sample doesn't actually have any values, we can't
+        // compute this at all, so we return `null`.
+        if (!n || !m) return null ;
+
+        // default difference (mu) is zero
+        if (!difference) difference = 0;
+
+        var meanX = mean(sample_x),
+            meanY = mean(sample_y);
+
+        var weightedVariance = ((n - 1) * sample_variance(sample_x) +
+            (m - 1) * sample_variance(sample_y)) / (n + m - 2);
+
+        return (meanX - meanY - difference) /
+            Math.sqrt(weightedVariance * (1 / n + 1 / m));
+    }
+
+    // # chunk
+    //
+    // Split an array into chunks of a specified size. This function
+    // has the same behavior as [PHP's array_chunk](http://php.net/manual/en/function.array-chunk.php)
+    // function, and thus will insert smaller-sized chunks at the end if
+    // the input size is not divisible by the chunk size.
+    //
+    // `sample` is expected to be an array, and `chunkSize` a number.
+    // The `sample` array can contain any kind of data.
+    function chunk(sample, chunkSize) {
+
+        // a list of result chunks, as arrays in an array
+        var output = [];
+
+        // `chunkSize` must be zero or higher - otherwise the loop below,
+        // in which we call `start += chunkSize`, will loop infinitely.
+        // So, we'll detect and return null in that case to indicate
+        // invalid input.
+        if (chunkSize <= 0) {
+            return null;
+        }
+
+        // `start` is the index at which `.slice` will start selecting
+        // new array elements
+        for (var start = 0; start < sample.length; start += chunkSize) {
+
+            // for each chunk, slice that part of the array and add it
+            // to the output. The `.slice` function does not change
+            // the original array.
+            output.push(sample.slice(start, start + chunkSize));
+        }
+        return output;
+    }
+
+    // # shuffle_in_place
+    //
+    // A [Fisher-Yates shuffle](http://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+    // in-place - which means that it will change the order of the original
+    // array by reference.
+    function shuffle_in_place(sample, randomSource) {
+
+        // a custom random number source can be provided if you want to use
+        // a fixed seed or another random number generator, like
+        // [random-js](https://www.npmjs.org/package/random-js)
+        randomSource = randomSource || Math.random;
+
+        // store the current length of the sample to determine
+        // when no elements remain to shuffle.
+        var length = sample.length;
+
+        // temporary is used to hold an item when it is being
+        // swapped between indices.
+        var temporary;
+
+        // The index to swap at each stage.
+        var index;
+
+        // While there are still items to shuffle
+        while (length > 0) {
+            // chose a random index within the subset of the array
+            // that is not yet shuffled
+            index = Math.floor(randomSource() * length--);
+
+            // store the value that we'll move temporarily
+            temporary = sample[length];
+
+            // swap the value at `sample[length]` with `sample[index]`
+            sample[length] = sample[index];
+            sample[index] = temporary;
+        }
+
+        return sample;
+    }
+
+    // # shuffle
+    //
+    // A [Fisher-Yates shuffle](http://en.wikipedia.org/wiki/Fisher%E2%80%93Yates_shuffle)
+    // is a fast way to create a random permutation of a finite set.
+    function shuffle(sample, randomSource) {
+        // slice the original array so that it is not modified
+        sample = sample.slice();
+
+        // and then shuffle that shallow-copied array, in place
+        return shuffle_in_place(sample.slice(), randomSource);
+    }
+
+    // # sample
+    //
+    // Create a [simple random sample](http://en.wikipedia.org/wiki/Simple_random_sample)
+    // from a given array of `n` elements.
+    function sample(array, n, randomSource) {
+        // shuffle the original array using a fisher-yates shuffle
+        var shuffled = shuffle(array, randomSource);
+
+        // and then return a subset of it - the first `n` elements.
+        return shuffled.slice(0, n);
+    }
+
+    // # quantile
+    //
+    // This is a population quantile, since we assume to know the entire
+    // dataset in this library. Thus I'm trying to follow the
+    // [Quantiles of a Population](http://en.wikipedia.org/wiki/Quantile#Quantiles_of_a_population)
+    // algorithm from wikipedia.
+    //
+    // Sample is a one-dimensional array of numbers,
+    // and p is either a decimal number from 0 to 1 or an array of decimal
+    // numbers from 0 to 1.
+    // In terms of a k/q quantile, p = k/q - it's just dealing with fractions or dealing
+    // with decimal values.
+    // When p is an array, the result of the function is also an array containing the appropriate
+    // quantiles in input order
+    function quantile(sample, p) {
+
+        // We can't derive quantiles from an empty list
+        if (sample.length === 0) return null;
+
+        // Sort a copy of the array. We'll need a sorted array to index
+        // the values in sorted order.
+        var sorted = sample.slice().sort(function (a, b) { return a - b; });
+
+        if (p.length) {
+            // Initialize the result array
+            var results = [];
+            // For each requested quantile
+            for (var i = 0; i < p.length; i++) {
+                results[i] = quantile_sorted(sorted, p[i]);
+            }
+            return results;
+        } else {
+            return quantile_sorted(sorted, p);
+        }
+    }
+
+    // # quantile
+    //
+    // This is the internal implementation of quantiles: when you know
+    // that the order is sorted, you don't need to re-sort it, and the computations
+    // are much faster.
+    function quantile_sorted(sample, p) {
+        var idx = (sample.length) * p;
+        if (p < 0 || p > 1) {
+            return null;
+        } else if (p === 1) {
+            // If p is 1, directly return the last element
+            return sample[sample.length - 1];
+        } else if (p === 0) {
+            // If p is 0, directly return the first element
+            return sample[0];
+        } else if (idx % 1 !== 0) {
+            // If p is not integer, return the next element in array
+            return sample[Math.ceil(idx) - 1];
+        } else if (sample.length % 2 === 0) {
+            // If the list has even-length, we'll take the average of this number
+            // and the next value, if there is one
+            return (sample[idx - 1] + sample[idx]) / 2;
+        } else {
+            // Finally, in the simple case of an integer value
+            // with an odd-length list, return the sample value at the index.
+            return sample[idx];
+        }
+    }
+
+    // # [Interquartile range](http://en.wikipedia.org/wiki/Interquartile_range)
+    //
+    // A measure of statistical dispersion, or how scattered, spread, or
+    // concentrated a distribution is. It's computed as the difference between
+    // the third quartile and first quartile.
+    function iqr(sample) {
+        // We can't derive quantiles from an empty list
+        if (sample.length === 0) return null;
+
+        // Interquartile range is the span between the upper quartile,
+        // at `0.75`, and lower quartile, `0.25`
+        return quantile(sample, 0.75) - quantile(sample, 0.25);
+    }
+
+    // # [Median Absolute Deviation](http://en.wikipedia.org/wiki/Median_absolute_deviation)
+    //
+    // The Median Absolute Deviation (MAD) is a robust measure of statistical
+    // dispersion. It is more resilient to outliers than the standard deviation.
+    function mad(x) {
+        // The mad of nothing is null
+        if (!x || x.length === 0) return null;
+
+        var median_value = median(x),
+            median_absolute_deviations = [];
+
+        // Make a list of absolute deviations from the median
+        for (var i = 0; i < x.length; i++) {
+            median_absolute_deviations.push(Math.abs(x[i] - median_value));
+        }
+
+        // Find the median value of that list
+        return median(median_absolute_deviations);
+    }
+
+    // ## Compute Matrices for Jenks
+    //
+    // Compute the matrices required for Jenks breaks. These matrices
+    // can be used for any classing of data with `classes <= n_classes`
+    function jenksMatrices(data, n_classes) {
+
+        // in the original implementation, these matrices are referred to
+        // as `LC` and `OP`
+        //
+        // * lower_class_limits (LC): optimal lower class limits
+        // * variance_combinations (OP): optimal variance combinations for all classes
+        var lower_class_limits = [],
+            variance_combinations = [],
+            // loop counters
+            i, j,
+            // the variance, as computed at each step in the calculation
+            variance = 0;
+
+        // Initialize and fill each matrix with zeroes
+        for (i = 0; i < data.length + 1; i++) {
+            var tmp1 = [], tmp2 = [];
+            // despite these arrays having the same values, we need
+            // to keep them separate so that changing one does not change
+            // the other
+            for (j = 0; j < n_classes + 1; j++) {
+                tmp1.push(0);
+                tmp2.push(0);
+            }
+            lower_class_limits.push(tmp1);
+            variance_combinations.push(tmp2);
+        }
+
+        for (i = 1; i < n_classes + 1; i++) {
+            lower_class_limits[1][i] = 1;
+            variance_combinations[1][i] = 0;
+            // in the original implementation, 9999999 is used but
+            // since Javascript has `Infinity`, we use that.
+            for (j = 2; j < data.length + 1; j++) {
+                variance_combinations[j][i] = Infinity;
+            }
+        }
+
+        for (var l = 2; l < data.length + 1; l++) {
+
+            // `SZ` originally. this is the sum of the values seen thus
+            // far when calculating variance.
+            var sum = 0,
+                // `ZSQ` originally. the sum of squares of values seen
+                // thus far
+                sum_squares = 0,
+                // `WT` originally. This is the number of
+                w = 0,
+                // `IV` originally
+                i4 = 0;
+
+            // in several instances, you could say `Math.pow(x, 2)`
+            // instead of `x * x`, but this is slower in some browsers
+            // introduces an unnecessary concept.
+            for (var m = 1; m < l + 1; m++) {
+
+                // `III` originally
+                var lower_class_limit = l - m + 1,
+                    val = data[lower_class_limit - 1];
+
+                // here we're estimating variance for each potential classing
+                // of the data, for each potential number of classes. `w`
+                // is the number of data points considered so far.
+                w++;
+
+                // increase the current sum and sum-of-squares
+                sum += val;
+                sum_squares += val * val;
+
+                // the variance at this point in the sequence is the difference
+                // between the sum of squares and the total x 2, over the number
+                // of samples.
+                variance = sum_squares - (sum * sum) / w;
+
+                i4 = lower_class_limit - 1;
+
+                if (i4 !== 0) {
+                    for (j = 2; j < n_classes + 1; j++) {
+                        // if adding this element to an existing class
+                        // will increase its variance beyond the limit, break
+                        // the class at this point, setting the `lower_class_limit`
+                        // at this point.
+                        if (variance_combinations[l][j] >=
+                            (variance + variance_combinations[i4][j - 1])) {
+                            lower_class_limits[l][j] = lower_class_limit;
+                            variance_combinations[l][j] = variance +
+                                variance_combinations[i4][j - 1];
+                        }
+                    }
+                }
+            }
+
+            lower_class_limits[l][1] = 1;
+            variance_combinations[l][1] = variance;
+        }
+
+        // return the two matrices. for just providing breaks, only
+        // `lower_class_limits` is needed, but variances can be useful to
+        // evaluate goodness of fit.
+        return {
+            lower_class_limits: lower_class_limits,
+            variance_combinations: variance_combinations
+        };
+    }
+
+    // ## Pull Breaks Values for Jenks
+    //
+    // the second part of the jenks recipe: take the calculated matrices
+    // and derive an array of n breaks.
+    function jenksBreaks(data, lower_class_limits, n_classes) {
+
+        var k = data.length,
+            kclass = [],
+            countNum = n_classes;
+
+        // the calculation of classes will never include the upper
+        // bound, so we need to explicitly set it
+        kclass[n_classes] = data[data.length - 1];
+
+        // the lower_class_limits matrix is used as indices into itself
+        // here: the `k` variable is reused in each iteration.
+        while (countNum > 0) {
+            kclass[countNum - 1] = data[lower_class_limits[k][countNum] - 1];
+            k = lower_class_limits[k][countNum] - 1;
+            countNum--;
+        }
+
+        return kclass;
+    }
+
+    // # [Jenks natural breaks optimization](http://en.wikipedia.org/wiki/Jenks_natural_breaks_optimization)
+    //
+    // Implementations: [1](http://danieljlewis.org/files/2010/06/Jenks.pdf) (python),
+    // [2](https://github.com/vvoovv/djeo-jenks/blob/master/main.js) (buggy),
+    // [3](https://github.com/simogeo/geostats/blob/master/lib/geostats.js#L407) (works)
+    //
+    // Depends on `jenksBreaks()` and `jenksMatrices()`
+    function jenks(data, n_classes) {
+
+        if (n_classes > data.length) return null;
+
+        // sort data in numerical order, since this is expected
+        // by the matrices function
+        data = data.slice().sort(function (a, b) { return a - b; });
+
+        // get our basic matrices
+        var matrices = jenksMatrices(data, n_classes),
+            // we only need lower class limits here
+            lower_class_limits = matrices.lower_class_limits;
+
+        // extract n_classes out of the computed matrices
+        return jenksBreaks(data, lower_class_limits, n_classes);
+
+    }
+
+    // # [Skewness](http://en.wikipedia.org/wiki/Skewness)
+    //
+    // A measure of the extent to which a probability distribution of a
+    // real-valued random variable "leans" to one side of the mean.
+    // The skewness value can be positive or negative, or even undefined.
+    //
+    // Implementation is based on the adjusted Fisher-Pearson standardized
+    // moment coefficient, which is the version found in Excel and several
+    // statistical packages including Minitab, SAS and SPSS.
+    //
+    // Depends on `sum_nth_power_deviations()` and `sample_standard_deviation`
+    function sample_skewness(x) {
+        // The skewness of less than three arguments is null
+        if (x.length < 3) return null;
+
+        var n = x.length,
+            cubed_s = Math.pow(sample_standard_deviation(x), 3),
+            sum_cubed_deviations = sum_nth_power_deviations(x, 3);
+
+        return n * sum_cubed_deviations / ((n - 1) * (n - 2) * cubed_s);
+    }
+
+    // # Standard Normal Table
+    // A standard normal table, also called the unit normal table or Z table,
+    // is a mathematical table for the values of Φ (phi), which are the values of
+    // the cumulative distribution function of the normal distribution.
+    // It is used to find the probability that a statistic is observed below,
+    // above, or between values on the standard normal distribution, and by
+    // extension, any normal distribution.
+    //
+    // The probabilities are taken from http://en.wikipedia.org/wiki/Standard_normal_table
+    // The table used is the cumulative, and not cumulative from 0 to mean
+    // (even though the latter has 5 digits precision, instead of 4).
+    var standard_normal_table = [
+        /*  z      0.00    0.01    0.02    0.03    0.04    0.05    0.06    0.07    0.08    0.09 */
+        /* 0.0 */
+        0.5000, 0.5040, 0.5080, 0.5120, 0.5160, 0.5199, 0.5239, 0.5279, 0.5319, 0.5359,
+        /* 0.1 */
+        0.5398, 0.5438, 0.5478, 0.5517, 0.5557, 0.5596, 0.5636, 0.5675, 0.5714, 0.5753,
+        /* 0.2 */
+        0.5793, 0.5832, 0.5871, 0.5910, 0.5948, 0.5987, 0.6026, 0.6064, 0.6103, 0.6141,
+        /* 0.3 */
+        0.6179, 0.6217, 0.6255, 0.6293, 0.6331, 0.6368, 0.6406, 0.6443, 0.6480, 0.6517,
+        /* 0.4 */
+        0.6554, 0.6591, 0.6628, 0.6664, 0.6700, 0.6736, 0.6772, 0.6808, 0.6844, 0.6879,
+        /* 0.5 */
+        0.6915, 0.6950, 0.6985, 0.7019, 0.7054, 0.7088, 0.7123, 0.7157, 0.7190, 0.7224,
+        /* 0.6 */
+        0.7257, 0.7291, 0.7324, 0.7357, 0.7389, 0.7422, 0.7454, 0.7486, 0.7517, 0.7549,
+        /* 0.7 */
+        0.7580, 0.7611, 0.7642, 0.7673, 0.7704, 0.7734, 0.7764, 0.7794, 0.7823, 0.7852,
+        /* 0.8 */
+        0.7881, 0.7910, 0.7939, 0.7967, 0.7995, 0.8023, 0.8051, 0.8078, 0.8106, 0.8133,
+        /* 0.9 */
+        0.8159, 0.8186, 0.8212, 0.8238, 0.8264, 0.8289, 0.8315, 0.8340, 0.8365, 0.8389,
+        /* 1.0 */
+        0.8413, 0.8438, 0.8461, 0.8485, 0.8508, 0.8531, 0.8554, 0.8577, 0.8599, 0.8621,
+        /* 1.1 */
+        0.8643, 0.8665, 0.8686, 0.8708, 0.8729, 0.8749, 0.8770, 0.8790, 0.8810, 0.8830,
+        /* 1.2 */
+        0.8849, 0.8869, 0.8888, 0.8907, 0.8925, 0.8944, 0.8962, 0.8980, 0.8997, 0.9015,
+        /* 1.3 */
+        0.9032, 0.9049, 0.9066, 0.9082, 0.9099, 0.9115, 0.9131, 0.9147, 0.9162, 0.9177,
+        /* 1.4 */
+        0.9192, 0.9207, 0.9222, 0.9236, 0.9251, 0.9265, 0.9279, 0.9292, 0.9306, 0.9319,
+        /* 1.5 */
+        0.9332, 0.9345, 0.9357, 0.9370, 0.9382, 0.9394, 0.9406, 0.9418, 0.9429, 0.9441,
+        /* 1.6 */
+        0.9452, 0.9463, 0.9474, 0.9484, 0.9495, 0.9505, 0.9515, 0.9525, 0.9535, 0.9545,
+        /* 1.7 */
+        0.9554, 0.9564, 0.9573, 0.9582, 0.9591, 0.9599, 0.9608, 0.9616, 0.9625, 0.9633,
+        /* 1.8 */
+        0.9641, 0.9649, 0.9656, 0.9664, 0.9671, 0.9678, 0.9686, 0.9693, 0.9699, 0.9706,
+        /* 1.9 */
+        0.9713, 0.9719, 0.9726, 0.9732, 0.9738, 0.9744, 0.9750, 0.9756, 0.9761, 0.9767,
+        /* 2.0 */
+        0.9772, 0.9778, 0.9783, 0.9788, 0.9793, 0.9798, 0.9803, 0.9808, 0.9812, 0.9817,
+        /* 2.1 */
+        0.9821, 0.9826, 0.9830, 0.9834, 0.9838, 0.9842, 0.9846, 0.9850, 0.9854, 0.9857,
+        /* 2.2 */
+        0.9861, 0.9864, 0.9868, 0.9871, 0.9875, 0.9878, 0.9881, 0.9884, 0.9887, 0.9890,
+        /* 2.3 */
+        0.9893, 0.9896, 0.9898, 0.9901, 0.9904, 0.9906, 0.9909, 0.9911, 0.9913, 0.9916,
+        /* 2.4 */
+        0.9918, 0.9920, 0.9922, 0.9925, 0.9927, 0.9929, 0.9931, 0.9932, 0.9934, 0.9936,
+        /* 2.5 */
+        0.9938, 0.9940, 0.9941, 0.9943, 0.9945, 0.9946, 0.9948, 0.9949, 0.9951, 0.9952,
+        /* 2.6 */
+        0.9953, 0.9955, 0.9956, 0.9957, 0.9959, 0.9960, 0.9961, 0.9962, 0.9963, 0.9964,
+        /* 2.7 */
+        0.9965, 0.9966, 0.9967, 0.9968, 0.9969, 0.9970, 0.9971, 0.9972, 0.9973, 0.9974,
+        /* 2.8 */
+        0.9974, 0.9975, 0.9976, 0.9977, 0.9977, 0.9978, 0.9979, 0.9979, 0.9980, 0.9981,
+        /* 2.9 */
+        0.9981, 0.9982, 0.9982, 0.9983, 0.9984, 0.9984, 0.9985, 0.9985, 0.9986, 0.9986,
+        /* 3.0 */
+        0.9987, 0.9987, 0.9987, 0.9988, 0.9988, 0.9989, 0.9989, 0.9989, 0.9990, 0.9990
+    ];
+
+    // # [Gaussian error function](http://en.wikipedia.org/wiki/Error_function)
+    //
+    // The error_function(x/(sd * Math.sqrt(2))) is the probability that a value in a
+    // normal distribution with standard deviation sd is within x of the mean.
+    //
+    // This function returns a numerical approximation to the exact value.
+    function error_function(x) {
+        var t = 1 / (1 + 0.5 * Math.abs(x));
+        var tau = t * Math.exp(-Math.pow(x, 2) -
+            1.26551223 +
+            1.00002368 * t +
+            0.37409196 * Math.pow(t, 2) +
+            0.09678418 * Math.pow(t, 3) -
+            0.18628806 * Math.pow(t, 4) +
+            0.27886807 * Math.pow(t, 5) -
+            1.13520398 * Math.pow(t, 6) +
+            1.48851587 * Math.pow(t, 7) -
+            0.82215223 * Math.pow(t, 8) +
+            0.17087277 * Math.pow(t, 9));
+        if (x >= 0) {
+            return 1 - tau;
+        } else {
+            return tau - 1;
+        }
+    }
+
+    // # [Cumulative Standard Normal Probability](http://en.wikipedia.org/wiki/Standard_normal_table)
+    //
+    // Since probability tables cannot be
+    // printed for every normal distribution, as there are an infinite variety
+    // of normal distributions, it is common practice to convert a normal to a
+    // standard normal and then use the standard normal table to find probabilities.
+    //
+    // You can use .5 + .5 * error_function(x / Math.sqrt(2)) to calculate the probability
+    // instead of looking it up in a table.
+    function cumulative_std_normal_probability(z) {
+
+        // Calculate the position of this value.
+        var absZ = Math.abs(z),
+            // Each row begins with a different
+            // significant digit: 0.5, 0.6, 0.7, and so on. Each value in the table
+            // corresponds to a range of 0.01 in the input values, so the value is
+            // multiplied by 100.
+            index = Math.min(Math.round(absZ * 100), standard_normal_table.length - 1);
+
+        // The index we calculate must be in the table as a positive value,
+        // but we still pay attention to whether the input is positive
+        // or negative, and flip the output value as a last step.
+        if (z >= 0) {
+            return standard_normal_table[index];
+        } else {
+            // due to floating-point arithmetic, values in the table with
+            // 4 significant figures can nevertheless end up as repeating
+            // fractions when they're computed here.
+            return +(1 - standard_normal_table[index]).toFixed(4);
+        }
+    }
+
+    // # [Z-Score, or Standard Score](http://en.wikipedia.org/wiki/Standard_score)
+    //
+    // The standard score is the number of standard deviations an observation
+    // or datum is above or below the mean. Thus, a positive standard score
+    // represents a datum above the mean, while a negative standard score
+    // represents a datum below the mean. It is a dimensionless quantity
+    // obtained by subtracting the population mean from an individual raw
+    // score and then dividing the difference by the population standard
+    // deviation.
+    //
+    // The z-score is only defined if one knows the population parameters;
+    // if one only has a sample set, then the analogous computation with
+    // sample mean and sample standard deviation yields the
+    // Student's t-statistic.
+    function z_score(x, mean, standard_deviation) {
+        return (x - mean) / standard_deviation;
+    }
+
+    // We use `ε`, epsilon, as a stopping criterion when we want to iterate
+    // until we're "close enough".
+    var epsilon = 0.0001;
+
+    // # [Factorial](https://en.wikipedia.org/wiki/Factorial)
+    //
+    // A factorial, usually written n!, is the product of all positive
+    // integers less than or equal to n. Often factorial is implemented
+    // recursively, but this iterative approach is significantly faster
+    // and simpler.
+    function factorial(n) {
+
+        // factorial is mathematically undefined for negative numbers
+        if (n < 0 ) { return null; }
+
+        // typically you'll expand the factorial function going down, like
+        // 5! = 5 * 4 * 3 * 2 * 1. This is going in the opposite direction,
+        // counting from 2 up to the number in question, and since anything
+        // multiplied by 1 is itself, the loop only needs to start at 2.
+        var accumulator = 1;
+        for (var i = 2; i <= n; i++) {
+            // for each number up to and including the number `n`, multiply
+            // the accumulator my that number.
+            accumulator *= i;
+        }
+        return accumulator;
+    }
+
+    // # Bernoulli Distribution
+    //
+    // The [Bernoulli distribution](http://en.wikipedia.org/wiki/Bernoulli_distribution)
+    // is the probability discrete
+    // distribution of a random variable which takes value 1 with success
+    // probability `p` and value 0 with failure
+    // probability `q` = 1 - `p`. It can be used, for example, to represent the
+    // toss of a coin, where "1" is defined to mean "heads" and "0" is defined
+    // to mean "tails" (or vice versa). It is
+    // a special case of a Binomial Distribution
+    // where `n` = 1.
+    function bernoulli_distribution(p) {
+        // Check that `p` is a valid probability (0 ≤ p ≤ 1)
+        if (p < 0 || p > 1 ) { return null; }
+
+        return binomial_distribution(1, p);
+    }
+
+    // # Binomial Distribution
+    //
+    // The [Binomial Distribution](http://en.wikipedia.org/wiki/Binomial_distribution) is the discrete probability
+    // distribution of the number of successes in a sequence of n independent yes/no experiments, each of which yields
+    // success with probability `probability`. Such a success/failure experiment is also called a Bernoulli experiment or
+    // Bernoulli trial; when trials = 1, the Binomial Distribution is a Bernoulli Distribution.
+    function binomial_distribution(trials, probability) {
+        // Check that `p` is a valid probability (0 ≤ p ≤ 1),
+        // that `n` is an integer, strictly positive.
+        if (probability < 0 || probability > 1 ||
+            trials <= 0 || trials % 1 !== 0) {
+            return null;
+        }
+
+        // a [probability mass function](https://en.wikipedia.org/wiki/Probability_mass_function)
+        function probability_mass(x, trials, probability) {
+            return factorial(trials) /
+                (factorial(x) * factorial(trials - x)) *
+                (Math.pow(probability, x) * Math.pow(1 - probability, trials - x));
+        }
+
+        // We initialize `x`, the random variable, and `accumulator`, an accumulator
+        // for the cumulative distribution function to 0. `distribution_functions`
+        // is the object we'll return with the `probability_of_x` and the
+        // `cumulative_probability_of_x`, as well as the calculated mean &
+        // variance. We iterate until the `cumulative_probability_of_x` is
+        // within `epsilon` of 1.0.
+        var x = 0,
+            cumulative_probability = 0,
+            cells = {};
+
+        // This algorithm iterates through each potential outcome,
+        // until the `cumulative_probability` is very close to 1, at
+        // which point we've defined the vast majority of outcomes
+        do {
+            cells[x] = probability_mass(x, trials, probability);
+            cumulative_probability += cells[x];
+            x++;
+        // when the cumulative_probability is nearly 1, we've calculated
+        // the useful range of this distribution
+        } while (cumulative_probability < 1 - epsilon);
+
+        return cells;
+    }
+
+    // # Poisson Distribution
+    //
+    // The [Poisson Distribution](http://en.wikipedia.org/wiki/Poisson_distribution)
+    // is a discrete probability distribution that expresses the probability
+    // of a given number of events occurring in a fixed interval of time
+    // and/or space if these events occur with a known average rate and
+    // independently of the time since the last event.
+    //
+    // The Poisson Distribution is characterized by the strictly positive
+    // mean arrival or occurrence rate, `λ`.
+    function poisson_distribution(lambda) {
+        // Check that lambda is strictly positive
+        if (lambda <= 0) { return null; }
+
+        // our current place in the distribution
+        var x = 0,
+            // and we keep track of the current cumulative probability, in
+            // order to know when to stop calculating chances.
+            cumulative_probability = 0,
+            // the calculated cells to be returned
+            cells = {};
+
+        // a [probability mass function](https://en.wikipedia.org/wiki/Probability_mass_function)
+        function probability_mass(x, lambda) {
+            return (Math.pow(Math.E, -lambda) * Math.pow(lambda, x)) /
+                factorial(x);
+        }
+
+        // This algorithm iterates through each potential outcome,
+        // until the `cumulative_probability` is very close to 1, at
+        // which point we've defined the vast majority of outcomes
+        do {
+            cells[x] = probability_mass(x, lambda);
+            cumulative_probability += cells[x];
+            x++;
+        // when the cumulative_probability is nearly 1, we've calculated
+        // the useful range of this distribution
+        } while (cumulative_probability < 1 - epsilon);
+
+        return cells;
+    }
+
+    // # Percentage Points of the χ2 (Chi-Squared) Distribution
+    // The [χ2 (Chi-Squared) Distribution](http://en.wikipedia.org/wiki/Chi-squared_distribution) is used in the common
+    // chi-squared tests for goodness of fit of an observed distribution to a theoretical one, the independence of two
+    // criteria of classification of qualitative data, and in confidence interval estimation for a population standard
+    // deviation of a normal distribution from a sample standard deviation.
+    //
+    // Values from Appendix 1, Table III of William W. Hines & Douglas C. Montgomery, "Probability and Statistics in
+    // Engineering and Management Science", Wiley (1980).
+    var chi_squared_distribution_table = {
+        1: { 0.995:  0.00, 0.99:  0.00, 0.975:  0.00, 0.95:  0.00, 0.9:  0.02, 0.5:  0.45, 0.1:  2.71, 0.05:  3.84, 0.025:  5.02, 0.01:  6.63, 0.005:  7.88 },
+        2: { 0.995:  0.01, 0.99:  0.02, 0.975:  0.05, 0.95:  0.10, 0.9:  0.21, 0.5:  1.39, 0.1:  4.61, 0.05:  5.99, 0.025:  7.38, 0.01:  9.21, 0.005: 10.60 },
+        3: { 0.995:  0.07, 0.99:  0.11, 0.975:  0.22, 0.95:  0.35, 0.9:  0.58, 0.5:  2.37, 0.1:  6.25, 0.05:  7.81, 0.025:  9.35, 0.01: 11.34, 0.005: 12.84 },
+        4: { 0.995:  0.21, 0.99:  0.30, 0.975:  0.48, 0.95:  0.71, 0.9:  1.06, 0.5:  3.36, 0.1:  7.78, 0.05:  9.49, 0.025: 11.14, 0.01: 13.28, 0.005: 14.86 },
+        5: { 0.995:  0.41, 0.99:  0.55, 0.975:  0.83, 0.95:  1.15, 0.9:  1.61, 0.5:  4.35, 0.1:  9.24, 0.05: 11.07, 0.025: 12.83, 0.01: 15.09, 0.005: 16.75 },
+        6: { 0.995:  0.68, 0.99:  0.87, 0.975:  1.24, 0.95:  1.64, 0.9:  2.20, 0.5:  5.35, 0.1: 10.65, 0.05: 12.59, 0.025: 14.45, 0.01: 16.81, 0.005: 18.55 },
+        7: { 0.995:  0.99, 0.99:  1.25, 0.975:  1.69, 0.95:  2.17, 0.9:  2.83, 0.5:  6.35, 0.1: 12.02, 0.05: 14.07, 0.025: 16.01, 0.01: 18.48, 0.005: 20.28 },
+        8: { 0.995:  1.34, 0.99:  1.65, 0.975:  2.18, 0.95:  2.73, 0.9:  3.49, 0.5:  7.34, 0.1: 13.36, 0.05: 15.51, 0.025: 17.53, 0.01: 20.09, 0.005: 21.96 },
+        9: { 0.995:  1.73, 0.99:  2.09, 0.975:  2.70, 0.95:  3.33, 0.9:  4.17, 0.5:  8.34, 0.1: 14.68, 0.05: 16.92, 0.025: 19.02, 0.01: 21.67, 0.005: 23.59 },
+        10: { 0.995:  2.16, 0.99:  2.56, 0.975:  3.25, 0.95:  3.94, 0.9:  4.87, 0.5:  9.34, 0.1: 15.99, 0.05: 18.31, 0.025: 20.48, 0.01: 23.21, 0.005: 25.19 },
+        11: { 0.995:  2.60, 0.99:  3.05, 0.975:  3.82, 0.95:  4.57, 0.9:  5.58, 0.5: 10.34, 0.1: 17.28, 0.05: 19.68, 0.025: 21.92, 0.01: 24.72, 0.005: 26.76 },
+        12: { 0.995:  3.07, 0.99:  3.57, 0.975:  4.40, 0.95:  5.23, 0.9:  6.30, 0.5: 11.34, 0.1: 18.55, 0.05: 21.03, 0.025: 23.34, 0.01: 26.22, 0.005: 28.30 },
+        13: { 0.995:  3.57, 0.99:  4.11, 0.975:  5.01, 0.95:  5.89, 0.9:  7.04, 0.5: 12.34, 0.1: 19.81, 0.05: 22.36, 0.025: 24.74, 0.01: 27.69, 0.005: 29.82 },
+        14: { 0.995:  4.07, 0.99:  4.66, 0.975:  5.63, 0.95:  6.57, 0.9:  7.79, 0.5: 13.34, 0.1: 21.06, 0.05: 23.68, 0.025: 26.12, 0.01: 29.14, 0.005: 31.32 },
+        15: { 0.995:  4.60, 0.99:  5.23, 0.975:  6.27, 0.95:  7.26, 0.9:  8.55, 0.5: 14.34, 0.1: 22.31, 0.05: 25.00, 0.025: 27.49, 0.01: 30.58, 0.005: 32.80 },
+        16: { 0.995:  5.14, 0.99:  5.81, 0.975:  6.91, 0.95:  7.96, 0.9:  9.31, 0.5: 15.34, 0.1: 23.54, 0.05: 26.30, 0.025: 28.85, 0.01: 32.00, 0.005: 34.27 },
+        17: { 0.995:  5.70, 0.99:  6.41, 0.975:  7.56, 0.95:  8.67, 0.9: 10.09, 0.5: 16.34, 0.1: 24.77, 0.05: 27.59, 0.025: 30.19, 0.01: 33.41, 0.005: 35.72 },
+        18: { 0.995:  6.26, 0.99:  7.01, 0.975:  8.23, 0.95:  9.39, 0.9: 10.87, 0.5: 17.34, 0.1: 25.99, 0.05: 28.87, 0.025: 31.53, 0.01: 34.81, 0.005: 37.16 },
+        19: { 0.995:  6.84, 0.99:  7.63, 0.975:  8.91, 0.95: 10.12, 0.9: 11.65, 0.5: 18.34, 0.1: 27.20, 0.05: 30.14, 0.025: 32.85, 0.01: 36.19, 0.005: 38.58 },
+        20: { 0.995:  7.43, 0.99:  8.26, 0.975:  9.59, 0.95: 10.85, 0.9: 12.44, 0.5: 19.34, 0.1: 28.41, 0.05: 31.41, 0.025: 34.17, 0.01: 37.57, 0.005: 40.00 },
+        21: { 0.995:  8.03, 0.99:  8.90, 0.975: 10.28, 0.95: 11.59, 0.9: 13.24, 0.5: 20.34, 0.1: 29.62, 0.05: 32.67, 0.025: 35.48, 0.01: 38.93, 0.005: 41.40 },
+        22: { 0.995:  8.64, 0.99:  9.54, 0.975: 10.98, 0.95: 12.34, 0.9: 14.04, 0.5: 21.34, 0.1: 30.81, 0.05: 33.92, 0.025: 36.78, 0.01: 40.29, 0.005: 42.80 },
+        23: { 0.995:  9.26, 0.99: 10.20, 0.975: 11.69, 0.95: 13.09, 0.9: 14.85, 0.5: 22.34, 0.1: 32.01, 0.05: 35.17, 0.025: 38.08, 0.01: 41.64, 0.005: 44.18 },
+        24: { 0.995:  9.89, 0.99: 10.86, 0.975: 12.40, 0.95: 13.85, 0.9: 15.66, 0.5: 23.34, 0.1: 33.20, 0.05: 36.42, 0.025: 39.36, 0.01: 42.98, 0.005: 45.56 },
+        25: { 0.995: 10.52, 0.99: 11.52, 0.975: 13.12, 0.95: 14.61, 0.9: 16.47, 0.5: 24.34, 0.1: 34.28, 0.05: 37.65, 0.025: 40.65, 0.01: 44.31, 0.005: 46.93 },
+        26: { 0.995: 11.16, 0.99: 12.20, 0.975: 13.84, 0.95: 15.38, 0.9: 17.29, 0.5: 25.34, 0.1: 35.56, 0.05: 38.89, 0.025: 41.92, 0.01: 45.64, 0.005: 48.29 },
+        27: { 0.995: 11.81, 0.99: 12.88, 0.975: 14.57, 0.95: 16.15, 0.9: 18.11, 0.5: 26.34, 0.1: 36.74, 0.05: 40.11, 0.025: 43.19, 0.01: 46.96, 0.005: 49.65 },
+        28: { 0.995: 12.46, 0.99: 13.57, 0.975: 15.31, 0.95: 16.93, 0.9: 18.94, 0.5: 27.34, 0.1: 37.92, 0.05: 41.34, 0.025: 44.46, 0.01: 48.28, 0.005: 50.99 },
+        29: { 0.995: 13.12, 0.99: 14.26, 0.975: 16.05, 0.95: 17.71, 0.9: 19.77, 0.5: 28.34, 0.1: 39.09, 0.05: 42.56, 0.025: 45.72, 0.01: 49.59, 0.005: 52.34 },
+        30: { 0.995: 13.79, 0.99: 14.95, 0.975: 16.79, 0.95: 18.49, 0.9: 20.60, 0.5: 29.34, 0.1: 40.26, 0.05: 43.77, 0.025: 46.98, 0.01: 50.89, 0.005: 53.67 },
+        40: { 0.995: 20.71, 0.99: 22.16, 0.975: 24.43, 0.95: 26.51, 0.9: 29.05, 0.5: 39.34, 0.1: 51.81, 0.05: 55.76, 0.025: 59.34, 0.01: 63.69, 0.005: 66.77 },
+        50: { 0.995: 27.99, 0.99: 29.71, 0.975: 32.36, 0.95: 34.76, 0.9: 37.69, 0.5: 49.33, 0.1: 63.17, 0.05: 67.50, 0.025: 71.42, 0.01: 76.15, 0.005: 79.49 },
+        60: { 0.995: 35.53, 0.99: 37.48, 0.975: 40.48, 0.95: 43.19, 0.9: 46.46, 0.5: 59.33, 0.1: 74.40, 0.05: 79.08, 0.025: 83.30, 0.01: 88.38, 0.005: 91.95 },
+        70: { 0.995: 43.28, 0.99: 45.44, 0.975: 48.76, 0.95: 51.74, 0.9: 55.33, 0.5: 69.33, 0.1: 85.53, 0.05: 90.53, 0.025: 95.02, 0.01: 100.42, 0.005: 104.22 },
+        80: { 0.995: 51.17, 0.99: 53.54, 0.975: 57.15, 0.95: 60.39, 0.9: 64.28, 0.5: 79.33, 0.1: 96.58, 0.05: 101.88, 0.025: 106.63, 0.01: 112.33, 0.005: 116.32 },
+        90: { 0.995: 59.20, 0.99: 61.75, 0.975: 65.65, 0.95: 69.13, 0.9: 73.29, 0.5: 89.33, 0.1: 107.57, 0.05: 113.14, 0.025: 118.14, 0.01: 124.12, 0.005: 128.30 },
+        100: { 0.995: 67.33, 0.99: 70.06, 0.975: 74.22, 0.95: 77.93, 0.9: 82.36, 0.5: 99.33, 0.1: 118.50, 0.05: 124.34, 0.025: 129.56, 0.01: 135.81, 0.005: 140.17 }
+    };
+
+    // # χ2 (Chi-Squared) Goodness-of-Fit Test
+    //
+    // The [χ2 (Chi-Squared) Goodness-of-Fit Test](http://en.wikipedia.org/wiki/Goodness_of_fit#Pearson.27s_chi-squared_test)
+    // uses a measure of goodness of fit which is the sum of differences between observed and expected outcome frequencies
+    // (that is, counts of observations), each squared and divided by the number of observations expected given the
+    // hypothesized distribution. The resulting χ2 statistic, `chi_squared`, can be compared to the chi-squared distribution
+    // to determine the goodness of fit. In order to determine the degrees of freedom of the chi-squared distribution, one
+    // takes the total number of observed frequencies and subtracts the number of estimated parameters. The test statistic
+    // follows, approximately, a chi-square distribution with (k − c) degrees of freedom where `k` is the number of non-empty
+    // cells and `c` is the number of estimated parameters for the distribution.
+    function chi_squared_goodness_of_fit(data, distribution_type, significance) {
+        // Estimate from the sample data, a weighted mean.
+        var input_mean = mean(data),
+            // Calculated value of the χ2 statistic.
+            chi_squared = 0,
+            // Degrees of freedom, calculated as (number of class intervals -
+            // number of hypothesized distribution parameters estimated - 1)
+            degrees_of_freedom,
+            // Number of hypothesized distribution parameters estimated, expected to be supplied in the distribution test.
+            // Lose one degree of freedom for estimating `lambda` from the sample data.
+            c = 1,
+            // The hypothesized distribution.
+            // Generate the hypothesized distribution.
+            hypothesized_distribution = distribution_type(input_mean),
+            observed_frequencies = [],
+            expected_frequencies = [],
+            k;
+
+        // Create an array holding a histogram from the sample data, of
+        // the form `{ value: numberOfOcurrences }`
+        for (var i = 0; i < data.length; i++) {
+            if (observed_frequencies[data[i]] === undefined) {
+                observed_frequencies[data[i]] = 0;
+            }
+            observed_frequencies[data[i]]++;
+        }
+
+        // The histogram we created might be sparse - there might be gaps
+        // between values. So we iterate through the histogram, making
+        // sure that instead of undefined, gaps have 0 values.
+        for (i = 0; i < observed_frequencies.length; i++) {
+            if (observed_frequencies[i] === undefined) {
+                observed_frequencies[i] = 0;
+            }
+        }
+
+        // Create an array holding a histogram of expected data given the
+        // sample size and hypothesized distribution.
+        for (k in hypothesized_distribution) {
+            if (k in observed_frequencies) {
+                expected_frequencies[k] = hypothesized_distribution[k] * data.length;
+            }
+        }
+
+        // Working backward through the expected frequencies, collapse classes
+        // if less than three observations are expected for a class.
+        // This transformation is applied to the observed frequencies as well.
+        for (k = expected_frequencies.length - 1; k >= 0; k--) {
+            if (expected_frequencies[k] < 3) {
+                expected_frequencies[k - 1] += expected_frequencies[k];
+                expected_frequencies.pop();
+
+                observed_frequencies[k - 1] += observed_frequencies[k];
+                observed_frequencies.pop();
+            }
+        }
+
+        // Iterate through the squared differences between observed & expected
+        // frequencies, accumulating the `chi_squared` statistic.
+        for (k = 0; k < observed_frequencies.length; k++) {
+            chi_squared += Math.pow(
+                observed_frequencies[k] - expected_frequencies[k], 2) /
+                expected_frequencies[k];
+        }
+
+        // Calculate degrees of freedom for this test and look it up in the
+        // `chi_squared_distribution_table` in order to
+        // accept or reject the goodness-of-fit of the hypothesized distribution.
+        degrees_of_freedom = observed_frequencies.length - c - 1;
+        return chi_squared_distribution_table[degrees_of_freedom][significance] < chi_squared;
+    }
+
+    // # Mixin
+    //
+    // Mixin simple_statistics to a single Array instance if provided
+    // or the Array native object if not. This is an optional
+    // feature that lets you treat simple_statistics as a native feature
+    // of Javascript.
+    function mixin(array) {
+        var support = !!(Object.defineProperty && Object.defineProperties);
+        if (!support) throw new Error('without defineProperty, simple-statistics cannot be mixed in');
+
+        // only methods which work on basic arrays in a single step
+        // are supported
+        var arrayMethods = ['median', 'standard_deviation', 'sum',
+            'sample_skewness',
+            'mean', 'min', 'max', 'quantile', 'geometric_mean',
+            'harmonic_mean', 'root_mean_square'];
+
+        // create a closure with a method name so that a reference
+        // like `arrayMethods[i]` doesn't follow the loop increment
+        function wrap(method) {
+            return function() {
+                // cast any arguments into an array, since they're
+                // natively objects
+                var args = Array.prototype.slice.apply(arguments);
+                // make the first argument the array itself
+                args.unshift(this);
+                // return the result of the ss method
+                return ss[method].apply(ss, args);
+            };
+        }
+
+        // select object to extend
+        var extending;
+        if (array) {
+            // create a shallow copy of the array so that our internal
+            // operations do not change it by reference
+            extending = array.slice();
+        } else {
+            extending = Array.prototype;
+        }
+
+        // for each array function, define a function that gets
+        // the array as the first argument.
+        // We use [defineProperty](https://developer.mozilla.org/en-US/docs/JavaScript/Reference/Global_Objects/Object/defineProperty)
+        // because it allows these properties to be non-enumerable:
+        // `for (var in x)` loops will not run into problems with this
+        // implementation.
+        for (var i = 0; i < arrayMethods.length; i++) {
+            Object.defineProperty(extending, arrayMethods[i], {
+                value: wrap(arrayMethods[i]),
+                configurable: true,
+                enumerable: false,
+                writable: true
+            });
+        }
+
+        return extending;
+    }
+
+    ss.linear_regression = linear_regression;
+    ss.standard_deviation = standard_deviation;
+    ss.r_squared = r_squared;
+    ss.median = median;
+    ss.mean = mean;
+    ss.mode = mode;
+    ss.min = min;
+    ss.max = max;
+    ss.sum = sum;
+    ss.quantile = quantile;
+    ss.quantile_sorted = quantile_sorted;
+    ss.iqr = iqr;
+    ss.mad = mad;
+
+    ss.chunk = chunk;
+    ss.shuffle = shuffle;
+    ss.shuffle_in_place = shuffle_in_place;
+
+    ss.sample = sample;
+
+    ss.sample_covariance = sample_covariance;
+    ss.sample_correlation = sample_correlation;
+    ss.sample_variance = sample_variance;
+    ss.sample_standard_deviation = sample_standard_deviation;
+    ss.sample_skewness = sample_skewness;
+
+    ss.geometric_mean = geometric_mean;
+    ss.harmonic_mean = harmonic_mean;
+    ss.root_mean_square = root_mean_square;
+    ss.variance = variance;
+    ss.t_test = t_test;
+    ss.t_test_two_sample = t_test_two_sample;
+
+    // jenks
+    ss.jenksMatrices = jenksMatrices;
+    ss.jenksBreaks = jenksBreaks;
+    ss.jenks = jenks;
+
+    ss.bayesian = bayesian;
+
+    // Distribution-related methods
+    ss.epsilon = epsilon; // We make ε available to the test suite.
+    ss.factorial = factorial;
+    ss.bernoulli_distribution = bernoulli_distribution;
+    ss.binomial_distribution = binomial_distribution;
+    ss.poisson_distribution = poisson_distribution;
+    ss.chi_squared_goodness_of_fit = chi_squared_goodness_of_fit;
+
+    // Normal distribution
+    ss.z_score = z_score;
+    ss.cumulative_std_normal_probability = cumulative_std_normal_probability;
+    ss.standard_normal_table = standard_normal_table;
+    ss.error_function = error_function;
+
+    // Alias this into its common name
+    ss.average = mean;
+    ss.interquartile_range = iqr;
+    ss.mixin = mixin;
+    ss.median_absolute_deviation = mad;
+    ss.rms = root_mean_square;
+    ss.erf = error_function;
+
+})(this);
+
+},{}],195:[function(require,module,exports){
 var simplify = require('simplify-js');
 
 /**
@@ -25904,7 +28553,7 @@ function simpleFeature (geom, properties) {
   };
 }
 
-},{"simplify-js":178}],178:[function(require,module,exports){
+},{"simplify-js":196}],196:[function(require,module,exports){
 /*
  (c) 2013, Vladimir Agafonkin
  Simplify.js, a high-performance JS polyline simplification library
@@ -26037,11 +28686,12 @@ else window.simplify = simplify;
 
 })();
 
-},{}],179:[function(require,module,exports){
+},{}],197:[function(require,module,exports){
 var React = require('react')
   , palette = require('./palette')
   , readFile = require('./lib/readfile')
   , hexagon = require('./hexagon.js')
+  , defaultLayer = require('./lib/DefaultLayer')
 
 var buttonStyle = {
   width: '30px',
@@ -26053,11 +28703,6 @@ var buttonStyle = {
   backgroundColor: palette.dark
 }
 
-var test_layer = {
-  enabled: true,
-  selected: false
-}
-
 var AddLayerButton = React.createClass({displayName: "AddLayerButton",
   onClick: function(e) {
     var form = React.findDOMNode(this.refs.addFile)
@@ -26067,16 +28712,14 @@ var AddLayerButton = React.createClass({displayName: "AddLayerButton",
     var self = this
     var form = React.findDOMNode(this.refs.addFile)
     var files = form.files
-    console.log(files[0])
     if (!(files && files[0])) return;
     readFile.readAsText(files[0], function(err, text) {
       readFile.readFile(files[0], text, function(err, gj, warning) {
         if (gj && gj.features) {
-          var newLayer = JSON.parse(JSON.stringify(test_layer))
+          var newLayer = defaultLayer.generate()
           newLayer.geojson = gj
           newLayer.name = files[0].name.split('.')[0]
           newLayer.id = Math.random().toString(36).slice(2)
-          console.log(newLayer)
           self.props.addLayer(newLayer)
         }
       })
@@ -26086,7 +28729,7 @@ var AddLayerButton = React.createClass({displayName: "AddLayerButton",
     var style = { display: 'none'}
     return (
       React.createElement("div", null, 
-        React.createElement("div", {className: "add-layer-item", style: buttonStyle, onClick: this.onClick}, "+"), 
+        React.createElement("div", {className: "add-layer-item ugis-btn", style: buttonStyle, onClick: this.onClick}, "+"), 
         React.createElement("input", {ref: "addFile", type: "file", name: "addFile", style: style, onChange: this.onChange})
       )
     )
@@ -26094,12 +28737,9 @@ var AddLayerButton = React.createClass({displayName: "AddLayerButton",
 })
 
 var RemoveLayerButton = React.createClass({displayName: "RemoveLayerButton",
-  onClick: function() {
-    this.props.removeLayer(test_layer)
-  },
   render: function() {
     return (
-      React.createElement("div", {className: "add-layer-item", style: buttonStyle, onClick: this.onClick}, 
+      React.createElement("div", {className: "add-layer-item", style: buttonStyle, onClick: this.props.removeLayers}, 
         "-"
       )
     )
@@ -26115,14 +28755,14 @@ var AddLayers = React.createClass({displayName: "AddLayers",
     return (
       React.createElement("div", {className: "add-layers", style: style}, 
         React.createElement(AddLayerButton, {addLayer: this.props.addLayer}), 
-        React.createElement(RemoveLayerButton, {removeLayer: this.props.removeLayer})
+        React.createElement(RemoveLayerButton, {removeLayers: this.props.removeLayers})
       )
     )
   }
 })
 
 module.exports = AddLayers
-},{"./hexagon.js":184,"./lib/readfile":186,"./palette":187,"react":167}],180:[function(require,module,exports){
+},{"./hexagon.js":202,"./lib/DefaultLayer":204,"./lib/readfile":206,"./palette":207,"react":168}],198:[function(require,module,exports){
 var React = require('react')
   , Toolbar = require('./Toolbar.jsx')
   , AddLayers = require('./AddLayers.jsx')
@@ -26131,6 +28771,7 @@ var React = require('react')
   , palette = require('./palette')
   , turfbuffer = require('turf-buffer')
   , turfsimplify = require('turf-simplify')
+  , vectorTools = require('./lib/VectorTools')
 
 var appStyle = {
   backgroundColor: palette.darkest
@@ -26148,6 +28789,7 @@ var App = React.createClass({displayName: "App",
     }
   },
   componentDidMount: function() {
+    vectorTools.updateLayers = this.updateLayers
   },
   findLayer: function(layer) {
     var layers = this.state.layers
@@ -26175,11 +28817,13 @@ var App = React.createClass({displayName: "App",
     layers.push(layer)
     this.setState({layers: layers})
   },
-  removeLayer: function(layer) {
+  removeLayers: function() {
     var layers = this.state.layers
     for (var i = 0; i < layers.length; i++) {
       if (layers[i].selected) {
-         layers.splice(i, 1)
+        layers[i].mapLayer.clearLayers()
+        layers[i].mapLayer = null
+        layers.splice(i, 1)
       }
     }
     this.setState({layers: layers})
@@ -26200,63 +28844,30 @@ var App = React.createClass({displayName: "App",
       this.setState({layers: layers})
     }
   },
-  simplify: function () {
-    var layers = this.state.layers
-    var tolerance = .1
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i]
-      if (layer.enabled && layer.selected) {
-        if (layer.geojson.type === 'FeatureCollection') {
-          for (var j = 0; j < layer.geojson.features.length; j++) {
-            layer.geojson.features[j] = turfsimplify(layer.geojson.features[j], tolerance, false)
-          }
-        } else if (layer.geojson.type === 'Feature') {
-          layer.geojson = turfsimplify(layer.geojson, tolerance, false)
-        }
-        if (layer.mapLayer) {
-          layer.mapLayer.clearLayers()
-          layer.mapLayer.addData(layer.geojson)
-        }
-      }
-    }
-    this.setState({layers: layers})
-  },
-  buffer: function () {
-    var layers = this.state.layers
-    var tolerance = .1
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i]
-      if (layer.enabled && layer.selected) {
-        if (layer.geojson.type === 'FeatureCollection') {
-          for (var j = 0; j < layer.geojson.features.length; j++) {
-            layer.geojson.features[j] = turfbuffer(layer.geojson.features[j], tolerance, false)
-          }
-        } else if (layer.geojson.type === 'Feature') {
-          layer.geojson = turfbuffer(layer.geojson, tolerance, false)
-        }
-        if (layer.mapLayer) {
-          layer.mapLayer.clearLayers()
-          layer.mapLayer.addData(layer.geojson)
-        }
-      }
-    }
-    this.setState({layers: layers})
-  },
   render: function() {
     console.log('render App')
+    vectorTools.setLayers(this.state.layers)
     return (
       React.createElement("div", {className: "app", style: appStyle}, 
         React.createElement("div", {className: "header", style: headerStyle}, 
           React.createElement("h1", null, "uGIS")
         ), 
         React.createElement(Toolbar, {
-          simplify: this.simplify, 
-          buffer: this.buffer}
+          selectAll: vectorTools.selectAll.bind(vectorTools), 
+          deselectAll: vectorTools.deselectAll.bind(vectorTools), 
+          deleteFeature: vectorTools.deleteFeature.bind(vectorTools), 
+          saveAs: vectorTools.saveAs.bind(vectorTools), 
+          simplify: vectorTools.simplify.bind(vectorTools), 
+          buffer: vectorTools.buffer.bind(vectorTools), 
+          flip: vectorTools.flip.bind(vectorTools), 
+          explode: vectorTools.explode.bind(vectorTools), 
+          hexgrid: vectorTools.createHexGrid.bind(vectorTools), 
+          quantile: vectorTools.quantile.bind(vectorTools)}
         ), 
         React.createElement("div", {className: "flex-row"}, 
           React.createElement(AddLayers, {
             addLayer: this.addLayer, 
-            removeLayer: this.removeLayer}
+            removeLayers: this.removeLayers}
           ), 
           React.createElement(LayerList, {
             layers: this.state.layers, 
@@ -26274,7 +28885,7 @@ var App = React.createClass({displayName: "App",
 })
 
 module.exports = App
-},{"./AddLayers.jsx":179,"./LayerList.jsx":181,"./Toolbar.jsx":182,"./WorkSpace.jsx":183,"./palette":187,"react":167,"turf-buffer":170,"turf-simplify":177}],181:[function(require,module,exports){
+},{"./AddLayers.jsx":197,"./LayerList.jsx":199,"./Toolbar.jsx":200,"./WorkSpace.jsx":201,"./lib/VectorTools":205,"./palette":207,"react":168,"turf-buffer":171,"turf-simplify":195}],199:[function(require,module,exports){
 var React = require('react')
   , palette = require('./palette')
 
@@ -26284,9 +28895,11 @@ var layerStyle = {
 }
 
 var Layer = React.createClass({displayName: "Layer",
-  onClick: function() {
-    this.props.layer.selected = !this.props.layer.selected
-    this.props.onSelect(this.props.layer)
+  onClick: function(e) {
+    if (e.target.tagName === 'DIV' || e.target.tagName === 'SPAN') {
+      this.props.layer.selected = !this.props.layer.selected
+      this.props.onSelect(this.props.layer)
+    }
   },
   onChange: function(e) {
     this.props.layer.enabled = !this.props.layer.enabled
@@ -26295,9 +28908,9 @@ var Layer = React.createClass({displayName: "Layer",
   render: function() {
     layerStyle.backgroundColor = this.props.layer.selected ? palette.lightest : palette.dark
     return (
-      React.createElement("div", {className: "layer", style: layerStyle}, 
+      React.createElement("div", {className: "layer ugis-btn", style: layerStyle, onClick: this.onClick}, 
       React.createElement("input", {type: "checkbox", ref: "checkbox", checked: this.props.layer.enabled, onChange: this.onChange}), 
-      React.createElement("span", {className: "layer-name", onClick: this.onClick}, this.props.layer.name)
+      React.createElement("span", {className: "layer-name"}, this.props.layer.name)
       )
     )
   }
@@ -26322,15 +28935,15 @@ var LayerList = React.createClass({displayName: "LayerList",
 })
 
 module.exports = LayerList
-},{"./palette":187,"react":167}],182:[function(require,module,exports){
+},{"./palette":207,"react":168}],200:[function(require,module,exports){
 var React = require('react')
   , palette = require('./palette')
 
 var itemStyle = {
-  width: '30px',
   height: '30px',
   border: '1px solid #ddd',
   margin: '8px 0 0 9px',
+  padding: '0 5px',
   textAlign: 'center',
   lineHeight: '30px',
   float: 'left',
@@ -26341,9 +28954,41 @@ var itemStyle = {
 var ToolbarItem = React.createClass({displayName: "ToolbarItem",
   render: function() {
     return (
-      React.createElement("div", {className: "toolbar-item", style: itemStyle, onClick: this.props.onClick}, 
+      React.createElement("div", {className: "toolbar-item ugis-btn", style: itemStyle, onClick: this.props.onClick}, 
         this.props.text
       )
+    )
+  }
+})
+
+var SelectAll = React.createClass({displayName: "SelectAll",
+  render: function() {
+    return (
+      React.createElement(ToolbarItem, {text: 'Select All', onClick: this.props.onClick})
+    )
+  }
+})
+
+var DeselectAll = React.createClass({displayName: "DeselectAll",
+  render: function() {
+    return (
+      React.createElement(ToolbarItem, {text: 'Deselect All', onClick: this.props.onClick})
+    )
+  }
+})
+
+var Delete = React.createClass({displayName: "Delete",
+  render: function() {
+    return (
+      React.createElement(ToolbarItem, {text: 'Delete', onClick: this.props.onClick})
+    )
+  }
+})
+
+var SaveAs = React.createClass({displayName: "SaveAs",
+  render: function() {
+    return (
+      React.createElement(ToolbarItem, {text: 'Save', onClick: this.props.onClick})
     )
   }
 })
@@ -26351,7 +28996,7 @@ var ToolbarItem = React.createClass({displayName: "ToolbarItem",
 var Simplify = React.createClass({displayName: "Simplify",
   render: function() {
     return (
-      React.createElement(ToolbarItem, {text: 'S', onClick: this.props.onClick})
+      React.createElement(ToolbarItem, {text: 'Simplify', onClick: this.props.onClick})
     )
   }
 })
@@ -26359,7 +29004,47 @@ var Simplify = React.createClass({displayName: "Simplify",
 var Buffer = React.createClass({displayName: "Buffer",
   render: function() {
     return (
-      React.createElement(ToolbarItem, {text: 'B', onClick: this.props.onClick})
+      React.createElement(ToolbarItem, {text: 'Buffer', onClick: this.props.onClick})
+    )
+  }
+})
+
+var Flip = React.createClass({displayName: "Flip",
+  render: function() {
+    return (
+      React.createElement(ToolbarItem, {text: 'Flip', onClick: this.props.onClick})
+    )
+  }
+})
+
+var Kinks = React.createClass({displayName: "Kinks",
+  render: function() {
+    return (
+      React.createElement(ToolbarItem, {text: 'Kinks', onClick: this.props.onClick})
+    )
+  }
+})
+
+var Explode = React.createClass({displayName: "Explode",
+  render: function() {
+    return (
+      React.createElement(ToolbarItem, {text: 'Explode', onClick: this.props.onClick})
+    )
+  }
+})
+
+var HexGrid = React.createClass({displayName: "HexGrid",
+  render: function() {
+    return (
+      React.createElement(ToolbarItem, {text: 'Hex Grid', onClick: this.props.onClick})
+    )
+  }
+})
+
+var Quantile = React.createClass({displayName: "Quantile",
+  render: function() {
+    return (
+      React.createElement(ToolbarItem, {text: 'Quantile', onClick: this.props.onClick})
     )
   }
 })
@@ -26372,15 +29057,23 @@ var Toolbar = React.createClass({displayName: "Toolbar",
   render: function() {
     return (
       React.createElement("div", {className: "toolbar", style: toolBarStyle}, 
+        React.createElement(SelectAll, {onClick: this.props.selectAll}), 
+        React.createElement(DeselectAll, {onClick: this.props.deselectAll}), 
+        React.createElement(SaveAs, {onClick: this.props.saveAs}), 
+        React.createElement(Delete, {onClick: this.props.deleteFeature}), 
         React.createElement(Simplify, {onClick: this.props.simplify}), 
-        React.createElement(Buffer, {onClick: this.props.buffer})
+        React.createElement(Buffer, {onClick: this.props.buffer}), 
+        React.createElement(Flip, {onClick: this.props.flip}), 
+        React.createElement(Explode, {onClick: this.props.explode}), 
+        React.createElement(HexGrid, {onClick: this.props.hexgrid})
+        /*<Quantile onClick={this.props.quantile}/>*/
       )
     )
   }
 })
 
 module.exports = Toolbar
-},{"./palette":187,"react":167}],183:[function(require,module,exports){
+},{"./palette":207,"react":168}],201:[function(require,module,exports){
 var React = require('react')
 
 var selectedStyle = {
@@ -26389,6 +29082,14 @@ var selectedStyle = {
 
 var unselectedStyle = {
   color: '#00f'
+}
+
+var pointStyle = {
+  radius: 2,
+  color: "#000",
+  weight: 1,
+  opacity: 1,
+  fillOpacity: 0.8
 }
 
 var WorkSpace = React.createClass({displayName: "WorkSpace",
@@ -26401,39 +29102,57 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       attributionControl: false,
       zoomControl: false
     }).setView([38, -76], 5)
-    //L.tileLayer('http://{s}.tiles.mapbox.com/v3/esrgc.map-y9awf40v/{z}/{x}/{y}.png').addTo(this.map)
+    L.tileLayer('http://{s}.tiles.mapbox.com/v3/esrgc.map-y9awf40v/{z}/{x}/{y}.png').addTo(this.map)
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
   },
-  layerOnClick: function(layer, e) {
-    layer.selected = !layer.selected
-    console.log(layer.selected)
-    this.props.updateLayer(layer)
+  featureOnClick: function(layer, feature, mapLayer) {
+    if (layer.selected) {
+      if (!feature.selected) {
+        feature.selected = true
+      } else {
+        feature.selected = false
+      }
+      if (feature.selected) {
+        mapLayer.setStyle(selectedStyle)
+      } else {
+        mapLayer.setStyle(unselectedStyle)
+      }
+    }
   },
   addLayers: function(layer) {
     var self = this
-    if (this.workingLayers) this.workingLayers.clearLayers()
+    var isNewLayer = false
     this.props.layers.forEach(function(layer) {
       if (!layer.mapLayer) {
-        layer.mapLayer = L.geoJson(layer.geojson)
-        layer.mapLayer.on('click', self.layerOnClick.bind(self, layer))
+        layer.mapLayer = L.geoJson(layer.geojson, {
+          pointToLayer: function(feature, latlng) {
+            return L.circleMarker(latlng, pointStyle)
+          },
+          style: function(feature) {
+            if (feature.selected) {
+              return selectedStyle
+            } else {
+              return unselectedStyle
+            }
+          },
+          onEachFeature: function (layer, feature, mapLayer) {
+            mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
+          }.bind(self, layer)
+        })
       }
       if (layer.enabled) {
-        if (layer.selected) {
-          layer.mapLayer.setStyle(selectedStyle)
-        } else {
-          layer.mapLayer.setStyle(unselectedStyle)
-        }
-        if(!self.map.hasLayer(layer.mapLayer)) {
+        if(!self.workingLayers.hasLayer(layer.mapLayer)) {
           self.workingLayers.addLayer(layer.mapLayer)
+          isNewLayer = true
         }
       } else {
-        if(self.map.hasLayer(layer.mapLayer)) {
+        if(self.workingLayers.hasLayer(layer.mapLayer)) {
           self.workingLayers.removeLayer(layer.mapLayer)
         }
       }
     })
-    if (this.props.layers.length) {
+    if (this.props.layers.length && isNewLayer) {
       this.map.fitBounds(this.workingLayers.getBounds())
     }
   },
@@ -26447,7 +29166,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
 })
 
 module.exports = WorkSpace
-},{"react":167}],184:[function(require,module,exports){
+},{"react":168}],202:[function(require,module,exports){
 module.exports = {
   "type": "FeatureCollection",
   "features": [
@@ -26776,7 +29495,7 @@ module.exports = {
     }
   ]
 }
-},{}],185:[function(require,module,exports){
+},{}],203:[function(require,module,exports){
 var React = require('react')
   , App = require('./App.jsx')
 
@@ -26784,7 +29503,200 @@ React.render(
   React.createElement(App, null),
   document.getElementById('ugis')
 )
-},{"./App.jsx":180,"react":167}],186:[function(require,module,exports){
+},{"./App.jsx":198,"react":168}],204:[function(require,module,exports){
+var defaultLayer = {
+  name: 'Default',
+  //checkbox
+  enabled: true,
+  //layer selected in layer list
+  selected: true
+}
+
+
+function DefaultLayer() {
+
+}
+
+DefaultLayer.prototype = {
+  generate: function() {
+    return JSON.parse(JSON.stringify(defaultLayer))
+  }
+}
+
+module.exports = new DefaultLayer()
+},{}],205:[function(require,module,exports){
+var turfbuffer = require('turf-buffer')
+  , turfsimplify = require('turf-simplify')
+  , turfflip= require('turf-flip')
+  , turfkinks= require('turf-kinks')
+  , turfexplode= require('turf-explode')
+  , turfhexgrid= require('turf-hex-grid')
+  , turfquantile= require('turf-quantile')
+  , fileSaver = require('filesaver.js')
+  , defaultLayer = require('./DefaultLayer')
+
+function VectorTools () {
+  this.layers = {}
+}
+
+VectorTools.prototype = {
+  setLayers: function(layers) {
+    this.layers = layers
+  },
+  //force = force update even if feature is not selected
+  editFeatures: function(layers, force, fn) {
+    for (var i = 0; i < layers.length; i++) {
+      var layer = layers[i]
+      if (layer.enabled) {
+        if (layer.geojson.type === 'FeatureCollection') {
+          var newFeatures = []
+          for (var j = 0; j < layer.geojson.features.length; j++) {
+            var newgj = fn(layer.geojson.features[j], layer)
+            if (newgj) {
+              if (newgj.type === 'FeatureCollection') {
+                newFeatures = newFeatures.concat(newgj.features)
+              } else {
+                newFeatures.push(newgj)
+              }
+            }
+          }
+          layer.geojson.features = newFeatures
+        } else if (layer.geojson.type === 'Feature') {
+          layer.geojson = fn(layer.geojson, layer)
+        }
+        if (layer.mapLayer) {
+          layer.mapLayer.clearLayers()
+          if (layer.geojson) layer.mapLayer.addData(layer.geojson)
+        }
+      }
+    }
+    return layers
+  },
+  getTolerance: function(next) {
+    vex.dialog.open({
+      message: 'Select tolerance.',
+      input: "<style>\n    .vex-custom-field-wrapper {\n        margin: 1em 0;\n    }\n    .vex-custom-field-wrapper > label {\n        display: inline-block;\n        margin-bottom: .2em;\n    }\n</style>\n<div class=\"vex-custom-field-wrapper\">\n    <div class=\"vex-custom-input-wrapper\">\n        <input name=\"tolerance\" type=\"text\" value=\"0.1\" />\n    </div>\n</div>\n</div>",
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        //TODO make sure tolerance is 0 - 1
+        var err = false
+        console.log(data)
+        next(err, +data.tolerance)
+      }
+    })
+  },
+  getDistance: function(next) {
+    vex.dialog.open({
+      message: 'Select distance.',
+      input: "<style>\n    .vex-custom-field-wrapper {\n        margin: 1em 0;\n    }\n    .vex-custom-field-wrapper > label {\n        display: inline-block;\n        margin-bottom: .2em;\n    }\n</style>\n<div class=\"vex-custom-field-wrapper\">\n    <div class=\"vex-custom-input-wrapper\">\n        <input name=\"distance\" type=\"text\" value=\"0.1\" />\n    </div>\n</div>\n</div>",
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        //TODO make sure distance is number
+        var err = false
+        console.log(data)
+        next(err, +data.distance)
+      }
+    })
+  },
+  saveAs: function() {
+    this.layers.forEach(function(layer) {
+      if (layer.selected) {
+        fileSaver(new Blob([JSON.stringify(layer.geojson)], {
+            type: 'text/plain;charset=utf-8'
+        }), layer.name + '.geojson')
+      }
+    })
+  },
+  selectAll: function() {
+    this.editFeatures(this.layers, true, function(gj, layer) {
+      if (layer.selected) gj.selected = true
+      return gj
+    })
+  },
+  deselectAll: function() {
+    this.editFeatures(this.layers, true, function(gj, layer) {
+      gj.selected = false
+      return gj
+    })
+  },
+  deleteFeature: function() {
+    this.editFeatures(this.layers, true, function(gj, layer) {
+      if (layer.selected && gj.selected) {
+        return false
+      } else return gj
+    })
+  },
+  buffer: function() {
+    var self = this
+    this.getDistance(function(err, distance) {
+      self.editFeatures(self.layers, false, function(gj) {
+        if (gj.selected) {
+          var _gj = turfbuffer(gj, distance, false)
+          _gj.selected = true
+          return _gj
+        } else return gj
+      })
+    })
+  },
+  simplify: function() {
+    var self = this
+    this.getTolerance(function(err, tolerance) {
+      self.editFeatures(self.layers, false, function(gj) {
+        if (gj.selected) {
+          var _gj = turfsimplify(gj, tolerance, false)
+          _gj.selected = true
+          return _gj
+        } else return gj
+      })
+    })
+  },
+  flip: function() {
+    var self = this
+    self.editFeatures(self.layers, false, function(gj) {
+      if (gj.selected) {
+        var _gj = turfflip(gj)
+        _gj.selected = true
+        return _gj
+      } else return gj
+    })
+  },
+  explode: function() {
+    var self = this
+    self.editFeatures(self.layers, false, function(gj) {
+      if (gj.selected) {
+        var _gj = turfexplode(gj)
+        return _gj
+      } else return gj
+    })
+  },
+  quantile: function() {
+    var self = this
+    this.layers.forEach(function(layer) {
+      if (layer.selected) {
+        var breaks = turfquantile(layer.geojson, 'population', [25, 50, 75, 99])
+        console.log(breaks)
+      }
+    })
+  },
+  createHexGrid: function() {
+    var self = this
+    var bbox = [-96,31,-84,40];
+    var cellWidth = 50;
+    var units = 'miles';
+    var hexgrid = turfhexgrid(bbox, cellWidth, units)
+    var newLayer = defaultLayer.generate()
+    newLayer.geojson = hexgrid
+    this.layers.push(newLayer)
+    this.updateLayers(this.layers)
+  }
+}
+
+module.exports = new VectorTools()
+},{"./DefaultLayer":204,"filesaver.js":6,"turf-buffer":171,"turf-explode":178,"turf-flip":182,"turf-hex-grid":183,"turf-kinks":189,"turf-quantile":193,"turf-simplify":195}],206:[function(require,module,exports){
 var topojson = require('topojson'),
     toGeoJSON = require('togeojson'),
     csv2geojson = require('csv2geojson'),
@@ -26962,7 +29874,7 @@ function readFile(f, text, callback) {
         if (ext('.poly')) return 'poly';
     }
 }
-},{"csv2geojson":3,"osmtogeojson":6,"polytogeojson":12,"togeojson":168,"topojson":169}],187:[function(require,module,exports){
+},{"csv2geojson":3,"osmtogeojson":7,"polytogeojson":13,"togeojson":169,"topojson":170}],207:[function(require,module,exports){
 // module.exports = {
 //   darkest: '#594F4F',
 //   dark: '#547980',
@@ -26978,4 +29890,4 @@ module.exports = {
   light: '#00B4CC',
   lightest: '#00DFFC'
 }
-},{}]},{},[185]);
+},{}]},{},[203]);

@@ -6,6 +6,7 @@ var React = require('react')
   , palette = require('./palette')
   , turfbuffer = require('turf-buffer')
   , turfsimplify = require('turf-simplify')
+  , vectorTools = require('./lib/VectorTools')
 
 var appStyle = {
   backgroundColor: palette.darkest
@@ -23,6 +24,7 @@ var App = React.createClass({
     }
   },
   componentDidMount: function() {
+    vectorTools.updateLayers = this.updateLayers
   },
   findLayer: function(layer) {
     var layers = this.state.layers
@@ -50,11 +52,13 @@ var App = React.createClass({
     layers.push(layer)
     this.setState({layers: layers})
   },
-  removeLayer: function(layer) {
+  removeLayers: function() {
     var layers = this.state.layers
     for (var i = 0; i < layers.length; i++) {
       if (layers[i].selected) {
-         layers.splice(i, 1)
+        layers[i].mapLayer.clearLayers()
+        layers[i].mapLayer = null
+        layers.splice(i, 1)
       }
     }
     this.setState({layers: layers})
@@ -75,63 +79,30 @@ var App = React.createClass({
       this.setState({layers: layers})
     }
   },
-  simplify: function () {
-    var layers = this.state.layers
-    var tolerance = .1
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i]
-      if (layer.enabled && layer.selected) {
-        if (layer.geojson.type === 'FeatureCollection') {
-          for (var j = 0; j < layer.geojson.features.length; j++) {
-            layer.geojson.features[j] = turfsimplify(layer.geojson.features[j], tolerance, false)
-          }
-        } else if (layer.geojson.type === 'Feature') {
-          layer.geojson = turfsimplify(layer.geojson, tolerance, false)
-        }
-        if (layer.mapLayer) {
-          layer.mapLayer.clearLayers()
-          layer.mapLayer.addData(layer.geojson)
-        }
-      }
-    }
-    this.setState({layers: layers})
-  },
-  buffer: function () {
-    var layers = this.state.layers
-    var tolerance = .1
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i]
-      if (layer.enabled && layer.selected) {
-        if (layer.geojson.type === 'FeatureCollection') {
-          for (var j = 0; j < layer.geojson.features.length; j++) {
-            layer.geojson.features[j] = turfbuffer(layer.geojson.features[j], tolerance, false)
-          }
-        } else if (layer.geojson.type === 'Feature') {
-          layer.geojson = turfbuffer(layer.geojson, tolerance, false)
-        }
-        if (layer.mapLayer) {
-          layer.mapLayer.clearLayers()
-          layer.mapLayer.addData(layer.geojson)
-        }
-      }
-    }
-    this.setState({layers: layers})
-  },
   render: function() {
     console.log('render App')
+    vectorTools.setLayers(this.state.layers)
     return (
       <div className="app" style={appStyle}>
         <div className="header" style={headerStyle}>
           <h1>uGIS</h1>
         </div>
         <Toolbar
-          simplify={this.simplify}
-          buffer={this.buffer}
+          selectAll={vectorTools.selectAll.bind(vectorTools)}
+          deselectAll={vectorTools.deselectAll.bind(vectorTools)}
+          deleteFeature={vectorTools.deleteFeature.bind(vectorTools)}
+          saveAs={vectorTools.saveAs.bind(vectorTools)}
+          simplify={vectorTools.simplify.bind(vectorTools)}
+          buffer={vectorTools.buffer.bind(vectorTools)}
+          flip={vectorTools.flip.bind(vectorTools)}
+          explode={vectorTools.explode.bind(vectorTools)}
+          hexgrid={vectorTools.createHexGrid.bind(vectorTools)}
+          quantile={vectorTools.quantile.bind(vectorTools)}
         />
         <div className="flex-row">
           <AddLayers
             addLayer={this.addLayer}
-            removeLayer={this.removeLayer}
+            removeLayers={this.removeLayers}
           />
           <LayerList
             layers={this.state.layers}

@@ -36,7 +36,7 @@ module.exports = function(grunt) {
         spawn: false,
       },
       browserify: {
-        files: ['public/js/*.js', 'public/js/*.jsx'],
+        files: ['public/js/**/*.js', 'public/js/*.jsx'],
         tasks: ['bump', 'browserify'],
       },
       css: {

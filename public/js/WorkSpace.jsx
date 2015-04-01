@@ -8,6 +8,14 @@ var unselectedStyle = {
   color: '#00f'
 }
 
+var pointStyle = {
+  radius: 2,
+  color: "#000",
+  weight: 1,
+  opacity: 1,
+  fillOpacity: 0.8
+}
+
 var WorkSpace = React.createClass({
   componentDidMount: function() {
     this.makeMap()
@@ -18,39 +26,57 @@ var WorkSpace = React.createClass({
       attributionControl: false,
       zoomControl: false
     }).setView([38, -76], 5)
-    //L.tileLayer('http://{s}.tiles.mapbox.com/v3/esrgc.map-y9awf40v/{z}/{x}/{y}.png').addTo(this.map)
+    L.tileLayer('http://{s}.tiles.mapbox.com/v3/esrgc.map-y9awf40v/{z}/{x}/{y}.png').addTo(this.map)
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
   },
-  layerOnClick: function(layer, e) {
-    layer.selected = !layer.selected
-    console.log(layer.selected)
-    this.props.updateLayer(layer)
+  featureOnClick: function(layer, feature, mapLayer) {
+    if (layer.selected) {
+      if (!feature.selected) {
+        feature.selected = true
+      } else {
+        feature.selected = false
+      }
+      if (feature.selected) {
+        mapLayer.setStyle(selectedStyle)
+      } else {
+        mapLayer.setStyle(unselectedStyle)
+      }
+    }
   },
   addLayers: function(layer) {
     var self = this
-    if (this.workingLayers) this.workingLayers.clearLayers()
+    var isNewLayer = false
     this.props.layers.forEach(function(layer) {
       if (!layer.mapLayer) {
-        layer.mapLayer = L.geoJson(layer.geojson)
-        layer.mapLayer.on('click', self.layerOnClick.bind(self, layer))
+        layer.mapLayer = L.geoJson(layer.geojson, {
+          pointToLayer: function(feature, latlng) {
+            return L.circleMarker(latlng, pointStyle)
+          },
+          style: function(feature) {
+            if (feature.selected) {
+              return selectedStyle
+            } else {
+              return unselectedStyle
+            }
+          },
+          onEachFeature: function (layer, feature, mapLayer) {
+            mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
+          }.bind(self, layer)
+        })
       }
       if (layer.enabled) {
-        if (layer.selected) {
-          layer.mapLayer.setStyle(selectedStyle)
-        } else {
-          layer.mapLayer.setStyle(unselectedStyle)
-        }
-        if(!self.map.hasLayer(layer.mapLayer)) {
+        if(!self.workingLayers.hasLayer(layer.mapLayer)) {
           self.workingLayers.addLayer(layer.mapLayer)
+          isNewLayer = true
         }
       } else {
-        if(self.map.hasLayer(layer.mapLayer)) {
+        if(self.workingLayers.hasLayer(layer.mapLayer)) {
           self.workingLayers.removeLayer(layer.mapLayer)
         }
       }
     })
-    if (this.props.layers.length) {
+    if (this.props.layers.length && isNewLayer) {
       this.map.fitBounds(this.workingLayers.getBounds())
     }
   },
