@@ -34,6 +34,7 @@ module.exports = function(grunt) {
     watch: {
       options: {
         spawn: false,
+        livereload: true
       },
       browserify: {
         files: ['public/js/**/*.js', 'public/js/*.jsx'],

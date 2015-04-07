@@ -4,16 +4,6 @@ var React = require('react')
   , hexagon = require('./hexagon.js')
   , defaultLayer = require('./lib/DefaultLayer')
 
-var buttonStyle = {
-  width: '30px',
-  height: '30px',
-  border: '1px solid ' + palette.lightest,
-  margin: '10px auto',
-  textAlign: 'center',
-  lineHeight: '30px',
-  backgroundColor: palette.dark
-}
-
 var AddLayerButton = React.createClass({
   onClick: function(e) {
     var form = React.findDOMNode(this.refs.addFile)
@@ -29,6 +19,7 @@ var AddLayerButton = React.createClass({
         if (gj && gj.features) {
           var newLayer = defaultLayer.generate()
           newLayer.geojson = gj
+          newLayer.fileName = files[0].name
           newLayer.name = files[0].name.split('.')[0]
           newLayer.id = Math.random().toString(36).slice(2)
           self.props.addLayer(newLayer)
@@ -36,11 +27,19 @@ var AddLayerButton = React.createClass({
       })
     })
   },
+  componentDidMount: function() {
+    // console.log($(React.findDOMNode(this.refs.addLayer)).length)
+    // $(React.findDOMNode(this.refs.addLayer)).css('color', 'red')
+    // $(React.findDOMNode(this.refs.addLayer)).tooltip({
+    //   placement: 'right',
+    //   html: 'Add a new layer'
+    // })
+  },
   render: function() {
     var style = { display: 'none'}
     return (
       <div>
-        <div className="add-layer-item ugis-btn" style={buttonStyle} onClick={this.onClick}>+</div>
+        <div className="add-layer-item add" ref="addLayer" onClick={this.onClick}>+</div>
         <input ref="addFile" type="file" name="addFile" style={style} onChange={this.onChange}/>
       </div>
     )
@@ -50,21 +49,17 @@ var AddLayerButton = React.createClass({
 var RemoveLayerButton = React.createClass({
   render: function() {
     return (
-      <div className="add-layer-item" style={buttonStyle} onClick={this.props.removeLayers}>
+      <div className="add-layer-item" onClick={this.props.removeLayers}>
         -
       </div>
     )
   }
 })
 
-var style = {
-  borderColor: palette.lightest
-}
-
 var AddLayers = React.createClass({
   render: function() {
     return (
-      <div className="add-layers" style={style}>
+      <div className="add-layers">
         <AddLayerButton addLayer={this.props.addLayer}/>
         <RemoveLayerButton removeLayers={this.props.removeLayers}/>
       </div>

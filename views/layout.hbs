@@ -5,14 +5,20 @@
     <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.css" />
     <link rel="stylesheet" href="/js/lib/vex/css/vex.css" />
     <link rel="stylesheet" href="/js/lib/vex/css/vex-theme-os.css" />
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/css/bootstrap.min.css">
+    <link rel="stylesheet" href="/js/lib/draw/leaflet.draw.css" />
     <link rel='stylesheet' href='/css/style.css?v={{pkg.version}}' />
   </head>
   <body>
     {{{body}}}
   </body>
+  <script src="//localhost:35729/livereload.js"></script>
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+  <script src="/js/lib/lodash.min.js"></script>
   <script src="/js/lib/vex/js/vex.combined.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.4/js/bootstrap.min.js"></script>
   <script>vex.defaultOptions.className = 'vex-theme-os';</script>
   <script src="http://cdn.leafletjs.com/leaflet-0.7.3/leaflet.js"></script>
+  <script src="/js/lib/draw/leaflet.draw.js"></script>
   <script src="/js/min/{{pkg.name}}.js?v={{pkg.version}}"></script>
 </html>

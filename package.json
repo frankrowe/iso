@@ -1,6 +1,6 @@
 {
   "name": "ugis",
-  "version": "0.0.687",
+  "version": "0.0.1121",
   "private": true,
   "scripts": {
     "start": "node ./bin/www"
@@ -22,10 +22,12 @@
     "togeojson": "^0.11.1",
     "topojson": "^1.6.18",
     "turf-buffer": "^1.0.4",
+    "turf-combine": "^1.0.2",
     "turf-explode": "^1.0.1",
     "turf-flip": "^1.0.3",
     "turf-hex-grid": "^2.0.1",
     "turf-kinks": "^1.3.1",
+    "turf-merge": "^1.0.2",
     "turf-quantile": "^1.0.1"
   },
   "devDependencies": {

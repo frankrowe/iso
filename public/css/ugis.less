@@ -1,4 +1,12 @@
 @borderColor: #ddd;
+@darkest: #303030;
+@dark: #525252;
+@medium: #636363;
+@light: #7d7d7d;
+@lightest: #D5D5D5;
+@green: #428675;
+@borderColor: @light;
+@smallFont: 12px;
 
 #ugis {
   height: 100%;
@@ -15,6 +23,7 @@
     .flex-row {
       flex: 1;
       display: flex;
+      border-bottom: 1px solid @borderColor;
     }
   }
 }
@@ -23,6 +32,7 @@
   height: 20px;
   border-bottom: 1px solid;
   width: 100%;
+  display: none;
   h1 {
     margin: 0 0 0 10px;
     color: white;
@@ -32,23 +42,111 @@
 }
 
 .toolbar {
-  height: 50px;
-  border-bottom: 1px solid;
+  border-bottom: 1px solid @borderColor;
+  background: @dark;
   width: 100%;
+  h1 {
+    margin: 0;
+    float: left;
+    color: white;
+    font-size: 18px;
+    padding: 10px 0 0 5px;
+    text-shadow: 1px 1px 0px rgba(0,0,0,1);
+  }
+  .toolbar-dropdown {
+    float: left;
+    position: relative;
+    ul {
+      width: 100px;
+      position: absolute;
+      top: 100%;
+      left: 0;
+      z-index: 1000;
+      float: left;
+      background: @medium;
+      margin: -8px 0 0 9px;
+      border-radius: 0;
+      padding: 5px 0;
+      li {
+        list-style-type: none;
+        .toolbar-item {
+          background-color: @medium;
+          margin: 0;
+          padding: 0 10px;
+          text-align: left;
+          font-size: @smallFont;
+          width: 100%;
+/*          &.active {
+            color: white
+          }*/
+          &:hover {
+            cursor: pointer;
+            background-color: @light;
+          }
+        }
+        &:hover {
+          cursor: pointer;
+          background-color: @light;
+        }
+      }
+    }
+  }
+  .toolbar-item {
+    margin: 8px 0 8px 9px;
+    padding: 5px 5px;
+    float: left;
+    background-color: @dark;
+    border-width: 0;
+    border-radius: 0px;
+    border-color: @lightest;
+    font-size: @smallFont;
+    color: @light;
+    text-align: center;
+    &.active {
+      color: #fff;
+    }
+    &.active:hover, &.open {
+      cursor: pointer;
+      background-color: @medium;
+    }
+  }
 }
 
 .add-layers {
   width: 50px;
   min-height: 100px;
   flex: none;
-  border-right: 1px solid;
+  border-right: 1px solid @borderColor;
+  background: @darkest;
+  .add-layer-item {
+    width: 30px;
+    height: 30px;
+    line-height: 30px;
+    font-size: 24px;
+    margin: 10px auto;
+    text-align: center;
+    border-radius: 2px;
+    text-align: center;
+    color: white;
+    &:hover {
+      background-color: @medium;
+    }
+  }
 }
 
 .layer-list {
-  width: 200px;
   min-height: 100px;
   flex: none;
-  border-right: 1px solid;
+  border-right: 1px solid @lightest;
+  .layer {
+    text-align: left;
+    padding: 10px;
+    background: @dark;
+    border-bottom: 1px solid @borderColor;
+    span {
+      padding-left: 5px;
+    }
+  }
 }
 
 .work-space {
@@ -57,8 +155,20 @@
   flex: 1;
 }
 
-.ugis-btn {
-  &:hover {
-    cursor: pointer;
+.message-bar {
+  height: 20px;
+  width: 100%;
+  background: @dark;
+  .message-bar-item {
+    float: left;
+    font-size: @smallFont;
+    margin: 0 0 0 5px;
+    color: white;
+    line-height: 20px;
+  }
+  .coordinates {
+    float: right;
+    text-align: right;
+    margin: 0 5px 0 0;
   }
 }

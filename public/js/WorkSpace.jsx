@@ -1,11 +1,14 @@
 var React = require('react')
+  , palette = require('./palette')
 
 var selectedStyle = {
+  weight: 3,
   color: '#f00'
 }
 
 var unselectedStyle = {
-  color: '#00f'
+  weight: 3,
+  color: palette.green
 }
 
 var pointStyle = {
@@ -26,9 +29,27 @@ var WorkSpace = React.createClass({
       attributionControl: false,
       zoomControl: false
     }).setView([38, -76], 5)
-    L.tileLayer('http://{s}.tiles.mapbox.com/v3/esrgc.map-y9awf40v/{z}/{x}/{y}.png').addTo(this.map)
+    L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png').addTo(this.map)
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
+    this.map.on('mousemove', function(e) {
+      $('.message-bar-item.coordinates').html(
+        Math.round(e.latlng.lat * 100000) / 100000 + ', ' + 
+        Math.round(e.latlng.lng * 100000) / 100000
+      )
+    })
+    this.map.on('draw:created', function (e) {
+      console.log(e)
+      this.props.layers.forEach(function(layer) {
+        if (layer.selected) {
+          console.log(e.layer.toGeoJSON())
+          layer.geojson.features.push(e.layer.toGeoJSON())
+          layer.mapLayer.clearLayers()
+          layer.mapLayer = false
+          this.props.updateLayer(layer)
+        }
+      }, this)
+    }, this)
   },
   featureOnClick: function(layer, feature, mapLayer) {
     if (layer.selected) {
@@ -42,11 +63,12 @@ var WorkSpace = React.createClass({
       } else {
         mapLayer.setStyle(unselectedStyle)
       }
+      this.props.updateLayer(layer)
     }
   },
   addLayers: function(layer) {
     var self = this
-    var isNewLayer = false
+    var zoomToLayers = L.featureGroup()
     this.props.layers.forEach(function(layer) {
       if (!layer.mapLayer) {
         layer.mapLayer = L.geoJson(layer.geojson, {
@@ -65,10 +87,42 @@ var WorkSpace = React.createClass({
           }.bind(self, layer)
         })
       }
+
+      if (layer.editing) {
+        if (self.drawControl) {
+          self.map.removeControl(self.drawControl)
+        }
+        self.drawControl = new L.Control.Draw({
+          draw: {
+            polyline: {
+                shapeOptions: unselectedStyle
+            },
+            polygon: {
+                shapeOptions: unselectedStyle
+            },
+            rectangle: {
+              shapeOptions: unselectedStyle
+            },
+            circle: false
+          },
+          edit: {
+            featureGroup: layer.mapLayer
+          }
+        })
+        self.map.addControl(self.drawControl)
+      } else {
+        if (self.drawControl) {
+          self.map.removeControl(self.drawControl)
+          self.drawControl = false
+        }
+      }
       if (layer.enabled) {
+        if (layer.zoomTo) {
+          zoomToLayers.addLayer(layer.mapLayer)
+          layer.zoomTo = false
+        }
         if(!self.workingLayers.hasLayer(layer.mapLayer)) {
           self.workingLayers.addLayer(layer.mapLayer)
-          isNewLayer = true
         }
       } else {
         if(self.workingLayers.hasLayer(layer.mapLayer)) {
@@ -76,8 +130,12 @@ var WorkSpace = React.createClass({
         }
       }
     })
-    if (this.props.layers.length && isNewLayer) {
-      this.map.fitBounds(this.workingLayers.getBounds())
+    if (zoomToLayers.getLayers().length) {
+      if (zoomToLayers.getBounds().isValid()) {
+        this.map.fitBounds(zoomToLayers.getBounds())
+      }
+      this.map.removeLayer(zoomToLayers)
+      zoomToLayers = null
     }
   },
   render: function() {
