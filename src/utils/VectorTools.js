@@ -1,4 +1,5 @@
-var turfbuffer = require('turf-buffer')
+var React = require('react')
+  , turfbuffer = require('turf-buffer')
   , turfsimplify = require('turf-simplify')
   , turfflip = require('turf-flip')
   , turfkinks = require('turf-kinks')
@@ -10,6 +11,7 @@ var turfbuffer = require('turf-buffer')
   , fileSaver = require('filesaver.js')
   , defaultLayer = require('./DefaultLayer')
   , gjutils =require('./gjutils')
+  , Modals = require('../components/Modals.jsx')
 
 function VectorTools () {
   this.layers = {}
@@ -54,14 +56,15 @@ VectorTools.prototype = {
   getTolerance: function(next) {
     vex.dialog.open({
       message: 'Select tolerance.',
-      input: "<style>\n    .vex-custom-field-wrapper {\n        margin: 1em 0;\n    }\n    .vex-custom-field-wrapper > label {\n        display: inline-block;\n        margin-bottom: .2em;\n    }\n</style>\n<div class=\"vex-custom-field-wrapper\">\n    <div class=\"vex-custom-input-wrapper\">\n        <input name=\"tolerance\" type=\"text\" value=\"0.1\" />\n    </div>\n</div>\n</div>",
+      afterOpen: function($vexContent) {
+        React.render(<Modals.Simplify />, $vexContent.find('.vex-dialog-input').get(0))
+      },
       callback: function(data) {
         if (data === false) {
           return console.log('Cancelled');
         }
         //TODO make sure tolerance is 0 - 1
         var err = false
-        console.log(data)
         next(err, +data.tolerance)
       }
     })
@@ -69,27 +72,31 @@ VectorTools.prototype = {
   getDistance: function(next) {
     vex.dialog.open({
       message: 'Select distance.',
-      input: "<style>\n    .vex-custom-field-wrapper {\n        margin: 1em 0;\n    }\n    .vex-custom-field-wrapper > label {\n        display: inline-block;\n        margin-bottom: .2em;\n    }\n</style>\n<div class=\"vex-custom-field-wrapper\">\n    <div class=\"vex-custom-input-wrapper\">\n        <input name=\"distance\" type=\"text\" value=\"0.1\" />\n    </div>\n</div>\n</div>",
+      afterOpen: function($vexContent) {
+        React.render(<Modals.Buffer />, $vexContent.find('.vex-dialog-input').get(0))
+      },
       callback: function(data) {
+        console.log(data)
         if (data === false) {
           return console.log('Cancelled');
         }
         //TODO make sure distance is number
+        data.distance = +data.distance
         var err = false
-        console.log(data)
-        next(err, +data.distance)
+        next(err, data)
       }
     })
   },
-  getName: function(next) {
-    vex.dialog.open({
+  getName: function(layername, next) {
+    var dialog = vex.dialog.open({
       message: 'Enter New Layer Name',
-      input: "<style>\n    .vex-custom-field-wrapper {\n        margin: 1em 0;\n    }\n    .vex-custom-field-wrapper > label {\n        display: inline-block;\n        margin-bottom: .2em;\n    }\n</style>\n<div class=\"vex-custom-field-wrapper\">\n    <div class=\"vex-custom-input-wrapper\">\n        <input name=\"layername\" type=\"text\" value=\"\" />\n    </div>\n</div>\n</div>",
+      afterOpen: function($vexContent) {
+        React.render(<Modals.Layername layername={layername}/>, $vexContent.find('.vex-dialog-input').get(0))
+      },
       callback: function(data) {
         if (data === false) {
-          return console.log('Cancelled');
+          return console.log('Cancelled')
         }
-        //TODO make sure distance is number
         var err = false
         next(err, data.layername)
       }
@@ -97,14 +104,13 @@ VectorTools.prototype = {
   },
   renameLayer: function() {
     var self = this
-    this.getName(function(err, name) {
-      self.layers.forEach(function(layer) {
-        if (layer.selected) {
-          layer.name = name
-        }
+    var layer = _.findWhere(self.layers, {selected: true})
+    if (layer) {
+      this.getName(layer.name, function(err, name) {
+        layer.name = name
+        self.updateLayers(self.layers)
       })
-      self.updateLayers(self.layers)
-    })
+    }
   },
   saveAs: function() {
     this.layers.forEach(function(layer) {
@@ -155,10 +161,10 @@ VectorTools.prototype = {
   },
   buffer: function() {
     var self = this
-    this.getDistance(function(err, distance) {
+    this.getDistance(function(err, data) {
       self.editFeatures(self.layers, function(gj) {
         if (gj.selected) {
-          var _gj = turfbuffer(gj, distance, false)
+          var _gj = turfbuffer(gj, +data.distance, data.unit)
           _gj.selected = true
           return _gj
         } else return gj

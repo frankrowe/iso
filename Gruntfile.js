@@ -27,7 +27,7 @@ module.exports = function(grunt) {
         transform: [ require('grunt-react').browserify ]
       },
       dev: {
-        src: 'public/js/index.js',
+        src: 'src/index.js',
         dest: 'public/js/min/<%= pkg.name %>.js'
       }
     },
@@ -37,7 +37,7 @@ module.exports = function(grunt) {
         livereload: true
       },
       browserify: {
-        files: ['public/js/**/*.js', 'public/js/*.jsx'],
+        files: ['src/**/*.js', 'src/components/*.jsx'],
         tasks: ['bump', 'browserify'],
       },
       css: {

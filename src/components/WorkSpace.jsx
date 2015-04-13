@@ -1,5 +1,5 @@
 var React = require('react')
-  , palette = require('./palette')
+  , palette = require('../utils/palette')
 
 var selectedStyle = {
   weight: 3,
@@ -33,10 +33,9 @@ var WorkSpace = React.createClass({
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
     this.map.on('mousemove', function(e) {
-      $('.message-bar-item.coordinates').html(
+      document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML = 
         Math.round(e.latlng.lat * 100000) / 100000 + ', ' + 
         Math.round(e.latlng.lng * 100000) / 100000
-      )
     })
     this.map.on('draw:created', function (e) {
       console.log(e)

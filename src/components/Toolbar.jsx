@@ -1,6 +1,6 @@
 var React = require('react')
-  , palette = require('./palette')
-  , gjutils = require('./lib/gjutils')
+  , palette = require('../utils/palette')
+  , gjutils = require('../utils/gjutils')
 
 
 var ToolbarItem = React.createClass({
@@ -16,7 +16,6 @@ var ToolbarItem = React.createClass({
   },
   render: function() {
     var style = {}
-    //style.color = this.props.active ? 'white': palette.light
     var className = 'toolbar-item'
     if (this.props.active) className += ' active'
     return (
@@ -33,10 +32,14 @@ var ToolbarDropdown = React.createClass({
       open: false
     }
   },
-  toggle: function(e) {
+  onMouseEnter: function(e) {
     if (this.props.active) {
-      var open = !this.state.open
-      this.setState({open: open})
+      this.setState({open: true})
+    }
+  },
+  onMouseLeave: function(e) {
+    if (this.props.active) {
+      this.setState({open: false})
     }
   },
   subMenuClick: function(e) {
@@ -53,10 +56,10 @@ var ToolbarDropdown = React.createClass({
       submenu = this.props.submenu
     }
     return (
-      <div className="toolbar-dropdown">
-        <div className={className} onClick={this.toggle}>
-          {this.props.text}
-          <span className="caret"></span>
+      <div className="toolbar-dropdown" onMouseEnter={this.onMouseEnter} onMouseLeave={this.onMouseLeave}>
+        <div className={className}>
+          {this.props.text} 
+          <i className="fa fa-angle-down"></i>
         </div>
         <div className="submenu" onClick={this.subMenuClick}>{submenu}</div>
       </div>
@@ -66,10 +69,8 @@ var ToolbarDropdown = React.createClass({
 
 var LayerMenu = React.createClass({
   render: function() {
-    var active = true
-    var submenu = 
-    <ul>
-      <li><NewLayer onClick={this.props.newLayer} config={this.props.config}/></li>
+    var active = this.props.config.oneLayer  || this.props.config.multiLayer
+    var submenu = <ul>
       <li><RenameLayer onClick={this.props.renameLayer} config={this.props.config}/></li>
       <li><Edit onClick={this.props.editFeature} config={this.props.config}/></li>
       <li><SaveAs onClick={this.props.saveAs} config={this.props.config}/></li>
@@ -84,29 +85,43 @@ var LayerMenu = React.createClass({
 var FeatureMenu = React.createClass({
   render: function() {
     var active = this.props.config.oneFeature || this.props.config.multiFeature
-    var submenu = 
-    <ul>
-      <li><SelectAll onClick={this.props.selectAll} config={this.props.config}/></li>
-      <li><DeselectAll onClick={this.props.deselectAll} config={this.props.config}/></li>
-      <li><Delete onClick={this.props.deleteFeature} config={this.props.config}/></li>
-      <li><Simplify onClick={this.props.simplify} config={this.props.config}/></li>
-      <li><Buffer onClick={this.props.buffer} config={this.props.config}/></li>
-      <li><Flip onClick={this.props.flip} config={this.props.config}/></li>
-      <li><Explode onClick={this.props.explode} config={this.props.config}/></li>
-      <li><Merge onClick={this.props.merge} config={this.props.config}/></li>
-      <li><HexGrid onClick={this.props.hexgrid} config={this.props.config}/></li>
-    </ul>
+    var submenu = <ul>
+        <li><SelectAll onClick={this.props.selectAll} config={this.props.config}/></li>
+        <li><DeselectAll onClick={this.props.deselectAll} config={this.props.config}/></li>
+        <li><Delete onClick={this.props.deleteFeature} config={this.props.config}/></li>
+        <li><Simplify onClick={this.props.simplify} config={this.props.config}/></li>
+        <li><Buffer onClick={this.props.buffer} config={this.props.config}/></li>
+        <li><Flip onClick={this.props.flip} config={this.props.config}/></li>
+        <li><Explode onClick={this.props.explode} config={this.props.config}/></li>
+        <li><Merge onClick={this.props.merge} config={this.props.config}/></li>
+        <li><HexGrid onClick={this.props.hexgrid} config={this.props.config}/></li>
+      </ul>
     return (
       <ToolbarDropdown text={'Feature'} submenu={submenu} active={active}/>
     )
   }
 })
 
-var NewLayer = React.createClass({
+var SelectMenu = React.createClass({
+  render: function() {
+    var active = this.props.config.oneLayer  || this.props.config.multiLayer
+    var submenu = <ul>
+      <li></li>
+    </ul>
+    return (
+      <ToolbarDropdown text={'Select'} submenu={submenu} active={active}/>
+    )
+  }
+})
+
+var HelpMenu = React.createClass({
   render: function() {
     var active = true
+    var submenu = <ul>
+      <li></li>
+    </ul>
     return (
-      <ToolbarItem text={'New Layer'} onClick={this.props.onClick} active={active}/>
+      <ToolbarDropdown text={'Help'} submenu={submenu} active={active}/>
     )
   }
 })
@@ -332,6 +347,8 @@ var Toolbar = React.createClass({
           merge={this.props.merge}
           hexgrid={this.props.hexgrid}
         />
+        <SelectMenu config={config} />
+        <HelpMenu config={config} />
       </div>
     )
   }

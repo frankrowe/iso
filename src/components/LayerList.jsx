@@ -1,5 +1,5 @@
 var React = require('react')
-  , palette = require('./palette')
+  , palette = require('../utils/palette')
 
 var Layer = React.createClass({
   onClick: function(e) {

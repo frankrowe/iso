@@ -1,5 +1,5 @@
 var React = require('react')
-  , App = require('./App.jsx')
+  , App = require('./components/App.jsx')
 
 React.render(
   <App />,

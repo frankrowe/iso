@@ -4,11 +4,9 @@ var React = require('react')
   , LayerList = require('./LayerList.jsx')
   , WorkSpace = require('./WorkSpace.jsx')
   , MessageBar = require('./MessageBar.jsx')
-  , palette = require('./palette')
-  , turfbuffer = require('turf-buffer')
-  , turfsimplify = require('turf-simplify')
-  , vectorTools = require('./lib/VectorTools')
-  , gjutils = require('./lib/gjutils')
+  , palette = require('../utils/palette')
+  , vectorTools = require('../utils/VectorTools')
+  , gjutils = require('../utils/gjutils')
 
 var appStyle = {
   backgroundColor: palette.darkest

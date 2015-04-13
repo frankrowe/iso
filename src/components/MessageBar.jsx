@@ -1,5 +1,5 @@
 var React = require('react')
-  , palette = require('./palette')
+  , palette = require('../utils/palette')
 
 var MessageBar = React.createClass({
   render: function() {
