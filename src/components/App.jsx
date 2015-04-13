@@ -7,6 +7,7 @@ var React = require('react')
   , palette = require('../utils/palette')
   , vectorTools = require('../utils/VectorTools')
   , gjutils = require('../utils/gjutils')
+  , pkg = require('../../package.json')
 
 var appStyle = {
   backgroundColor: palette.darkest
@@ -125,9 +126,6 @@ var App = React.createClass({
     vectorTools.setLayers(this.state.layers)
     return (
       <div className="app" style={appStyle}>
-        <div className="header" style={headerStyle}>
-          <h1>uGIS</h1>
-        </div>
         <Toolbar
           layers={this.state.layers}
           newLayer={vectorTools.newLayer.bind(vectorTools)}
