@@ -7,7 +7,7 @@ React.render(
   document.getElementById('ugis')
 )
 
-},{"./components/App.jsx":212,"react":173}],2:[function(require,module,exports){
+},{"./components/App.jsx":372,"react":229}],2:[function(require,module,exports){
 
 },{}],3:[function(require,module,exports){
 /*!
@@ -2177,6 +2177,6858 @@ if (typeof module !== "undefined" && module.exports) {
 }
 
 },{}],12:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule BrowserSupportCore
+ */
+
+
+var getVendorPrefixedName = require('./getVendorPrefixedName');
+
+var BrowserSupportCore = {
+  /**
+   * @return {bool} True if browser supports css animations.
+   */
+  hasCSSAnimations: function() {
+    return !!getVendorPrefixedName('animationName');
+  },
+
+  /**
+   * @return {bool} True if browser supports css transforms.
+   */
+  hasCSSTransforms: function() {
+    return !!getVendorPrefixedName('transform');
+  },
+
+  /**
+   * @return {bool} True if browser supports css 3d transforms.
+   */
+  hasCSS3DTransforms: function() {
+    return !!getVendorPrefixedName('perspective');
+  },
+
+  /**
+   * @return {bool} True if browser supports css transitions.
+   */
+  hasCSSTransitions: function() {
+    return !!getVendorPrefixedName('transition');
+  },
+};
+
+module.exports = BrowserSupportCore;
+
+},{"./getVendorPrefixedName":49}],13:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule DOMMouseMoveTracker
+ * @typechecks
+ */
+
+"use strict";
+
+var EventListener = require('./EventListener');
+
+var cancelAnimationFramePolyfill = require('./cancelAnimationFramePolyfill');
+var requestAnimationFramePolyfill = require('./requestAnimationFramePolyfill');
+
+
+  /**
+   * onMove is the callback that will be called on every mouse move.
+   * onMoveEnd is called on mouse up when movement has ended.
+   */
+  function DOMMouseMoveTracker(
+onMove,
+    /*function*/ onMoveEnd,
+    /*DOMElement*/ domNode) {
+    this.$DOMMouseMoveTracker_isDragging = false;
+    this.$DOMMouseMoveTracker_animationFrameID = null;
+    this.$DOMMouseMoveTracker_domNode = domNode;
+    this.$DOMMouseMoveTracker_onMove = onMove;
+    this.$DOMMouseMoveTracker_onMoveEnd = onMoveEnd;
+    this.$DOMMouseMoveTracker_onMouseMove = this.$DOMMouseMoveTracker_onMouseMove.bind(this);
+    this.$DOMMouseMoveTracker_onMouseUp = this.$DOMMouseMoveTracker_onMouseUp.bind(this);
+    this.$DOMMouseMoveTracker_didMouseMove = this.$DOMMouseMoveTracker_didMouseMove.bind(this);
+  }
+
+  /**
+   * This is to set up the listeners for listening to mouse move
+   * and mouse up signaling the movement has ended. Please note that these
+   * listeners are added at the document.body level. It takes in an event
+   * in order to grab inital state.
+   */
+  DOMMouseMoveTracker.prototype.captureMouseMoves=function(event) {
+    if (!this.$DOMMouseMoveTracker_eventMoveToken && !this.$DOMMouseMoveTracker_eventUpToken) {
+      this.$DOMMouseMoveTracker_eventMoveToken = EventListener.listen(
+        this.$DOMMouseMoveTracker_domNode,
+        'mousemove',
+        this.$DOMMouseMoveTracker_onMouseMove
+      );
+      this.$DOMMouseMoveTracker_eventUpToken = EventListener.listen(
+        this.$DOMMouseMoveTracker_domNode,
+        'mouseup',
+        this.$DOMMouseMoveTracker_onMouseUp
+      );
+    }
+
+    if (!this.$DOMMouseMoveTracker_isDragging) {
+      this.$DOMMouseMoveTracker_deltaX = 0;
+      this.$DOMMouseMoveTracker_deltaY = 0;
+      this.$DOMMouseMoveTracker_isDragging = true;
+      this.$DOMMouseMoveTracker_x = event.clientX;
+      this.$DOMMouseMoveTracker_y = event.clientY;
+    }
+    event.preventDefault();
+  };
+
+  /**
+   * These releases all of the listeners on document.body.
+   */
+  DOMMouseMoveTracker.prototype.releaseMouseMoves=function() {
+    if (this.$DOMMouseMoveTracker_eventMoveToken && this.$DOMMouseMoveTracker_eventUpToken) {
+      this.$DOMMouseMoveTracker_eventMoveToken.remove();
+      this.$DOMMouseMoveTracker_eventMoveToken = null;
+      this.$DOMMouseMoveTracker_eventUpToken.remove();
+      this.$DOMMouseMoveTracker_eventUpToken = null;
+    }
+
+    if (this.$DOMMouseMoveTracker_animationFrameID !== null) {
+      cancelAnimationFramePolyfill(this.$DOMMouseMoveTracker_animationFrameID);
+      this.$DOMMouseMoveTracker_animationFrameID = null;
+    }
+
+    if (this.$DOMMouseMoveTracker_isDragging) {
+      this.$DOMMouseMoveTracker_isDragging = false;
+      this.$DOMMouseMoveTracker_x = null;
+      this.$DOMMouseMoveTracker_y = null;
+    }
+  };
+
+  /**
+   * Returns whether or not if the mouse movement is being tracked.
+   */
+  DOMMouseMoveTracker.prototype.isDragging=function() {
+    return this.$DOMMouseMoveTracker_isDragging;
+  };
+
+  /**
+   * Calls onMove passed into constructor and updates internal state.
+   */
+  DOMMouseMoveTracker.prototype.$DOMMouseMoveTracker_onMouseMove=function(event) {
+    var x = event.clientX;
+    var y = event.clientY;
+
+    this.$DOMMouseMoveTracker_deltaX += (x - this.$DOMMouseMoveTracker_x);
+    this.$DOMMouseMoveTracker_deltaY += (y - this.$DOMMouseMoveTracker_y);
+
+    if (this.$DOMMouseMoveTracker_animationFrameID === null) {
+      // The mouse may move faster then the animation frame does.
+      // Use `requestAnimationFramePolyfill` to avoid over-updating.
+      this.$DOMMouseMoveTracker_animationFrameID =
+        requestAnimationFramePolyfill(this.$DOMMouseMoveTracker_didMouseMove);
+    }
+
+    this.$DOMMouseMoveTracker_x = x;
+    this.$DOMMouseMoveTracker_y = y;
+    event.preventDefault();
+  };
+
+  DOMMouseMoveTracker.prototype.$DOMMouseMoveTracker_didMouseMove=function() {
+    this.$DOMMouseMoveTracker_animationFrameID = null;
+    this.$DOMMouseMoveTracker_onMove(this.$DOMMouseMoveTracker_deltaX, this.$DOMMouseMoveTracker_deltaY);
+    this.$DOMMouseMoveTracker_deltaX = 0;
+    this.$DOMMouseMoveTracker_deltaY = 0;
+  };
+
+  /**
+   * Calls onMoveEnd passed into constructor and updates internal state.
+   */
+  DOMMouseMoveTracker.prototype.$DOMMouseMoveTracker_onMouseUp=function() {
+    if (this.$DOMMouseMoveTracker_animationFrameID) {
+      this.$DOMMouseMoveTracker_didMouseMove();
+    }
+    this.$DOMMouseMoveTracker_onMoveEnd();
+  };
+
+
+module.exports = DOMMouseMoveTracker;
+
+},{"./EventListener":14,"./cancelAnimationFramePolyfill":42,"./requestAnimationFramePolyfill":59}],14:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule EventListener
+ * @typechecks
+ */
+
+var emptyFunction = require('./emptyFunction');
+
+/**
+ * Upstream version of event listener. Does not take into account specific
+ * nature of platform.
+ */
+var EventListener = {
+  /**
+   * Listen to DOM events during the bubble phase.
+   *
+   * @param {DOMEventTarget} target DOM element to register listener on.
+   * @param {string} eventType Event type, e.g. 'click' or 'mouseover'.
+   * @param {function} callback Callback function.
+   * @return {object} Object with a `remove` method.
+   */
+  listen: function(target, eventType, callback) {
+    if (target.addEventListener) {
+      target.addEventListener(eventType, callback, false);
+      return {
+        remove: function() {
+          target.removeEventListener(eventType, callback, false);
+        }
+      };
+    } else if (target.attachEvent) {
+      target.attachEvent('on' + eventType, callback);
+      return {
+        remove: function() {
+          target.detachEvent('on' + eventType, callback);
+        }
+      };
+    }
+  },
+
+  /**
+   * Listen to DOM events during the capture phase.
+   *
+   * @param {DOMEventTarget} target DOM element to register listener on.
+   * @param {string} eventType Event type, e.g. 'click' or 'mouseover'.
+   * @param {function} callback Callback function.
+   * @return {object} Object with a `remove` method.
+   */
+  capture: function(target, eventType, callback) {
+    if (!target.addEventListener) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          'Attempted to listen to events during the capture phase on a ' +
+          'browser that does not support the capture phase. Your application ' +
+          'will not receive some events.'
+        );
+      }
+      return {
+        remove: emptyFunction
+      };
+    } else {
+      target.addEventListener(eventType, callback, true);
+      return {
+        remove: function() {
+          target.removeEventListener(eventType, callback, true);
+        }
+      };
+    }
+  },
+
+  registerDefault: function() {}
+};
+
+module.exports = EventListener;
+
+}).call(this,require('_process'))
+},{"./emptyFunction":48,"_process":7}],15:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ExecutionEnvironment
+ */
+
+/*jslint evil: true */
+
+"use strict";
+
+var canUseDOM = !!(
+  typeof window !== 'undefined' &&
+  window.document &&
+  window.document.createElement
+);
+
+/**
+ * Simple, lightweight module assisting with the detection and context of
+ * Worker. Helps avoid circular dependencies and allows code to reason about
+ * whether or not they are in a Worker, even if they never include the main
+ * `ReactWorker` dependency.
+ */
+var ExecutionEnvironment = {
+
+  canUseDOM: canUseDOM,
+
+  canUseWorkers: typeof Worker !== 'undefined',
+
+  canUseEventListeners:
+    canUseDOM && !!(window.addEventListener || window.attachEvent),
+
+  canUseViewport: canUseDOM && !!window.screen,
+
+  isInWorker: !canUseDOM // For now, this is true - might change in the future.
+
+};
+
+module.exports = ExecutionEnvironment;
+
+},{}],16:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTable.react
+ * @typechecks
+ */
+
+/* jslint bitwise: true */
+
+var FixedDataTableHelper = require('./FixedDataTableHelper');
+var Locale = require('./Locale');
+var React = require('./React');
+var ReactComponentWithPureRenderMixin = require('./ReactComponentWithPureRenderMixin');
+var ReactWheelHandler = require('./ReactWheelHandler');
+var Scrollbar = require('./Scrollbar.react');
+var FixedDataTableBufferedRows = require('./FixedDataTableBufferedRows.react');
+var FixedDataTableColumnResizeHandle = require('./FixedDataTableColumnResizeHandle.react');
+var FixedDataTableRow = require('./FixedDataTableRow.react');
+var FixedDataTableScrollHelper = require('./FixedDataTableScrollHelper');
+var FixedDataTableWidthHelper = require('./FixedDataTableWidthHelper');
+
+var cloneWithProps = require('./cloneWithProps');
+var cx = require('./cx');
+var debounceCore = require('./debounceCore');
+var emptyFunction = require('./emptyFunction');
+var invariant = require('./invariant');
+var shallowEqual = require('./shallowEqual');
+var translateDOMPositionXY = require('./translateDOMPositionXY');
+
+var PropTypes = React.PropTypes;
+var ReactChildren = React.Children;
+
+var renderToString = FixedDataTableHelper.renderToString;
+var EMPTY_OBJECT = {};
+var COLUMN_SETTING_NAMES = [
+  'bodyFixedColumns',
+  'bodyScrollableColumns',
+  'headFixedColumns',
+  'headScrollableColumns',
+  'footFixedColumns',
+  'footScrollableColumns',
+];
+
+/**
+ * Data grid component with fixed or scrollable header and columns.
+ *
+ * The layout of the data table is as follow:
+ *
+ * ```
+ * +---------------------------------------------------+
+ * | Fixed Column Group    | Scrollable Column Group   |
+ * | Header                | Header                    |
+ * |                       |                           |
+ * +---------------------------------------------------+
+ * |                       |                           |
+ * | Fixed Header Columns  | Scrollable Header Columns |
+ * |                       |                           |
+ * +-----------------------+---------------------------+
+ * |                       |                           |
+ * | Fixed Body Columns    | Scrollable Body Columns   |
+ * |                       |                           |
+ * +-----------------------+---------------------------+
+ * |                       |                           |
+ * | Fixed Footer Columns  | Scrollable Footer Columns |
+ * |                       |                           |
+ * +-----------------------+---------------------------+
+ * ```
+ *
+ * - Fixed Column Group Header: These are the headers for a group
+ *   of columns if included in the table that do not scroll
+ *   vertically or horizontally.
+ *
+ * - Scrollable Column Group Header:  The header for a group of columns
+ *   that do not move while scrolling vertically, but move horizontally
+ *   with the horizontal scrolling.
+ *
+ * - Fixed Header Columns: The header columns that do not move while scrolling
+ *   vertically or horizontally.
+ *
+ * - Scrollable Header Columns: The header columns that do not move
+ *   while scrolling vertically, but move horizontally with the horizontal
+ *   scrolling.
+ *
+ * - Fixed Body Columns: The body columns that do not move while scrolling
+ *   horizontally, but move vertically with the vertical scrolling.
+ *
+ * - Scrollable Body Columns: The body columns that move while scrolling
+ *   vertically or horizontally.
+ */
+var FixedDataTable = React.createClass({displayName: "FixedDataTable",
+
+  propTypes: {
+
+    /**
+     * Pixel width of table. If all rows do not fit,
+     * a horizontal scrollbar will appear.
+     */
+    width: PropTypes.number.isRequired,
+
+    /**
+     * Pixel height of table. If all rows do not fit,
+     * a vertical scrollbar will appear.
+     *
+     * Either `height` or `maxHeight` must be specified.
+     */
+    height: PropTypes.number,
+
+    /**
+     * Maximum pixel height of table. If all rows do not fit,
+     * a vertical scrollbar will appear.
+     *
+     * Either `height` or `maxHeight` must be specified.
+     */
+    maxHeight: PropTypes.number,
+
+    /**
+     * Pixel height of table's owner, This is used to make sure the footer
+     * and scrollbar of the table are visible when current space for table in
+     * view is smaller than final height of table. It allows to avoid resizing
+     * and reflowing table whan it is moving in the view.
+     *
+     * This is used if `ownerHeight < height`.
+     */
+    ownerHeight: PropTypes.number,
+
+    overflowX: PropTypes.oneOf(['hidden', 'auto']),
+    overflowY: PropTypes.oneOf(['hidden', 'auto']),
+
+    /**
+     * Number of rows in the table.
+     */
+    rowsCount: PropTypes.number.isRequired,
+
+    /**
+     * Pixel height of rows unless rowHeightGetter is specified and returns
+     * different value.
+     */
+    rowHeight: PropTypes.number.isRequired,
+
+    /**
+     * If specified, `rowHeightGetter(index)` is called for each row and the
+     * returned value overrides rowHeight for particular row.
+     */
+    rowHeightGetter: PropTypes.func,
+
+    /**
+     * To get rows to display in table, `rowGetter(index)`
+     * is called. rowGetter should be smart enough to handle async
+     * fetching of data and returning temporary objects
+     * while data is being fetched.
+     */
+    rowGetter: PropTypes.func.isRequired,
+
+    /**
+     * To get any additional css classes that should be added to a row,
+     * `rowClassNameGetter(index)` is called.
+     */
+    rowClassNameGetter: PropTypes.func,
+
+    /**
+     * Pixel height of the column group header.
+     */
+    groupHeaderHeight: PropTypes.number,
+
+    /**
+     * Pixel height of header.
+     */
+    headerHeight: PropTypes.number.isRequired,
+
+    /**
+     * Function that is called to get the data for the header row.
+     */
+    headerDataGetter: PropTypes.func,
+
+    /**
+     * Pixel height of footer.
+     */
+    footerHeight: PropTypes.number,
+
+    /**
+     * Data that will be passed to footer cell renderers.
+     */
+    footerData: PropTypes.oneOfType([
+      PropTypes.object,
+      PropTypes.array,
+    ]),
+
+    /**
+     * Value of horizontal scroll.
+     */
+    scrollLeft: PropTypes.number,
+
+    /**
+     * Index of column to scroll to.
+     */
+    scrollToColumn: PropTypes.number,
+
+    /**
+     * Value of vertical scroll.
+     */
+    scrollTop: PropTypes.number,
+
+    /**
+     * Index of row to scroll to.
+     */
+    scrollToRow: PropTypes.number,
+
+    /**
+     * Callback that is called when scrolling ends or stops with new horizontal
+     * and vertical scroll values.
+     */
+    onScrollEnd: PropTypes.func,
+
+    /**
+     * Callback that is called when `rowHeightGetter` returns a different height
+     * for a row than the `rowHeight` prop. This is necessary because initially
+     * table estimates heights of some parts of the content.
+     */
+    onContentHeightChange: PropTypes.func,
+
+    /**
+     * Callback that is called when a row is clicked.
+     */
+    onRowClick: PropTypes.func,
+
+    /**
+     * Callback that is called when mouse down event happens above a row.
+     */
+    onRowMouseDown: PropTypes.func,
+
+    /**
+     * Callback that is called when the mouse enters a row.
+     */
+    onRowMouseEnter: PropTypes.func,
+
+    /**
+     * Callback that is called when resizer has been released
+     * and column needs to be updated.
+     */
+    onColumnResizeEndCallback: PropTypes.func,
+
+    /**
+     * Whether a column is currently being resized.
+     */
+    isColumnResizing: PropTypes.bool,
+  },
+
+  getDefaultProps:function() /*object*/ {
+    return {
+      footerHeight: 0,
+      groupHeaderHeight: 0,
+      headerHeight: 0,
+      scrollLeft: 0,
+      scrollTop: 0,
+    };
+  },
+
+  getInitialState:function() /*object*/ {
+    var props = this.props;
+    var viewportHeight = props.height -
+      props.headerHeight -
+      props.footerHeight -
+      props.groupHeaderHeight;
+    this._scrollHelper = new FixedDataTableScrollHelper(
+      props.rowsCount,
+      props.rowHeight,
+      viewportHeight,
+      props.rowHeightGetter
+    );
+    if (props.scrollTop) {
+      this._scrollHelper.scrollTo(props.scrollTop);
+    }
+    this._didScrollStop = debounceCore(this._didScrollStop, 160, this);
+
+    return this._calculateState(this.props);
+  },
+
+  componentWillMount:function() {
+    var scrollToRow = this.props.scrollToRow;
+    if (scrollToRow !== undefined && scrollToRow !== null) {
+      this._rowToScrollTo = scrollToRow;
+    }
+    var scrollToColumn = this.props.scrollToColumn;
+    if (scrollToColumn !== undefined && scrollToColumn !== null) {
+      this._columnToScrollTo = scrollToColumn;
+    }
+    this._wheelHandler = new ReactWheelHandler(
+      this._onWheel,
+      this.props.overflowX !== 'hidden', // Should handle horizontal scroll
+      this.props.overflowY !== 'hidden' // Should handle vertical scroll
+    );
+  },
+
+  _reportContentHeight:function() {
+    var scrollContentHeight = this.state.scrollContentHeight;
+    var reservedHeight = this.state.reservedHeight;
+    var requiredHeight = scrollContentHeight + reservedHeight;
+    var contentHeight;
+    if (this.state.height > requiredHeight && this.props.ownerHeight) {
+      contentHeight = Math.max(requiredHeight, this.props.ownerHeight);
+    } else {
+      var maxScrollY = scrollContentHeight - this.state.bodyHeight;
+      contentHeight = this.props.height + maxScrollY;
+    }
+    if (contentHeight !== this._contentHeight &&
+        this.props.onContentHeightChange) {
+      this.props.onContentHeightChange(contentHeight);
+    }
+    this._contentHeight = contentHeight;
+  },
+
+  componentDidMount:function() {
+    this._reportContentHeight();
+  },
+
+  componentWillReceiveProps:function(/*object*/ nextProps) {
+    var scrollToRow = nextProps.scrollToRow;
+    if (scrollToRow !== undefined && scrollToRow !== null) {
+      this._rowToScrollTo = scrollToRow;
+    }
+    var scrollToColumn = nextProps.scrollToColumn;
+    if (scrollToColumn !== undefined && scrollToColumn !== null) {
+      this._columnToScrollTo = scrollToColumn;
+    }
+
+    var newOverflowX = nextProps.overflowX;
+    var newOverflowY = nextProps.overflowY;
+    if (newOverflowX !== this.props.overflowX ||
+        newOverflowY !== this.props.overflowY) {
+      this._wheelHandler = new ReactWheelHandler(
+        this._onWheel,
+        newOverflowX !== 'hidden', // Should handle horizontal scroll
+        newOverflowY !== 'hidden' // Should handle vertical scroll
+      );
+    }
+
+    this.setState(this._calculateState(nextProps, this.state));
+  },
+
+  componentDidUpdate:function() {
+    this._reportContentHeight();
+  },
+
+  render:function() /*object*/ {
+    var state = this.state;
+    var props = this.props;
+
+    var groupHeader;
+    if (state.useGroupHeader) {
+      groupHeader = (
+        React.createElement(FixedDataTableRow, {
+          key: "group_header", 
+          className: cx('public/fixedDataTable/header'), 
+          data: state.groupHeaderData, 
+          width: state.width, 
+          height: state.groupHeaderHeight, 
+          index: 0, 
+          zIndex: 1, 
+          offsetTop: 0, 
+          scrollLeft: state.scrollX, 
+          fixedColumns: state.groupHeaderFixedColumns, 
+          scrollableColumns: state.groupHeaderScrollableColumns}
+        )
+      );
+    }
+
+    var maxScrollY = this.state.scrollContentHeight - this.state.bodyHeight;
+    var showScrollbarX = state.maxScrollX > 0 && state.overflowX !== 'hidden';
+    var showScrollbarY = maxScrollY > 0 && state.overflowY !== 'hidden';
+    var scrollbarXHeight = showScrollbarX ? Scrollbar.SIZE : 0;
+    var scrollbarYHeight = state.height - scrollbarXHeight;
+
+    var headerOffsetTop = state.useGroupHeader ? state.groupHeaderHeight : 0;
+    var bodyOffsetTop = headerOffsetTop + state.headerHeight;
+    var bottomSectionOffset = 0;
+    var footOffsetTop = bodyOffsetTop + state.bodyHeight;
+    var rowsContainerHeight = footOffsetTop + state.footerHeight;
+
+    if (props.ownerHeight !== undefined  && props.ownerHeight < props.height) {
+      bottomSectionOffset = props.ownerHeight - props.height;
+      footOffsetTop = Math.min(
+        footOffsetTop,
+        scrollbarYHeight + bottomSectionOffset - state.footerHeight
+      );
+      scrollbarYHeight = props.ownerHeight - scrollbarXHeight;
+    }
+
+    var verticalScrollbar;
+    if (showScrollbarY) {
+      verticalScrollbar =
+        React.createElement(Scrollbar, {
+          size: scrollbarYHeight, 
+          contentSize: scrollbarYHeight + maxScrollY, 
+          onScroll: this._onVerticalScroll, 
+          position: state.scrollY}
+        );
+    }
+
+    var horizontalScrollbar;
+    if (showScrollbarX) {
+      var scrollbarYWidth = showScrollbarY ? Scrollbar.SIZE : 0;
+      var scrollbarXWidth = state.width - scrollbarYWidth;
+      horizontalScrollbar =
+        React.createElement(HorizontalScrollbar, {
+          contentSize: scrollbarXWidth + state.maxScrollX, 
+          offset: bottomSectionOffset, 
+          onScroll: this._onHorizontalScroll, 
+          position: state.scrollX, 
+          size: scrollbarXWidth}
+        );
+    }
+
+    var dragKnob =
+      React.createElement(FixedDataTableColumnResizeHandle, {
+        height: state.height, 
+        initialWidth: state.columnResizingData.width || 0, 
+        minWidth: state.columnResizingData.minWidth || 0, 
+        maxWidth: state.columnResizingData.maxWidth || Number.MAX_VALUE, 
+        visible: !!state.isColumnResizing, 
+        leftOffset: state.columnResizingData.left || 0, 
+        knobHeight: state.headerHeight, 
+        initialEvent: state.columnResizingData.initialEvent, 
+        onColumnResizeEnd: props.onColumnResizeEndCallback, 
+        columnKey: state.columnResizingData.key}
+      );
+
+    var footer = null;
+    if (state.footerHeight) {
+      footer =
+        React.createElement(FixedDataTableRow, {
+          key: "footer", 
+          className: cx('public/fixedDataTable/footer'), 
+          data: state.footerData, 
+          fixedColumns: state.footFixedColumns, 
+          height: state.footerHeight, 
+          index: -1, 
+          zIndex: 1, 
+          offsetTop: footOffsetTop, 
+          scrollableColumns: state.footScrollableColumns, 
+          scrollLeft: state.scrollX, 
+          width: state.width}
+        );
+    }
+
+    var rows = this._renderRows(bodyOffsetTop);
+
+    var header =
+      React.createElement(FixedDataTableRow, {
+        key: "header", 
+        className: cx('public/fixedDataTable/header'), 
+        data: state.headData, 
+        width: state.width, 
+        height: state.headerHeight, 
+        index: -1, 
+        zIndex: 1, 
+        offsetTop: headerOffsetTop, 
+        scrollLeft: state.scrollX, 
+        fixedColumns: state.headFixedColumns, 
+        scrollableColumns: state.headScrollableColumns, 
+        onColumnResize: this._onColumnResize}
+      );
+
+    var shadow;
+    if (state.scrollY) {
+      shadow =
+        React.createElement("div", {
+          className: cx('fixedDataTable/shadow'), 
+          style: {top: bodyOffsetTop}}
+        );
+    }
+
+    return (
+      React.createElement("div", {
+        className: cx('public/fixedDataTable/main'), 
+        onWheel: this._wheelHandler.onWheel, 
+        style: {height: state.height, width: state.width}}, 
+        React.createElement("div", {
+          className: cx('fixedDataTable/rowsContainer'), 
+          style: {height: rowsContainerHeight, width: state.width}}, 
+          dragKnob, 
+          groupHeader, 
+          header, 
+          rows, 
+          footer, 
+          shadow
+        ), 
+        verticalScrollbar, 
+        horizontalScrollbar
+      )
+    );
+  },
+
+  _renderRows:function(/*number*/ offsetTop) /*object*/ {
+    var state = this.state;
+
+    return (
+      React.createElement(FixedDataTableBufferedRows, {
+        defaultRowHeight: state.rowHeight, 
+        firstRowIndex: state.firstRowIndex, 
+        firstRowOffset: state.firstRowOffset, 
+        fixedColumns: state.bodyFixedColumns, 
+        height: state.bodyHeight, 
+        offsetTop: offsetTop, 
+        onRowClick: state.onRowClick, 
+        onRowMouseDown: state.onRowMouseDown, 
+        onRowMouseEnter: state.onRowMouseEnter, 
+        rowClassNameGetter: state.rowClassNameGetter, 
+        rowsCount: state.rowsCount, 
+        rowGetter: state.rowGetter, 
+        rowHeightGetter: state.rowHeightGetter, 
+        scrollLeft: state.scrollX, 
+        scrollableColumns: state.bodyScrollableColumns, 
+        showLastRowBorder: !state.footerHeight, 
+        width: state.width}
+      )
+    );
+  },
+
+  /**
+   * This is called when a cell that is in the header of a column has its
+   * resizer knob clicked on. It displays the resizer and puts in the correct
+   * location on the table.
+   */
+  _onColumnResize:function(
+    /*number*/ combinedWidth,
+    /*number*/ leftOffset,
+    /*number*/ cellWidth,
+    /*?number*/ cellMinWidth,
+    /*?number*/ cellMaxWidth,
+    /*number|string*/ columnKey,
+    /*object*/ event) {
+    if (Locale.isRTL()) {
+      leftOffset = -leftOffset;
+    }
+    this.setState({
+      isColumnResizing: true,
+      columnResizingData: {
+        left: leftOffset + combinedWidth - cellWidth,
+        width: cellWidth,
+        minWidth: cellMinWidth,
+        maxWidth: cellMaxWidth,
+        initialEvent: {
+          clientX: event.clientX,
+          clientY: event.clientY,
+          preventDefault: emptyFunction
+        },
+        key: columnKey
+      }
+    });
+  },
+
+  _populateColumnsAndColumnData:function(
+    /*array*/ columns,
+    /*?array*/ columnGroups
+  ) /*object*/ {
+    var columnInfo = {};
+    var bodyColumnTypes = this._splitColumnTypes(columns);
+    columnInfo.bodyFixedColumns = bodyColumnTypes.fixed;
+    columnInfo.bodyScrollableColumns = bodyColumnTypes.scrollable;
+
+    columnInfo.headData = this._getHeadData(columns);
+    var headColumnTypes = this._splitColumnTypes(
+      this._createHeadColumns(columns)
+    );
+    columnInfo.headFixedColumns = headColumnTypes.fixed;
+    columnInfo.headScrollableColumns = headColumnTypes.scrollable;
+
+    var footColumnTypes = this._splitColumnTypes(
+      this._createFootColumns(columns)
+    );
+    columnInfo.footFixedColumns = footColumnTypes.fixed;
+    columnInfo.footScrollableColumns = footColumnTypes.scrollable;
+
+    if (columnGroups) {
+      columnInfo.groupHeaderData = this._getGroupHeaderData(columnGroups);
+      columnGroups = this._createGroupHeaderColumns(columnGroups);
+      var groupHeaderColumnTypes = this._splitColumnTypes(columnGroups);
+      columnInfo.groupHeaderFixedColumns = groupHeaderColumnTypes.fixed;
+      columnInfo.groupHeaderScrollableColumns =
+        groupHeaderColumnTypes.scrollable;
+    }
+    return columnInfo;
+  },
+
+  _calculateState:function(/*object*/ props, /*?object*/ oldState) /*object*/ {
+    invariant(
+      props.height !== undefined || props.maxHeight !== undefined,
+      'You must set either a height or a maxHeight'
+    );
+
+    var firstRowIndex = (oldState && oldState.firstRowIndex) || 0;
+    var firstRowOffset = (oldState && oldState.firstRowOffset) || 0;
+    var scrollX, scrollY;
+    if (oldState && props.overflowX !== 'hidden') {
+      scrollX = oldState.scrollX;
+    } else {
+      scrollX = props.scrollLeft;
+    }
+    if (oldState && props.overflowY !== 'hidden') {
+      scrollY = oldState.scrollY;
+    } else {
+      scrollState = this._scrollHelper.scrollTo(props.scrollTop);
+      firstRowIndex = scrollState.index;
+      firstRowOffset = scrollState.offset;
+      scrollY = scrollState.position;
+    }
+
+    if (this._rowToScrollTo !== undefined) {
+      scrollState =
+        this._scrollHelper.scrollRowIntoView(this._rowToScrollTo);
+      firstRowIndex = scrollState.index;
+      firstRowOffset = scrollState.offset;
+      scrollY = scrollState.position;
+      delete this._rowToScrollTo;
+    }
+
+    if (oldState && props.rowsCount !== oldState.rowsCount) {
+      // Number of rows changed, try to scroll to the row from before the
+      // change
+      var viewportHeight = props.height -
+        props.headerHeight -
+        props.footerHeight -
+        props.groupHeaderHeight;
+      this._scrollHelper = new FixedDataTableScrollHelper(
+        props.rowsCount,
+        props.rowHeight,
+        viewportHeight,
+        props.rowHeightGetter
+      );
+      var scrollState =
+        this._scrollHelper.scrollToRow(firstRowIndex, firstRowOffset);
+      firstRowIndex = scrollState.index;
+      firstRowOffset = scrollState.offset;
+      scrollY = scrollState.position;
+    } else if (oldState && props.rowHeightGetter !== oldState.rowHeightGetter) {
+      this._scrollHelper.setRowHeightGetter(props.rowHeightGetter);
+    }
+
+    var columnResizingData;
+    if (props.isColumnResizing) {
+      columnResizingData = oldState && oldState.columnResizingData;
+    } else {
+      columnResizingData = EMPTY_OBJECT;
+    }
+
+    var children = [];
+
+    ReactChildren.forEach(props.children, function(child, index)  {
+      if (child == null) {
+        return;
+      }
+      invariant(
+        child.type.__TableColumnGroup__ ||
+        child.type.__TableColumn__,
+        'child type should be <FixedDataTableColumn /> or ' +
+        '<FixedDataTableColumnGroup />'
+      );
+      children.push(child);
+    });
+
+    var useGroupHeader = false;
+    if (children.length && children[0].type.__TableColumnGroup__) {
+      useGroupHeader = true;
+    }
+
+    var columns;
+    var columnGroups;
+
+    if (useGroupHeader) {
+      var columnGroupSettings =
+        FixedDataTableWidthHelper.adjustColumnGroupWidths(
+          children,
+          props.width
+      );
+      columns = columnGroupSettings.columns;
+      columnGroups = columnGroupSettings.columnGroups;
+    } else {
+      columns = FixedDataTableWidthHelper.adjustColumnWidths(
+        children,
+        props.width
+      );
+    }
+
+    var columnInfo = this._populateColumnsAndColumnData(
+      columns,
+      columnGroups
+    );
+
+    if (oldState) {
+      columnInfo = this._tryReusingColumnSettings(columnInfo, oldState);
+    }
+
+    if (this._columnToScrollTo !== undefined) {
+      // If selected column is a fixed column, don't scroll
+      var fixedColumnsCount = columnInfo.bodyFixedColumns.length;
+      if (this._columnToScrollTo >= fixedColumnsCount) {
+        var totalFixedColumnsWidth = 0;
+        var i, column;
+        for (i = 0; i < columnInfo.bodyFixedColumns.length; ++i) {
+          column = columnInfo.bodyFixedColumns[i];
+          totalFixedColumnsWidth += column.props.width;
+        }
+
+        var scrollableColumnIndex = this._columnToScrollTo - fixedColumnsCount;
+        var previousColumnsWidth = 0;
+        for (i = 0; i < scrollableColumnIndex; ++i) {
+          column = columnInfo.bodyScrollableColumns[i];
+          previousColumnsWidth += column.props.width;
+        }
+
+        var availableScrollWidth = props.width - totalFixedColumnsWidth;
+        var selectedColumnWidth = columnInfo.bodyScrollableColumns[
+          this._columnToScrollTo - fixedColumnsCount
+        ].props.width;
+        var minAcceptableScrollPosition =
+          previousColumnsWidth + selectedColumnWidth - availableScrollWidth;
+
+        if (scrollX < minAcceptableScrollPosition) {
+          scrollX = minAcceptableScrollPosition;
+        }
+
+        if (scrollX > previousColumnsWidth) {
+          scrollX = previousColumnsWidth;
+        }
+      }
+      delete this._columnToScrollTo;
+    }
+
+    var useMaxHeight = props.height === undefined;
+    var height = useMaxHeight ? props.maxHeight : props.height;
+    var totalHeightReserved = props.footerHeight + props.headerHeight +
+      props.groupHeaderHeight;
+    var bodyHeight = height - totalHeightReserved;
+    var scrollContentHeight = this._scrollHelper.getContentHeight();
+    var totalHeightNeeded = scrollContentHeight + totalHeightReserved;
+    var scrollContentWidth =
+      FixedDataTableWidthHelper.getTotalWidth(columns);
+
+    var horizontalScrollbarVisible = scrollContentWidth > props.width &&
+      props.overflowX !== 'hidden';
+
+    if (horizontalScrollbarVisible) {
+      bodyHeight -= Scrollbar.SIZE;
+      totalHeightNeeded += Scrollbar.SIZE;
+      totalHeightReserved += Scrollbar.SIZE;
+    }
+
+    var maxScrollX = Math.max(0, scrollContentWidth - props.width);
+    var maxScrollY = Math.max(0, scrollContentHeight - bodyHeight);
+    scrollX = Math.min(scrollX, maxScrollX);
+    scrollY = Math.min(scrollY, maxScrollY);
+
+    if (!maxScrollY) {
+      // no vertical scrollbar necessary, use the totals we tracked so we
+      // can shrink-to-fit vertically
+      if (useMaxHeight) {
+        height = totalHeightNeeded;
+      }
+      bodyHeight = totalHeightNeeded - totalHeightReserved;
+    }
+
+    this._scrollHelper.setViewportHeight(bodyHeight);
+
+    // The order of elements in this object metters and bringing bodyHeight,
+    // height or useGroupHeader to the top can break various features
+    var newState = Object.assign({
+      isColumnResizing: oldState && oldState.isColumnResizing},
+      // isColumnResizing should be overwritten by value from props if
+      // avaialble
+
+      columnInfo,
+      props,
+
+      {columnResizingData:columnResizingData,
+      firstRowIndex:firstRowIndex,
+      firstRowOffset:firstRowOffset,
+      horizontalScrollbarVisible:horizontalScrollbarVisible,
+      maxScrollX:maxScrollX,
+      reservedHeight: totalHeightReserved,
+      scrollContentHeight:scrollContentHeight,
+      scrollX:scrollX,
+      scrollY:scrollY,
+
+      // These properties may overwrite properties defined in
+      // columnInfo and props
+      bodyHeight:bodyHeight,
+      height:height,
+      useGroupHeader:useGroupHeader
+    });
+
+    // Both `headData` and `groupHeaderData` are generated by
+    // `FixedDataTable` will be passed to each header cell to render.
+    // In order to prevent over-rendering the cells, we do not pass the
+    // new `headData` or `groupHeaderData`
+    // if they haven't changed.
+    if (oldState) {
+      if (shallowEqual(oldState.headData, newState.headData)) {
+        newState.headData = oldState.headData;
+      }
+      if (shallowEqual(oldState.groupHeaderData, newState.groupHeaderData)) {
+        newState.groupHeaderData = oldState.groupHeaderData;
+      }
+    }
+
+    return newState;
+  },
+
+  _tryReusingColumnSettings:function(
+    /*object*/ columnInfo,
+    /*object*/ oldState
+  ) /*object*/ {
+    COLUMN_SETTING_NAMES.forEach(function(settingName)  {
+      if (columnInfo[settingName].length === oldState[settingName].length) {
+        var canReuse = true;
+        for (var index = 0; index < columnInfo[settingName].length; ++index) {
+          if (!shallowEqual(
+              columnInfo[settingName][index].props,
+              oldState[settingName][index].props
+          )) {
+            canReuse = false;
+            break;
+          }
+        }
+        if (canReuse) {
+          columnInfo[settingName] = oldState[settingName];
+        }
+      }
+    });
+    return columnInfo;
+  },
+
+  _createGroupHeaderColumns:function(/*array*/ columnGroups) /*array*/  {
+    var newColumnGroups = [];
+    for (var i = 0; i < columnGroups.length; ++i) {
+      newColumnGroups[i] = cloneWithProps(
+        columnGroups[i],
+        {
+          dataKey: i,
+          children: undefined,
+          columnData: columnGroups[i].props.columnGroupData,
+          isHeaderCell: true,
+        }
+      );
+    }
+    return newColumnGroups;
+  },
+
+  _createHeadColumns:function(/*array*/ columns) /*array*/ {
+    var headColumns = [];
+    for (var i = 0; i < columns.length; ++i) {
+      var columnProps = columns[i].props;
+      headColumns.push(cloneWithProps(
+        columns[i],
+        {
+          cellRenderer: columnProps.headerRenderer || renderToString,
+          columnData: columnProps.columnData,
+          dataKey: columnProps.dataKey,
+          isHeaderCell: true,
+          label: columnProps.label,
+        }
+      ));
+    }
+    return headColumns;
+  },
+
+  _createFootColumns:function(/*array*/ columns) /*array*/ {
+    var footColumns = [];
+    for (var i = 0; i < columns.length; ++i) {
+      var columnProps = columns[i].props;
+      footColumns.push(cloneWithProps(
+        columns[i],
+        {
+          cellRenderer: columnProps.footerRenderer || renderToString,
+          columnData: columnProps.columnData,
+          dataKey: columnProps.dataKey,
+          isFooterCell: true,
+        }
+      ));
+    }
+    return footColumns;
+  },
+
+  _getHeadData:function(/*array*/ columns) /*object*/ {
+    var headData = {};
+    for (var i = 0; i < columns.length; ++i) {
+      var columnProps = columns[i].props;
+      if (this.props.headerDataGetter) {
+        headData[columnProps.dataKey] =
+          this.props.headerDataGetter(columnProps.dataKey);
+      } else {
+        headData[columnProps.dataKey] = columnProps.label || '';
+      }
+    }
+    return headData;
+  },
+
+  _getGroupHeaderData:function(/*array*/ columnGroups) /*array*/ {
+    var groupHeaderData = [];
+    for (var i = 0; i < columnGroups.length; ++i) {
+      groupHeaderData[i] = columnGroups[i].props.label || '';
+    }
+    return groupHeaderData;
+  },
+
+  _splitColumnTypes:function(/*array*/ columns) /*object*/ {
+    var fixedColumns = [];
+    var scrollableColumns = [];
+    for (var i = 0; i < columns.length; ++i) {
+      if (columns[i].props.fixed) {
+        fixedColumns.push(columns[i]);
+      } else {
+        scrollableColumns.push(columns[i]);
+      }
+    }
+    return {
+      fixed: fixedColumns,
+      scrollable: scrollableColumns,
+    };
+  },
+
+  _onWheel:function(/*number*/ deltaX, /*number*/ deltaY) {
+    if (this.isMounted()) {
+      var x = this.state.scrollX;
+      if (Math.abs(deltaY) > Math.abs(deltaX) &&
+          this.props.overflowY !== 'hidden') {
+        var scrollState = this._scrollHelper.scrollBy(Math.round(deltaY));
+        this.setState({
+          firstRowIndex: scrollState.index,
+          firstRowOffset: scrollState.offset,
+          scrollY: scrollState.position,
+          scrollContentHeight: scrollState.contentHeight,
+        });
+      } else if (deltaX && this.props.overflowX !== 'hidden') {
+        x += deltaX;
+        x = x < 0 ? 0 : x;
+        x = x > this.state.maxScrollX ? this.state.maxScrollX : x;
+        this.setState({
+          scrollX: x,
+        });
+      }
+
+      this._didScrollStop();
+    }
+  },
+
+
+  _onHorizontalScroll:function(/*number*/ scrollPos) {
+    if (this.isMounted() && scrollPos !== this.state.scrollX) {
+      this.setState({
+        scrollX: scrollPos,
+      });
+      this._didScrollStop();
+    }
+  },
+
+  _onVerticalScroll:function(/*number*/ scrollPos) {
+    if (this.isMounted() && scrollPos !== this.state.scrollY) {
+      var scrollState = this._scrollHelper.scrollTo(Math.round(scrollPos));
+      this.setState({
+        firstRowIndex: scrollState.index,
+        firstRowOffset: scrollState.offset,
+        scrollY: scrollState.position,
+        scrollContentHeight: scrollState.contentHeight,
+      });
+      this._didScrollStop();
+    }
+  },
+
+  _didScrollStop:function() {
+    if (this.isMounted()) {
+      if (this.props.onScrollEnd) {
+        this.props.onScrollEnd(this.state.scrollX, this.state.scrollY);
+      }
+    }
+  }
+});
+
+var HorizontalScrollbar = React.createClass({displayName: "HorizontalScrollbar",
+  mixins: [ReactComponentWithPureRenderMixin],
+  propTypes: {
+    contentSize: PropTypes.number.isRequired,
+    offset: PropTypes.number.isRequired,
+    onScroll: PropTypes.func.isRequired,
+    position: PropTypes.number.isRequired,
+    size: PropTypes.number.isRequired,
+  },
+
+  render:function() /*object*/ {
+    var outerContainerStyle = {
+      height: Scrollbar.SIZE,
+      width: this.props.size,
+    };
+    var innerContainerStyle = {
+      height: Scrollbar.SIZE,
+      position: 'absolute',
+      width: this.props.size,
+    };
+    translateDOMPositionXY(
+      innerContainerStyle,
+      0,
+      this.props.offset
+    );
+
+    return (
+      React.createElement("div", {
+        className: cx('fixedDataTable/horizontalScrollbar'), 
+        style: outerContainerStyle}, 
+        React.createElement("div", {style: innerContainerStyle}, 
+          React.createElement(Scrollbar, React.__spread({}, 
+            this.props, 
+            {isOpaque: true, 
+            orientation: "horizontal", 
+            offset: undefined})
+          )
+        )
+      )
+    );
+  },
+});
+
+module.exports = FixedDataTable;
+
+},{"./FixedDataTableBufferedRows.react":17,"./FixedDataTableColumnResizeHandle.react":22,"./FixedDataTableHelper":23,"./FixedDataTableRow.react":25,"./FixedDataTableScrollHelper":27,"./FixedDataTableWidthHelper":28,"./Locale":34,"./React":36,"./ReactComponentWithPureRenderMixin":37,"./ReactWheelHandler":38,"./Scrollbar.react":39,"./cloneWithProps":44,"./cx":46,"./debounceCore":47,"./emptyFunction":48,"./invariant":50,"./shallowEqual":60,"./translateDOMPositionXY":61}],17:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableBufferedRows.react
+ * @typechecks
+ */
+
+var React = require('./React');
+var FixedDataTableRowBuffer = require('./FixedDataTableRowBuffer');
+var FixedDataTableRow = require('./FixedDataTableRow.react');
+
+var cx = require('./cx');
+var emptyFunction = require('./emptyFunction');
+var joinClasses = require('./joinClasses');
+
+var PropTypes = React.PropTypes;
+
+var FixedDataTableBufferedRows = React.createClass({displayName: "FixedDataTableBufferedRows",
+
+  propTypes: {
+    defaultRowHeight: PropTypes.number.isRequired,
+    firstRowIndex: PropTypes.number.isRequired,
+    firstRowOffset: PropTypes.number.isRequired,
+    fixedColumns: PropTypes.array.isRequired,
+    height: PropTypes.number.isRequired,
+    offsetTop: PropTypes.number.isRequired,
+    onRowClick: PropTypes.func,
+    onRowMouseDown: PropTypes.func,
+    onRowMouseEnter: PropTypes.func,
+    rowClassNameGetter: PropTypes.func,
+    rowsCount: PropTypes.number.isRequired,
+    rowGetter: PropTypes.func.isRequired,
+    rowHeightGetter: PropTypes.func,
+    scrollLeft: PropTypes.number.isRequired,
+    scrollableColumns: PropTypes.array.isRequired,
+    showLastRowBorder: PropTypes.bool,
+    width: PropTypes.number.isRequired,
+  },
+
+  getInitialState:function() /*object*/ {
+    this._rowBuffer =
+      new FixedDataTableRowBuffer(
+        this.props.rowsCount,
+        this.props.defaultRowHeight,
+        this.props.height,
+        this._getRowHeight
+      );
+    return ({
+      rowsToRender: this._rowBuffer.getRows(
+        this.props.firstRowIndex,
+        this.props.firstRowOffset
+      ),
+    });
+  },
+
+  componentWillMount:function() {
+    this._staticRowArray = [];
+  },
+
+  componentDidMount:function() {
+    this._bufferUpdateTimer = setTimeout(this._updateBuffer, 500);
+  },
+
+  componentWillReceiveProps:function(/*object*/ nextProps) {
+    if (nextProps.rowsCount !== this.props.rowsCount ||
+        nextProps.defaultRowHeight !== this.props.defaultRowHeight ||
+        nextProps.height !== this.props.height) {
+      this._rowBuffer =
+        new FixedDataTableRowBuffer(
+          nextProps.rowsCount,
+          nextProps.defaultRowHeight,
+          nextProps.height,
+          this._getRowHeight
+        );
+    }
+    this.setState({
+      rowsToRender: this._rowBuffer.getRows(
+        nextProps.firstRowIndex,
+        nextProps.firstRowOffset
+      ),
+    });
+    if (this._bufferUpdateTimer) {
+      clearTimeout(this._bufferUpdateTimer);
+    }
+    this._bufferUpdateTimer = setTimeout(this._updateBuffer, 400);
+  },
+
+  _updateBuffer:function() {
+    this._bufferUpdateTimer = null;
+    if (this.isMounted()) {
+      this.setState({
+        rowsToRender: this._rowBuffer.getRowsWithUpdatedBuffer(),
+      });
+    }
+  },
+
+  shouldComponentUpdate:function() /*boolean*/ {
+    // Don't add PureRenderMixin to this component please.
+    return true;
+  },
+
+  componentWillUnmount:function() {
+    this._staticRowArray.length = 0;
+  },
+
+  render:function() /*object*/ {
+    var props = this.props;
+    var offsetTop = props.offsetTop;
+    var rowClassNameGetter = props.rowClassNameGetter || emptyFunction;
+    var rowGetter = props.rowGetter;
+
+    var rowsToRender = this.state.rowsToRender;
+    this._staticRowArray.length = rowsToRender.length;
+
+    for (var i = 0; i < rowsToRender.length; ++i) {
+      var rowInfo = rowsToRender[i];
+      var rowIndex = rowInfo.rowIndex;
+      var rowOffsetTop = rowInfo.offsetTop;
+      var currentRowHeight = this._getRowHeight(rowIndex);
+
+      var hasBottomBorder =
+        rowIndex === props.rowsCount - 1 && props.showLastRowBorder;
+
+      this._staticRowArray[i] =
+        React.createElement(FixedDataTableRow, {
+          key: i, 
+          index: rowIndex, 
+          data: rowGetter(rowIndex), 
+          width: props.width, 
+          height: currentRowHeight, 
+          scrollLeft: Math.round(props.scrollLeft), 
+          offsetTop: Math.round(offsetTop + rowOffsetTop), 
+          fixedColumns: props.fixedColumns, 
+          scrollableColumns: props.scrollableColumns, 
+          onClick: props.onRowClick, 
+          onMouseDown: props.onRowMouseDown, 
+          onMouseEnter: props.onRowMouseEnter, 
+          className: joinClasses(
+            rowClassNameGetter(rowIndex),
+            cx('public/fixedDataTable/bodyRow'),
+            hasBottomBorder ? cx('fixedDataTable/hasBottomBorder') : null
+          )}
+        );
+    }
+
+    return React.createElement("div", null, this._staticRowArray);
+  },
+
+  _getRowHeight:function(/*number*/ index) /*number*/ {
+    return this.props.rowHeightGetter ?
+      this.props.rowHeightGetter(index) :
+      this.props.defaultRowHeight;
+  },
+});
+
+module.exports = FixedDataTableBufferedRows;
+
+},{"./FixedDataTableRow.react":25,"./FixedDataTableRowBuffer":26,"./React":36,"./cx":46,"./emptyFunction":48,"./joinClasses":53}],18:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableCell.react
+ * @typechecks
+ */
+
+var ImmutableObject = require('./ImmutableObject');
+var React = require('./React');
+
+var cloneWithProps = require('./cloneWithProps');
+var cx = require('./cx');
+var joinClasses = require('./joinClasses');
+
+var PropTypes = React.PropTypes;
+
+var DEFAULT_PROPS = new ImmutableObject({
+  align: 'left',
+  highlighted: false,
+  isFooterCell: false,
+  isHeaderCell: false,
+});
+
+var FixedDataTableCell = React.createClass({displayName: "FixedDataTableCell",
+
+  propTypes: {
+    align: PropTypes.oneOf(['left', 'center', 'right']),
+    className: PropTypes.string,
+    highlighted: PropTypes.bool,
+    isFooterCell: PropTypes.bool,
+    isHeaderCell: PropTypes.bool,
+    width: PropTypes.number.isRequired,
+    minWidth: PropTypes.number,
+    maxWidth: PropTypes.number,
+    height: PropTypes.number.isRequired,
+
+    /**
+     * The cell data that will be passed to `cellRenderer` to render.
+     */
+    cellData: PropTypes.any,
+
+    /**
+     * The key to retrieve the cell data from the `rowData`.
+     */
+    cellDataKey: PropTypes.oneOfType([
+      PropTypes.string.isRequired,
+      PropTypes.number.isRequired,
+    ]),
+
+    /**
+     * The function to render the `cellData`.
+     */
+    cellRenderer: PropTypes.func.isRequired,
+
+    /**
+     * The column data that will be passed to `cellRenderer` to render.
+     */
+    columnData: PropTypes.any,
+
+    /**
+     * The row data that will be passed to `cellRenderer` to render.
+     */
+    rowData: PropTypes.oneOfType([
+      PropTypes.object.isRequired,
+      PropTypes.array.isRequired,
+    ]),
+
+    /**
+     * The row index that will be passed to `cellRenderer` to render.
+     */
+    rowIndex: PropTypes.number.isRequired,
+
+    /**
+     * Callback for when resizer knob (in FixedDataTableCell) is clicked
+     * to initialize resizing. Please note this is only on the cells
+     * in the header.
+     * @param number combinedWidth
+     * @param number leftOffset
+     * @param number width
+     * @param number minWidth
+     * @param number maxWidth
+     * @param number|string columnKey
+     * @param object event
+     */
+    onColumnResize: PropTypes.func,
+
+    /**
+     * Width of the all the cells preceding this cell that
+     * are in its column group.
+     */
+    widthOffset: PropTypes.number,
+
+    /**
+     * The left offset in pixels of the cell.
+     */
+    left: PropTypes.number,
+  },
+
+  shouldComponentUpdate:function(/*object*/ nextProps) /*boolean*/ {
+    var props = this.props;
+    var key;
+    for (key in props) {
+      if (props[key] !== nextProps[key] &&
+          key !== 'left') {
+        return true;
+      }
+    }
+    for (key in nextProps) {
+      if (props[key] !== nextProps[key] &&
+          key !== 'left') {
+        return true;
+      }
+    }
+
+    return false;
+  },
+
+  getDefaultProps:function() /*object*/ {
+    return DEFAULT_PROPS;
+  },
+
+  render:function() /*object*/ {
+    var props = this.props;
+
+    var style = {
+      width: props.width,
+      height: props.height
+    };
+
+    var className = joinClasses(
+      cx({
+        'public/fixedDataTableCell/main': true,
+        'public/fixedDataTableCell/highlighted': props.highlighted,
+        'public/fixedDataTableCell/lastChild': props.lastChild,
+        'public/fixedDataTableCell/alignRight': props.align === 'right',
+        'public/fixedDataTableCell/alignCenter': props.align === 'center'
+      }),
+      props.className
+    );
+
+    var content;
+    if (props.isHeaderCell || props.isFooterCell) {
+      content = props.cellRenderer(
+        props.cellData,
+        props.cellDataKey,
+        props.columnData,
+        props.rowData,
+        props.width
+      );
+    } else {
+      content = props.cellRenderer(
+        props.cellData,
+        props.cellDataKey,
+        props.rowData,
+        props.rowIndex,
+        props.columnData,
+        props.width
+      );
+    }
+
+    var contentClass = cx('public/fixedDataTableCell/cellContent');
+    if (React.isValidElement(content)) {
+      content = cloneWithProps(content, {className: contentClass});
+    } else {
+      content = React.createElement("div", {className: contentClass}, content);
+    }
+
+    var columnResizerComponent;
+    if (props.onColumnResize) {
+      var columnResizerStyle = {
+        height: props.height
+      };
+      columnResizerComponent = (
+        React.createElement("div", {
+          className: cx('fixedDataTableCell/columnResizerContainer'), 
+          style: columnResizerStyle, 
+          onMouseDown: this._onColumnResizerMouseDown}, 
+          React.createElement("div", {
+            className: cx('fixedDataTableCell/columnResizerKnob'), 
+            style: columnResizerStyle}
+          )
+        )
+      );
+    }
+    return (
+      React.createElement("div", {className: className, style: style}, 
+        columnResizerComponent, 
+        React.createElement("div", {className: cx('public/fixedDataTableCell/wrap1'), style: style}, 
+          React.createElement("div", {className: cx('public/fixedDataTableCell/wrap2')}, 
+            React.createElement("div", {className: cx('public/fixedDataTableCell/wrap3')}, 
+              content
+            )
+          )
+        )
+      )
+    );
+  },
+
+  _onColumnResizerMouseDown:function(/*object*/ event) {
+    this.props.onColumnResize(
+      this.props.widthOffset,
+      this.props.width,
+      this.props.minWidth,
+      this.props.maxWidth,
+      this.props.cellDataKey,
+      event
+    );
+  },
+});
+
+module.exports = FixedDataTableCell;
+
+},{"./ImmutableObject":30,"./React":36,"./cloneWithProps":44,"./cx":46,"./joinClasses":53}],19:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableCellGroup.react
+ * @typechecks
+ */
+
+"use strict";
+
+var FixedDataTableHelper = require('./FixedDataTableHelper');
+var ImmutableObject = require('./ImmutableObject');
+var React = require('./React');
+var ReactComponentWithPureRenderMixin = require('./ReactComponentWithPureRenderMixin');
+var FixedDataTableCell = require('./FixedDataTableCell.react');
+
+var cx = require('./cx');
+var renderToString = FixedDataTableHelper.renderToString;
+var translateDOMPositionXY = require('./translateDOMPositionXY');
+
+var PropTypes = React.PropTypes;
+
+var EMPTY_OBJECT = new ImmutableObject({});
+
+var FixedDataTableCellGroupImpl = React.createClass({displayName: "FixedDataTableCellGroupImpl",
+  mixins: [ReactComponentWithPureRenderMixin],
+
+  propTypes: {
+
+    /**
+     * Array of <FixedDataTableColumn />.
+     */
+    columns: PropTypes.array.isRequired,
+
+    /**
+     * The row data to render. The data format can be a simple Map object
+     * or an Array of data.
+     */
+    data: PropTypes.oneOfType([
+      PropTypes.object,
+      PropTypes.array
+    ]),
+
+    onColumnResize: PropTypes.func,
+
+    rowHeight: PropTypes.number.isRequired,
+
+    rowIndex: PropTypes.number.isRequired,
+
+    zIndex: PropTypes.number.isRequired,
+  },
+
+  render:function() /*object*/ {
+    var props = this.props;
+    var columns = props.columns;
+    var cells = [];
+    var width = 0;
+
+    for (var i = 0, j = columns.length; i < j; i++) {
+      var columnProps = columns[i].props;
+      width += columnProps.width;
+      var key = 'cell_' + i;
+      cells.push(
+        this._renderCell(
+          props.data,
+          props.rowIndex,
+          props.rowHeight,
+          columnProps,
+          width,
+          key
+        )
+      );
+    }
+
+    var style = {
+      width: width,
+      height: props.height,
+      zIndex: props.zIndex
+    };
+
+    return (
+      React.createElement("div", {className: cx('fixedDataTableCellGroup/cellGroup'), style: style}, 
+        cells
+      )
+    );
+  },
+
+  _renderCell:function(
+    /*object|array*/ rowData,
+    /*number*/ rowIndex,
+    /*number*/ height,
+    /*object*/ columnProps,
+    /*?number*/ widthOffset,
+    /*string*/ key
+  ) /*object*/ {
+    var cellRenderer = columnProps.cellRenderer || renderToString;
+    var columnData = columnProps.columnData || EMPTY_OBJECT;
+    var cellDataKey = columnProps.dataKey;
+    var isFooterCell = columnProps.isFooterCell;
+    var isHeaderCell = columnProps.isHeaderCell;
+    var cellData;
+
+    if (isHeaderCell || isFooterCell) {
+      cellData = rowData[cellDataKey];
+    } else {
+      var cellDataGetter = columnProps.cellDataGetter;
+      cellData = cellDataGetter ?
+        cellDataGetter(cellDataKey, rowData) :
+        rowData[cellDataKey];
+    }
+
+    var cellIsResizable = columnProps.isResizable &&
+      this.props.onColumnResize;
+    var onColumnResize = cellIsResizable ? this.props.onColumnResize : null;
+
+    return (
+      React.createElement(FixedDataTableCell, {
+        align: columnProps.align, 
+        cellData: cellData, 
+        cellDataKey: cellDataKey, 
+        cellRenderer: cellRenderer, 
+        className: columnProps.cellClassName, 
+        columnData: columnData, 
+        height: height, 
+        isFooterCell: isFooterCell, 
+        isHeaderCell: isHeaderCell, 
+        key: key, 
+        maxWidth: columnProps.maxWidth, 
+        minWidth: columnProps.minWidth, 
+        onColumnResize: onColumnResize, 
+        rowData: rowData, 
+        rowIndex: rowIndex, 
+        width: columnProps.width, 
+        widthOffset: widthOffset}
+      )
+    );
+  },
+});
+
+var FixedDataTableCellGroup = React.createClass({displayName: "FixedDataTableCellGroup",
+  mixins: [ReactComponentWithPureRenderMixin],
+
+  propTypes: {
+    /**
+     * Height of the row.
+     */
+    height: PropTypes.number.isRequired,
+
+    left: PropTypes.number,
+
+    /**
+     * Z-index on which the row will be displayed. Used e.g. for keeping
+     * header and footer in front of other rows.
+     */
+    zIndex: PropTypes.number.isRequired,
+  },
+
+  render:function() /*object*/ {
+    var $__0=   this.props,left=$__0.left,props=(function(source, exclusion) {var rest = {};var hasOwn = Object.prototype.hasOwnProperty;if (source == null) {throw new TypeError();}for (var key in source) {if (hasOwn.call(source, key) && !hasOwn.call(exclusion, key)) {rest[key] = source[key];}}return rest;})($__0,{left:1});
+
+    var style = {
+      height: props.height,
+    };
+
+    if (left) {
+      translateDOMPositionXY(style, left, 0);
+    }
+
+    var onColumnResize = props.onColumnResize ? this._onColumnResize : null;
+
+    return (
+      React.createElement("div", {
+        style: style, 
+        className: cx('fixedDataTableCellGroup/cellGroupWrapper')}, 
+        React.createElement(FixedDataTableCellGroupImpl, React.__spread({}, 
+          props, 
+          {onColumnResize: onColumnResize})
+        )
+      )
+    );
+  },
+
+  _onColumnResize:function(
+    /*number*/ widthOffset,
+    /*number*/ width,
+    /*?number*/ minWidth,
+    /*?number*/ maxWidth,
+    /*string|number*/ cellDataKey,
+    /*object*/ event
+  ) {
+    this.props.onColumnResize && this.props.onColumnResize(
+      widthOffset,
+      this.props.left,
+      width,
+      minWidth,
+      maxWidth,
+      cellDataKey,
+      event
+    );
+  },
+});
+
+
+module.exports = FixedDataTableCellGroup;
+
+},{"./FixedDataTableCell.react":18,"./FixedDataTableHelper":23,"./ImmutableObject":30,"./React":36,"./ReactComponentWithPureRenderMixin":37,"./cx":46,"./translateDOMPositionXY":61}],20:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableColumn.react
+ * @typechecks
+ */
+
+var React = require('./React');
+
+var PropTypes = React.PropTypes;
+
+/**
+ * Component that defines the attributes of table column.
+ */
+var FixedDataTableColumn = React.createClass({displayName: "FixedDataTableColumn",
+  statics: {
+    __TableColumn__: true
+  },
+
+  propTypes: {
+    /**
+     * The horizontal alignment of the table cell content.
+     */
+    align: PropTypes.oneOf(['left', 'center', 'right']),
+
+    /**
+     * className for each of this column's data cells.
+     */
+    cellClassName: PropTypes.string,
+
+    /**
+     * The cell renderer that returns React-renderable content for table cell.
+     * ```
+     * function(
+     *   cellData: any,
+     *   cellDataKey: string,
+     *   rowData: object,
+     *   rowIndex: number,
+     *   columnData: any,
+     *   width: number
+     * ): ?$jsx
+     * ```
+     */
+    cellRenderer: PropTypes.func,
+
+    /**
+     * The getter `function(string_cellDataKey, object_rowData)` that returns
+     * the cell data for the `cellRenderer`.
+     * If not provided, the cell data will be collected from
+     * `rowData[cellDataKey]` instead. The value that `cellDataGetter` returns
+     * will be used to determine whether the cell should re-render.
+     */
+    cellDataGetter: PropTypes.func,
+
+    /**
+     * The key to retrieve the cell data from the data row. Provided key type
+     * must be either `string` or `number`. Since we use this
+     * for keys, it must be specified for each column.
+     */
+    dataKey: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number,
+    ]).isRequired,
+
+    /**
+     * The cell renderer that returns React-renderable content for table column
+     * header.
+     * ```
+     * function(
+     *   label: ?string,
+     *   cellDataKey: string,
+     *   columnData: any,
+     *   rowData: array<?object>,
+     *   width: number
+     * ): ?$jsx
+     * ```
+     */
+    headerRenderer: PropTypes.func,
+
+    /**
+     * The cell renderer that returns React-renderable content for table column
+     * footer.
+     * ```
+     * function(
+     *   label: ?string,
+     *   cellDataKey: string,
+     *   columnData: any,
+     *   rowData: array<?object>,
+     *   width: number
+     * ): ?$jsx
+     * ```
+     */
+    footerRenderer: PropTypes.func,
+
+    /**
+     * Bucket for any data to be passed into column renderer functions.
+     */
+    columnData: PropTypes.object,
+
+    /**
+     * The column's header label.
+     */
+    label: PropTypes.string,
+
+    /**
+     * The pixel width of the column.
+     */
+    width: PropTypes.number.isRequired,
+
+    /**
+     * If this is a resizable column this is its minimum pixel width.
+     */
+    minWidth: PropTypes.number,
+
+    /**
+     * If this is a resizable column this is its maximum pixel width.
+     */
+    maxWidth: PropTypes.number,
+
+    /**
+     * The grow factor relative to other columns. Same as the flex-grow API
+     * from http://www.w3.org/TR/css3-flexbox/. Basically, take any available
+     * extra width and distribute it proportionally according to all columns'
+     * flexGrow values. Defaults to zero (no-flexing).
+     */
+    flexGrow: PropTypes.number,
+
+    /**
+     * Whether the column can be resized with the
+     * FixedDataTableColumnResizeHandle. Please note that if a column
+     * has a flex grow, once you resize the column this will be set to 0.
+     */
+    isResizable: PropTypes.bool,
+  },
+
+  render:function() {
+    if (process.env.NODE_ENV !== 'production') {
+      throw new Error(
+        'Component <FixedDataTableColumn /> should never render'
+      );
+    }
+    return null;
+  },
+});
+
+module.exports = FixedDataTableColumn;
+
+}).call(this,require('_process'))
+},{"./React":36,"_process":7}],21:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableColumnGroup.react
+ * @typechecks
+ */
+
+var React = require('./React');
+
+var PropTypes = React.PropTypes;
+
+/**
+ * Component that defines the attributes of a table column group.
+ */
+var FixedDataTableColumnGroup = React.createClass({displayName: "FixedDataTableColumnGroup",
+  statics: {
+    __TableColumnGroup__: true
+  },
+
+  propTypes: {
+    /**
+     * The horizontal alignment of the table cell content.
+     */
+    align: PropTypes.oneOf(['left', 'center', 'right']),
+
+    /**
+     * Whether the column group is fixed.
+     */
+    fixed: PropTypes.bool.isRequired,
+
+    /**
+     * Bucket for any data to be passed into column group renderer functions.
+     */
+    columnGroupData: PropTypes.object,
+
+    /**
+     * The column group's header label.
+     */
+    label: PropTypes.string,
+
+    /**
+     * The cell renderer that returns React-renderable content for a table
+     * column group header. If it's not specified, the label from props will
+     * be rendered as header content.
+     * ```
+     * function(
+     *   label: ?string,
+     *   cellDataKey: string,
+     *   columnGroupData: any,
+     *   rowData: array<?object>, // array of labels of all coludmnGroups
+     *   width: number
+     * ): ?$jsx
+     * ```
+     */
+    groupHeaderRenderer: PropTypes.func,
+  },
+
+  render:function() {
+    if (process.env.NODE_ENV !== 'production') {
+      throw new Error(
+        'Component <FixedDataTableColumnGroup /> should never render'
+      );
+    }
+    return null;
+  },
+});
+
+module.exports = FixedDataTableColumnGroup;
+
+}).call(this,require('_process'))
+},{"./React":36,"_process":7}],22:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * This is to be used with the FixedDataTable. It is a read line
+ * that when you click on a column that is resizable appears and allows
+ * you to resize the corresponding column.
+ *
+ * @providesModule FixedDataTableColumnResizeHandle.react
+ * @typechecks
+ */
+
+var DOMMouseMoveTracker = require('./DOMMouseMoveTracker');
+var Locale = require('./Locale');
+var React = require('./React');
+var ReactComponentWithPureRenderMixin = require('./ReactComponentWithPureRenderMixin');
+
+var clamp = require('./clamp');
+var cx = require('./cx');
+
+var PropTypes = React.PropTypes;
+
+var FixedDataTableColumnResizeHandle = React.createClass({displayName: "FixedDataTableColumnResizeHandle",
+  mixins: [ReactComponentWithPureRenderMixin],
+
+  propTypes: {
+    visible: PropTypes.bool.isRequired,
+
+    /**
+     * This is the height of the line
+     */
+    height: PropTypes.number.isRequired,
+
+    /**
+     * Offset from left border of the table, please note
+     * that the line is a border on diff. So this is really the
+     * offset of the column itself.
+     */
+    leftOffset: PropTypes.number.isRequired,
+
+    /**
+     * Height of the clickable region of the line.
+     * This is assumed to be at the top of the line.
+     */
+    knobHeight: PropTypes.number.isRequired,
+
+    /**
+     * The line is a border on a diff, so this is essentially
+     * the width of column.
+     */
+    initialWidth: PropTypes.number,
+
+    /**
+     * The minimum width this dragger will collapse to
+     */
+    minWidth: PropTypes.number,
+
+    /**
+     * The maximum width this dragger will collapse to
+     */
+    maxWidth: PropTypes.number,
+
+    /**
+     * Initial click event on the header cell.
+     */
+    initialEvent: PropTypes.object,
+
+    /**
+     * When resizing is complete this is called.
+     */
+    onColumnResizeEnd: PropTypes.func,
+
+    /**
+     * Column key for the column being resized.
+     */
+    columnKey: PropTypes.oneOfType([
+      PropTypes.string,
+      PropTypes.number
+    ]),
+  },
+
+  getInitialState:function() /*object*/ {
+    return {
+      width: 0,
+      cursorDelta: 0
+    };
+  },
+
+  componentWillReceiveProps:function(/*object*/ newProps) {
+    if (newProps.initialEvent && !this._mouseMoveTracker.isDragging()) {
+      this._mouseMoveTracker.captureMouseMoves(newProps.initialEvent);
+      this.setState({
+        width: newProps.initialWidth,
+        cursorDelta: newProps.initialWidth
+      });
+    }
+  },
+
+  componentDidMount:function() {
+    this._mouseMoveTracker = new DOMMouseMoveTracker(
+      this._onMove,
+      this._onColumnResizeEnd,
+      document.body
+    );
+  },
+
+  componentWillUnmount:function() {
+    this._mouseMoveTracker.releaseMouseMoves();
+    this._mouseMoveTracker = null;
+  },
+
+  render:function() /*object*/ {
+    var style = {
+      width: this.state.width,
+      height: this.props.height,
+    };
+    if (Locale.isRTL()) {
+      style.right = this.props.leftOffset;
+    } else {
+      style.left = this.props.leftOffset;
+    }
+    return (
+      React.createElement("div", {
+        className: cx({
+          'fixedDataTableColumnResizerLine/main': true,
+          'fixedDataTableColumnResizerLine/hiddenElem': !this.props.visible
+        }), 
+        style: style}, 
+        React.createElement("div", {
+          className: cx('fixedDataTableColumnResizerLine/mouseArea'), 
+          style: {height: this.props.height}}
+        )
+      )
+    );
+  },
+
+  _onMove:function(/*number*/ deltaX) {
+    if (Locale.isRTL()) {
+      deltaX = -deltaX;
+    }
+    var newWidth = this.state.cursorDelta + deltaX;
+    var newColumnWidth =
+      clamp(this.props.minWidth, newWidth, this.props.maxWidth);
+
+    // Please note cursor delta is the different between the currently width
+    // and the new width.
+    this.setState({
+      width: newColumnWidth,
+      cursorDelta: newWidth
+    });
+  },
+
+  _onColumnResizeEnd:function() {
+    this._mouseMoveTracker.releaseMouseMoves();
+    this.props.onColumnResizeEnd(
+      this.state.width,
+      this.props.columnKey
+    );
+  },
+});
+
+module.exports = FixedDataTableColumnResizeHandle;
+
+},{"./DOMMouseMoveTracker":13,"./Locale":34,"./React":36,"./ReactComponentWithPureRenderMixin":37,"./clamp":43,"./cx":46}],23:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableHelper
+ * @typechecks
+ */
+
+"use strict";
+
+var Locale = require('./Locale');
+var React = require('./React');
+var FixedDataTableColumnGroup = require('./FixedDataTableColumnGroup.react');
+var FixedDataTableColumn = require('./FixedDataTableColumn.react');
+
+var cloneWithProps = require('./cloneWithProps');
+
+var DIR_SIGN = (Locale.isRTL() ? -1 : +1);
+// A cell up to 5px outside of the visible area will still be considered visible
+var CELL_VISIBILITY_TOLERANCE = 5; // used for flyouts
+
+function renderToString(value) /*string*/ {
+  if (value === null || value === undefined) {
+    return '';
+  } else {
+    return String(value);
+  }
+}
+
+/**
+ * Helper method to execute a callback against all columns given the children
+ * of a table.
+ * @param {?object|array} children
+ *    Children of a table.
+ * @param {function} callback
+ *    Function to excecute for each column. It is passed the column.
+ */
+function forEachColumn(children, callback) {
+  React.Children.forEach(children, function(child)  {
+    if (child.type === FixedDataTableColumnGroup.type) {
+      forEachColumn(child.props.children, callback);
+    } else if (child.type === FixedDataTableColumn.type) {
+      callback(child);
+    }
+  });
+}
+
+/**
+ * Helper method to map columns to new columns. This takes into account column
+ * groups and will generate a new column group if its columns change.
+ * @param {?object|array} children
+ *    Children of a table.
+ * @param {function} callback
+ *    Function to excecute for each column. It is passed the column and should
+ *    return a result column.
+ */
+function mapColumns(children, callback) {
+  var newChildren = [];
+  React.Children.forEach(children, function(originalChild)  {
+    var newChild = originalChild;
+
+    // The child is either a column group or a column. If it is a column group
+    // we need to iterate over its columns and then potentially generate a
+    // new column group
+    if (originalChild.type === FixedDataTableColumnGroup.type) {
+      var haveColumnsChanged = false;
+      var newColumns = [];
+
+      forEachColumn(originalChild.props.children, function(originalcolumn)  {
+        var newColumn = callback(originalcolumn);
+        if (newColumn !== originalcolumn) {
+          haveColumnsChanged = true;
+        }
+        newColumns.push(newColumn);
+      });
+
+      // If the column groups columns have changed clone the group and supply
+      // new children
+      if (haveColumnsChanged) {
+        newChild = cloneWithProps(originalChild, {children: newColumns});
+      }
+    } else if (originalChild.type === FixedDataTableColumn.type) {
+      newChild = callback(originalChild);
+    }
+
+    newChildren.push(newChild);
+  });
+
+  return newChildren;
+}
+
+var FixedDataTableHelper = {
+  DIR_SIGN:DIR_SIGN,
+  CELL_VISIBILITY_TOLERANCE:CELL_VISIBILITY_TOLERANCE,
+  renderToString:renderToString,
+  forEachColumn:forEachColumn,
+  mapColumns:mapColumns,
+};
+
+module.exports = FixedDataTableHelper;
+
+},{"./FixedDataTableColumn.react":20,"./FixedDataTableColumnGroup.react":21,"./Locale":34,"./React":36,"./cloneWithProps":44}],24:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableRoot
+ */
+
+"use strict";
+
+if (process.env.NODE_ENV !== 'production') {
+  var ExecutionEnvironment = require('./ExecutionEnvironment');
+  if (ExecutionEnvironment.canUseDOM && window.top === window.self) {
+
+    if (!Object.assign) {
+      console.error(
+        'FixedDataTable expected an ES6 compatible `Object.assign` polyfill.'
+      );
+    }
+  }
+}
+
+var FixedDataTable = require('./FixedDataTable.react');
+var FixedDataTableColumn = require('./FixedDataTableColumn.react');
+var FixedDataTableColumnGroup = require('./FixedDataTableColumnGroup.react');
+
+var FixedDataTableRoot = {
+  Column: FixedDataTableColumn,
+  ColumnGroup: FixedDataTableColumnGroup,
+  Table: FixedDataTable,
+};
+
+FixedDataTableRoot.version = '0.1.2';
+
+module.exports = FixedDataTableRoot;
+
+}).call(this,require('_process'))
+},{"./ExecutionEnvironment":15,"./FixedDataTable.react":16,"./FixedDataTableColumn.react":20,"./FixedDataTableColumnGroup.react":21,"_process":7}],25:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableRow.react
+ * @typechecks
+ */
+
+"use strict";
+
+var FixedDataTableHelper = require('./FixedDataTableHelper');
+var React = require('./React');
+var ReactComponentWithPureRenderMixin = require('./ReactComponentWithPureRenderMixin');
+var FixedDataTableCellGroup = require('./FixedDataTableCellGroup.react');
+
+var cx = require('./cx');
+var joinClasses = require('./joinClasses');
+var translateDOMPositionXY = require('./translateDOMPositionXY');
+
+var DIR_SIGN = FixedDataTableHelper.DIR_SIGN;
+var PropTypes = React.PropTypes;
+
+/**
+ * Component that renders the row for <FixedDataTable />.
+ * This component should not be used directly by developer. Instead,
+ * only <FixedDataTable /> should use the component internally.
+ */
+var FixedDataTableRowImpl = React.createClass({displayName: "FixedDataTableRowImpl",
+  mixins: [ReactComponentWithPureRenderMixin],
+
+  propTypes: {
+    /**
+     * The row data to render. The data format can be a simple Map object
+     * or an Array of data.
+     */
+    data: PropTypes.oneOfType([
+      PropTypes.object,
+      PropTypes.array
+    ]),
+
+    /**
+     * Array of <FixedDataTableColumn /> for the fixed columns.
+     */
+    fixedColumns: PropTypes.array.isRequired,
+
+    /**
+     * Height of the row.
+     */
+    height: PropTypes.number.isRequired,
+
+    /**
+     * The row index.
+     */
+    index: PropTypes.number.isRequired,
+
+    /**
+     * Array of <FixedDataTableColumn /> for the scrollable columns.
+     */
+    scrollableColumns: PropTypes.array.isRequired,
+
+    /**
+     * The distance between the left edge of the table and the leftmost portion
+     * of the row currently visible in the table.
+     */
+    scrollLeft: PropTypes.number.isRequired,
+
+    /**
+     * Width of the row.
+     */
+    width: PropTypes.number.isRequired,
+
+    /**
+     * Fire when a row is clicked.
+     */
+    onClick: PropTypes.func,
+
+    /**
+     * Callback for when resizer knob (in FixedDataTableCell) is clicked
+     * to initialize resizing. Please note this is only on the cells
+     * in the header.
+     * @param number combinedWidth
+     * @param number leftOffset
+     * @param number cellWidth
+     * @param number|string columnKey
+     * @param object event
+     */
+    onColumnResize: PropTypes.func,
+  },
+
+  render:function() /*object*/ {
+    var style = {
+      width: this.props.width,
+      height: this.props.height,
+    };
+
+    var className = cx({
+      'public/fixedDataTableRow/main': true,
+      'public/fixedDataTableRow/highlighted': (this.props.index % 2 === 1)
+    });
+
+    if (!this.props.data) {
+      return (
+        React.createElement("div", {
+          className: joinClasses(className, this.props.className), 
+          style: style}
+        )
+      );
+    }
+
+    var fixedColumns =
+      React.createElement(FixedDataTableCellGroup, {
+        key: "fixed_cells", 
+        height: this.props.height, 
+        left: 0, 
+        zIndex: 2, 
+        columns: this.props.fixedColumns, 
+        data: this.props.data, 
+        onColumnResize: this.props.onColumnResize, 
+        rowHeight: this.props.height, 
+        rowIndex: this.props.index}
+      );
+    var fixedColumnsWidth = this._getColumnsWidth(this.props.fixedColumns);
+    var columnsShadow = this._renderColumnsShadow(fixedColumnsWidth);
+    var scrollableColumns =
+      React.createElement(FixedDataTableCellGroup, {
+        key: "scrollable_cells", 
+        height: this.props.height, 
+        left: (fixedColumnsWidth - this.props.scrollLeft) * DIR_SIGN, 
+        zIndex: 0, 
+        columns: this.props.scrollableColumns, 
+        data: this.props.data, 
+        onColumnResize: this.props.onColumnResize, 
+        rowHeight: this.props.height, 
+        rowIndex: this.props.index}
+      );
+
+    return (
+      React.createElement("div", {
+        className: joinClasses(className, this.props.className), 
+        onClick: this.props.onClick ? this._onClick : null, 
+        onMouseDown: this.props.onMouseDown ? this._onMouseDown : null, 
+        onMouseEnter: this.props.onMouseEnter ? this._onMouseEnter : null, 
+        style: style}, 
+        React.createElement("div", {className: cx('fixedDataTableRow/body')}, 
+          fixedColumns, 
+          scrollableColumns, 
+          columnsShadow
+        )
+      )
+    );
+  },
+
+  _getColumnsWidth:function(/*array*/ columns) /*number*/ {
+    var width = 0;
+    for (var i = 0; i < columns.length; ++i) {
+      width += columns[i].props.width;
+    }
+    return width;
+  },
+
+  _renderColumnsShadow:function(/*number*/ left) /*?object*/ {
+    if (left > 0) {
+      var className = cx({
+        'fixedDataTableRow/fixedColumnsDivider': true,
+        'fixedDataTableRow/columnsShadow': this.props.scrollLeft > 0,
+      });
+      var style = {
+        left: left,
+        height: this.props.height
+      };
+      return React.createElement("div", {className: className, style: style});
+    }
+  },
+
+  _onClick:function(/*object*/ event) {
+    this.props.onClick(event, this.props.index, this.props.data);
+  },
+
+  _onMouseDown:function(/*object*/ event) {
+    this.props.onMouseDown(event, this.props.index, this.props.data);
+  },
+
+  _onMouseEnter:function(/*object*/ event) {
+    this.props.onMouseEnter(event, this.props.index, this.props.data);
+  },
+});
+
+var FixedDataTableRow = React.createClass({displayName: "FixedDataTableRow",
+  mixins: [ReactComponentWithPureRenderMixin],
+
+  propTypes: {
+    /**
+     * Height of the row.
+     */
+    height: PropTypes.number.isRequired,
+
+    /**
+     * Z-index on which the row will be displayed. Used e.g. for keeping
+     * header and footer in front of other rows.
+     */
+    zIndex: PropTypes.number,
+
+    /**
+     * The vertical position where the row should render itself
+     */
+    offsetTop: PropTypes.number.isRequired,
+
+    /**
+     * Width of the row.
+     */
+    width: PropTypes.number.isRequired,
+  },
+
+  render:function() /*object*/ {
+    var style = {
+      width: this.props.width,
+      height: this.props.height,
+      zIndex: (this.props.zIndex ? this.props.zIndex : 0),
+    };
+    translateDOMPositionXY(style, 0, this.props.offsetTop);
+
+    return (
+      React.createElement("div", {
+        style: style, 
+        className: cx('fixedDataTableRow/rowWrapper')}, 
+        React.createElement(FixedDataTableRowImpl, React.__spread({}, 
+          this.props, 
+          {offsetTop: undefined, 
+          zIndex: undefined})
+        )
+      )
+    );
+  },
+});
+
+
+module.exports = FixedDataTableRow;
+
+},{"./FixedDataTableCellGroup.react":19,"./FixedDataTableHelper":23,"./React":36,"./ReactComponentWithPureRenderMixin":37,"./cx":46,"./joinClasses":53,"./translateDOMPositionXY":61}],26:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableRowBuffer
+ * @typechecks
+ */
+'use strict';
+
+var IntegerBufferSet = require('./IntegerBufferSet');
+
+var clamp = require('./clamp');
+var invariant = require('./invariant');
+var MIN_BUFFER_ROWS = 5;
+var MAX_BUFFER_ROWS = 15;
+
+// FixedDataTableRowBuffer is a helper class that executes row buffering
+// logic for FixedDataTable. It figures out which rows should be rendered
+// and in which positions.
+
+  function FixedDataTableRowBuffer(
+rowsCount,
+    /*number*/  defaultRowHeight,
+    /*number*/ viewportHeight,
+    /*?function*/ rowHeightGetter)
+   {
+    invariant(
+      defaultRowHeight !== 0,
+      "defaultRowHeight musn't be equal 0 in FixedDataTableRowBuffer"
+    );
+
+    this.$FixedDataTableRowBuffer_bufferSet = new IntegerBufferSet();
+    this.$FixedDataTableRowBuffer_defaultRowHeight = defaultRowHeight;
+    this.$FixedDataTableRowBuffer_viewportRowsBegin = 0;
+    this.$FixedDataTableRowBuffer_viewportRowsEnd = 0;
+    this.$FixedDataTableRowBuffer_maxVisibleRowCount = Math.ceil(viewportHeight / defaultRowHeight) + 1;
+    this.$FixedDataTableRowBuffer_bufferRowsCount = clamp(
+      MIN_BUFFER_ROWS,
+      Math.floor(this.$FixedDataTableRowBuffer_maxVisibleRowCount/2),
+      MAX_BUFFER_ROWS
+    );
+    this.$FixedDataTableRowBuffer_rowsCount = rowsCount;
+    this.$FixedDataTableRowBuffer_rowHeightGetter = rowHeightGetter;
+    this.$FixedDataTableRowBuffer_rows = [];
+    this.$FixedDataTableRowBuffer_viewportHeight = viewportHeight;
+
+    this.getRows = this.getRows.bind(this);
+    this.getRowsWithUpdatedBuffer = this.getRowsWithUpdatedBuffer.bind(this);
+  }
+
+  FixedDataTableRowBuffer.prototype.getRowsWithUpdatedBuffer=function()  {
+    var remainingBufferRows = 2 * this.$FixedDataTableRowBuffer_bufferRowsCount;
+    var bufferRowIndex =
+      Math.max(this.$FixedDataTableRowBuffer_viewportRowsBegin - this.$FixedDataTableRowBuffer_bufferRowsCount, 0);
+    while (bufferRowIndex < this.$FixedDataTableRowBuffer_viewportRowsBegin) {
+      this.$FixedDataTableRowBuffer_addRowToBuffer(
+        bufferRowIndex,
+        this.$FixedDataTableRowBuffer_viewportHeight,
+        this.$FixedDataTableRowBuffer_viewportRowsBegin,
+        this.$FixedDataTableRowBuffer_viewportRowsEnd -1
+      );
+      bufferRowIndex++;
+      remainingBufferRows--;
+    }
+    bufferRowIndex = this.$FixedDataTableRowBuffer_viewportRowsEnd;
+    while (bufferRowIndex < this.$FixedDataTableRowBuffer_rowsCount && remainingBufferRows > 0) {
+      this.$FixedDataTableRowBuffer_addRowToBuffer(
+        bufferRowIndex,
+        this.$FixedDataTableRowBuffer_viewportHeight,
+        this.$FixedDataTableRowBuffer_viewportRowsBegin,
+        this.$FixedDataTableRowBuffer_viewportRowsEnd -1
+      );
+      bufferRowIndex++;
+      remainingBufferRows--;
+    }
+    return this.$FixedDataTableRowBuffer_rows;
+  };
+
+  FixedDataTableRowBuffer.prototype.getRows=function(
+firstRowIndex,
+    /*number*/ firstRowOffset)
+    {
+    // Update offsets of all rows to move them outside of viewport. Later we
+    // will bring rows that we should show to their right offsets.
+    this.$FixedDataTableRowBuffer_hideAllRows();
+
+    var top = firstRowOffset;
+    var totalHeight = top;
+    var rowIndex = firstRowIndex;
+    var endIndex =
+      Math.min(firstRowIndex + this.$FixedDataTableRowBuffer_maxVisibleRowCount, this.$FixedDataTableRowBuffer_rowsCount);
+
+    this.$FixedDataTableRowBuffer_viewportRowsBegin = firstRowIndex;
+    while (rowIndex < endIndex ||
+        (totalHeight < this.$FixedDataTableRowBuffer_viewportHeight && rowIndex < this.$FixedDataTableRowBuffer_rowsCount)) {
+      this.$FixedDataTableRowBuffer_addRowToBuffer(
+        rowIndex,
+        totalHeight,
+        firstRowIndex,
+        endIndex - 1
+      );
+      totalHeight += this.$FixedDataTableRowBuffer_rowHeightGetter(rowIndex);
+      ++rowIndex;
+      // Store index after the last viewport row as end, to be able to
+      // distinguish when there are no rows rendered in viewport
+      this.$FixedDataTableRowBuffer_viewportRowsEnd = rowIndex;
+    }
+
+    return this.$FixedDataTableRowBuffer_rows;
+  };
+
+  FixedDataTableRowBuffer.prototype.$FixedDataTableRowBuffer_addRowToBuffer=function(
+rowIndex,
+    /*number*/ offsetTop,
+    /*number*/ firstViewportRowIndex,
+    /*number*/ lastViewportRowIndex)
+   {
+      var rowPosition = this.$FixedDataTableRowBuffer_bufferSet.getValuePosition(rowIndex);
+      var viewportRowsCount = lastViewportRowIndex - firstViewportRowIndex + 1;
+      var allowedRowsCount = viewportRowsCount + this.$FixedDataTableRowBuffer_bufferRowsCount * 2;
+      if (rowPosition === null &&
+          this.$FixedDataTableRowBuffer_bufferSet.getSize() >= allowedRowsCount) {
+        rowPosition =
+          this.$FixedDataTableRowBuffer_bufferSet.replaceFurthestValuePosition(
+            firstViewportRowIndex,
+            lastViewportRowIndex,
+            rowIndex
+          );
+      }
+      if (rowPosition === null) {
+        // We can't reuse any of existing positions for this row. We have to
+        // create new position
+        rowPosition = this.$FixedDataTableRowBuffer_bufferSet.getNewPositionForValue(rowIndex);
+        this.$FixedDataTableRowBuffer_rows[rowPosition] = {
+          rowIndex:rowIndex,
+          offsetTop:offsetTop,
+        };
+      } else {
+        // This row already is in the table with rowPosition position or it
+        // can replace row that is in that position
+        this.$FixedDataTableRowBuffer_rows[rowPosition].rowIndex = rowIndex;
+        this.$FixedDataTableRowBuffer_rows[rowPosition].offsetTop = offsetTop;
+      }
+  };
+
+  FixedDataTableRowBuffer.prototype.$FixedDataTableRowBuffer_hideAllRows=function() {
+    var i = this.$FixedDataTableRowBuffer_rows.length - 1;
+    while (i > -1) {
+      this.$FixedDataTableRowBuffer_rows[i].offsetTop = this.$FixedDataTableRowBuffer_viewportHeight;
+      i--;
+    }
+  };
+
+
+module.exports = FixedDataTableRowBuffer;
+
+},{"./IntegerBufferSet":32,"./clamp":43,"./invariant":50}],27:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableScrollHelper
+ * @typechecks
+ */
+'use strict';
+
+var PrefixIntervalTree = require('./PrefixIntervalTree');
+var clamp = require('./clamp');
+
+var BUFFER_ROWS = 5;
+
+
+  function FixedDataTableScrollHelper(
+rowCount,
+    /*number*/ defaultRowHeight,
+    /*number*/ viewportHeight,
+    /*?function*/ rowHeightGetter)
+   {
+    this.$FixedDataTableScrollHelper_rowOffsets = new PrefixIntervalTree(rowCount, defaultRowHeight);
+    this.$FixedDataTableScrollHelper_storedHeights = new Array(rowCount);
+    for (var i = 0; i < rowCount; ++i) {
+      this.$FixedDataTableScrollHelper_storedHeights[i] = defaultRowHeight;
+    }
+    this.$FixedDataTableScrollHelper_rowCount = rowCount;
+    this.$FixedDataTableScrollHelper_position = 0;
+    this.$FixedDataTableScrollHelper_contentHeight = rowCount * defaultRowHeight;
+    this.$FixedDataTableScrollHelper_defaultRowHeight = defaultRowHeight;
+    this.$FixedDataTableScrollHelper_rowHeightGetter = rowHeightGetter ?
+      rowHeightGetter :
+      function()  {return defaultRowHeight;};
+    this.$FixedDataTableScrollHelper_viewportHeight = viewportHeight;
+    this.scrollRowIntoView = this.scrollRowIntoView.bind(this);
+    this.setViewportHeight = this.setViewportHeight.bind(this);
+    this.scrollBy = this.scrollBy.bind(this);
+    this.scrollTo = this.scrollTo.bind(this);
+    this.scrollToRow = this.scrollToRow.bind(this);
+    this.setRowHeightGetter = this.setRowHeightGetter.bind(this);
+    this.getContentHeight = this.getContentHeight.bind(this);
+
+    this.$FixedDataTableScrollHelper_updateHeightsInViewport(0, 0);
+  }
+
+  FixedDataTableScrollHelper.prototype.setRowHeightGetter=function(rowHeightGetter) {
+    this.$FixedDataTableScrollHelper_rowHeightGetter = rowHeightGetter;
+  };
+
+  FixedDataTableScrollHelper.prototype.setViewportHeight=function(viewportHeight) {
+    this.$FixedDataTableScrollHelper_viewportHeight = viewportHeight;
+  };
+
+  FixedDataTableScrollHelper.prototype.getContentHeight=function()  {
+    return this.$FixedDataTableScrollHelper_contentHeight;
+  };
+
+  FixedDataTableScrollHelper.prototype.$FixedDataTableScrollHelper_updateHeightsInViewport=function(
+firstRowIndex,
+    /*number*/ firstRowOffset)
+   {
+    var top = firstRowOffset;
+    var index = firstRowIndex;
+    while (top <= this.$FixedDataTableScrollHelper_viewportHeight && index < this.$FixedDataTableScrollHelper_rowCount) {
+      this.$FixedDataTableScrollHelper_updateRowHeight(index);
+      top += this.$FixedDataTableScrollHelper_storedHeights[index];
+      index++;
+    }
+  };
+
+  FixedDataTableScrollHelper.prototype.$FixedDataTableScrollHelper_updateHeightsAboveViewport=function(firstRowIndex) {
+    var index = firstRowIndex - 1;
+    while (index >= 0 && index >= firstRowIndex - BUFFER_ROWS) {
+      var delta = this.$FixedDataTableScrollHelper_updateRowHeight(index);
+      this.$FixedDataTableScrollHelper_position += delta;
+      index--;
+    }
+  };
+
+  FixedDataTableScrollHelper.prototype.$FixedDataTableScrollHelper_updateRowHeight=function(rowIndex)  {
+    if (rowIndex < 0 || rowIndex >= this.$FixedDataTableScrollHelper_rowCount) {
+      return 0;
+    }
+    var newHeight = this.$FixedDataTableScrollHelper_rowHeightGetter(rowIndex);
+    if (newHeight !== this.$FixedDataTableScrollHelper_storedHeights[rowIndex]) {
+      var change = newHeight - this.$FixedDataTableScrollHelper_storedHeights[rowIndex];
+      this.$FixedDataTableScrollHelper_rowOffsets.set(rowIndex, newHeight);
+      this.$FixedDataTableScrollHelper_storedHeights[rowIndex] = newHeight;
+      this.$FixedDataTableScrollHelper_contentHeight += change;
+      return change;
+    }
+    return 0;
+  };
+
+  FixedDataTableScrollHelper.prototype.scrollBy=function(delta)  {
+    var firstRow = this.$FixedDataTableScrollHelper_rowOffsets.upperBound(this.$FixedDataTableScrollHelper_position);
+    var firstRowPosition =
+      firstRow.value - this.$FixedDataTableScrollHelper_storedHeights[firstRow.index];
+    var rowIndex = firstRow.index;
+    var position = this.$FixedDataTableScrollHelper_position;
+
+    var rowHeightChange = this.$FixedDataTableScrollHelper_updateRowHeight(rowIndex);
+    if (firstRowPosition !== 0) {
+      position += rowHeightChange;
+    }
+    var visibleRowHeight = this.$FixedDataTableScrollHelper_storedHeights[rowIndex] -
+      (position - firstRowPosition);
+
+    if (delta >= 0) {
+
+      while (delta > 0 && rowIndex < this.$FixedDataTableScrollHelper_rowCount) {
+        if (delta < visibleRowHeight) {
+          position += delta;
+          delta = 0;
+        } else {
+          delta -= visibleRowHeight;
+          position += visibleRowHeight;
+          rowIndex++;
+        }
+        if (rowIndex < this.$FixedDataTableScrollHelper_rowCount) {
+          this.$FixedDataTableScrollHelper_updateRowHeight(rowIndex);
+          visibleRowHeight = this.$FixedDataTableScrollHelper_storedHeights[rowIndex];
+        }
+      }
+    } else if (delta < 0) {
+      delta = -delta;
+      var invisibleRowHeight = this.$FixedDataTableScrollHelper_storedHeights[rowIndex] - visibleRowHeight;
+
+      while (delta > 0 && rowIndex >= 0) {
+        if (delta < invisibleRowHeight) {
+          position -= delta;
+          delta = 0;
+        } else {
+          position -= invisibleRowHeight;
+          delta -= invisibleRowHeight;
+          rowIndex--;
+        }
+        if (rowIndex >= 0) {
+          var change = this.$FixedDataTableScrollHelper_updateRowHeight(rowIndex);
+          invisibleRowHeight = this.$FixedDataTableScrollHelper_storedHeights[rowIndex];
+          position += change;
+        }
+      }
+    }
+
+    var maxPosition = this.$FixedDataTableScrollHelper_contentHeight - this.$FixedDataTableScrollHelper_viewportHeight;
+    position = clamp(0, position, maxPosition);
+    this.$FixedDataTableScrollHelper_position = position;
+    var firstVisibleRow = this.$FixedDataTableScrollHelper_rowOffsets.upperBound(position);
+    var firstRowIndex = firstVisibleRow.index;
+    firstRowPosition =
+      firstVisibleRow.value - this.$FixedDataTableScrollHelper_rowHeightGetter(firstRowIndex);
+    var firstRowOffset = firstRowPosition - position;
+
+    this.$FixedDataTableScrollHelper_updateHeightsInViewport(firstRowIndex, firstRowOffset);
+    this.$FixedDataTableScrollHelper_updateHeightsAboveViewport(firstRowIndex);
+
+    return {
+      index: firstRowIndex,
+      offset: firstRowOffset,
+      position: this.$FixedDataTableScrollHelper_position,
+      contentHeight: this.$FixedDataTableScrollHelper_contentHeight,
+    };
+  };
+
+  FixedDataTableScrollHelper.prototype.$FixedDataTableScrollHelper_getRowAtEndPosition=function(rowIndex)  {
+    // We need to update enough rows above the selected one to be sure that when
+    // we scroll to selected position all rows between first shown and selected
+    // one have most recent heights computed and will not resize
+    this.$FixedDataTableScrollHelper_updateRowHeight(rowIndex);
+    var currentRowIndex = rowIndex;
+    var top = this.$FixedDataTableScrollHelper_storedHeights[currentRowIndex];
+    while (top < this.$FixedDataTableScrollHelper_viewportHeight && currentRowIndex >= 0) {
+      currentRowIndex--;
+      if (currentRowIndex >= 0) {
+        this.$FixedDataTableScrollHelper_updateRowHeight(currentRowIndex);
+        top += this.$FixedDataTableScrollHelper_storedHeights[currentRowIndex];
+      }
+    }
+    var position = this.$FixedDataTableScrollHelper_rowOffsets.get(rowIndex).value - this.$FixedDataTableScrollHelper_viewportHeight;
+    if (position < 0) {
+      position = 0;
+    }
+    return position;
+  };
+
+  FixedDataTableScrollHelper.prototype.scrollTo=function(position)  {
+    if (position <= 0) {
+      // If position less than or equal to 0 first row should be fully visible
+      // on top
+      this.$FixedDataTableScrollHelper_position = 0;
+      this.$FixedDataTableScrollHelper_updateHeightsInViewport(0, 0);
+
+      return {
+        index: 0,
+        offset: 0,
+        position: this.$FixedDataTableScrollHelper_position,
+        contentHeight: this.$FixedDataTableScrollHelper_contentHeight,
+      };
+    } else if (position >= this.$FixedDataTableScrollHelper_contentHeight - this.$FixedDataTableScrollHelper_viewportHeight) {
+      // If position is equal to or greater than max scroll value, we need
+      // to make sure to have bottom border of last row visible.
+      var rowIndex = this.$FixedDataTableScrollHelper_rowCount - 1;
+      position = this.$FixedDataTableScrollHelper_getRowAtEndPosition(rowIndex);
+    }
+    this.$FixedDataTableScrollHelper_position = position;
+
+    var firstVisibleRow = this.$FixedDataTableScrollHelper_rowOffsets.upperBound(position);
+    var firstRowIndex = Math.max(firstVisibleRow.index, 0);
+    var firstRowPosition =
+      firstVisibleRow.value - this.$FixedDataTableScrollHelper_rowHeightGetter(firstRowIndex);
+    var firstRowOffset = firstRowPosition - position;
+
+    this.$FixedDataTableScrollHelper_updateHeightsInViewport(firstRowIndex, firstRowOffset);
+    this.$FixedDataTableScrollHelper_updateHeightsAboveViewport(firstRowIndex);
+
+    return {
+      index: firstRowIndex,
+      offset: firstRowOffset,
+      position: this.$FixedDataTableScrollHelper_position,
+      contentHeight: this.$FixedDataTableScrollHelper_contentHeight,
+    };
+  };
+
+  /**
+   * Allows to scroll to selected row with specified offset. It always
+   * brings that row to top of viewport with that offset
+   */
+  FixedDataTableScrollHelper.prototype.scrollToRow=function(rowIndex, /*number*/ offset)  {
+    rowIndex = clamp(0, rowIndex, this.$FixedDataTableScrollHelper_rowCount - 1);
+    offset = clamp(-this.$FixedDataTableScrollHelper_storedHeights[rowIndex], offset, 0);
+    var firstRow = this.$FixedDataTableScrollHelper_rowOffsets.get(rowIndex);
+    return this.scrollTo(
+      firstRow.value - this.$FixedDataTableScrollHelper_storedHeights[rowIndex] - offset
+    );
+  };
+
+  /**
+   * Allows to scroll to selected row by bringing it to viewport with minimal
+   * scrolling. This that if row is fully visible, scroll will not be changed.
+   * If top border of row is above top of viewport it will be scrolled to be
+   * fully visible on the top of viewport. If the bottom border of row is
+   * below end of viewport, it will be scrolled up to be fully visible on the
+   * bottom of viewport.
+   */
+  FixedDataTableScrollHelper.prototype.scrollRowIntoView=function(rowIndex)  {
+    rowIndex = clamp(0, rowIndex, this.$FixedDataTableScrollHelper_rowCount - 1);
+    var rowEnd = this.$FixedDataTableScrollHelper_rowOffsets.get(rowIndex).value;
+    var rowBegin = rowEnd - this.$FixedDataTableScrollHelper_storedHeights[rowIndex];
+    if (rowBegin < this.$FixedDataTableScrollHelper_position) {
+      return this.scrollTo(rowBegin);
+    } else if (rowEnd > this.$FixedDataTableScrollHelper_position + this.$FixedDataTableScrollHelper_viewportHeight) {
+      var position = this.$FixedDataTableScrollHelper_getRowAtEndPosition(rowIndex);
+      return this.scrollTo(position);
+    }
+    return this.scrollTo(this.$FixedDataTableScrollHelper_position);
+  };
+
+
+module.exports = FixedDataTableScrollHelper;
+
+},{"./PrefixIntervalTree":35,"./clamp":43}],28:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule FixedDataTableWidthHelper
+ * @typechecks
+ */
+'use strict';
+
+var React = require('./React');
+
+var cloneWithProps = require('./cloneWithProps');
+
+function getTotalWidth(/*array*/ columns) /*number*/ {
+  var totalWidth = 0;
+  for (var i = 0; i < columns.length; ++i) {
+    totalWidth += columns[i].props.width;
+  }
+  return totalWidth;
+}
+
+function getTotalFlexGrow(/*array*/ columns) /*number*/ {
+  var totalFlexGrow = 0;
+  for (var i = 0; i < columns.length; ++i) {
+    totalFlexGrow += columns[i].props.flexGrow || 0;
+  }
+  return totalFlexGrow;
+}
+
+function distributeFlexWidth(
+  /*array*/ columns,
+  /*number*/ flexWidth
+) /*object*/ {
+  if (flexWidth <= 0) {
+    return {
+      columns: columns,
+      width: getTotalWidth(columns),
+    };
+  }
+  var remainingFlexGrow = getTotalFlexGrow(columns);
+  var remainingFlexWidth = flexWidth;
+  var newColumns = [];
+  var totalWidth = 0;
+  for (var i = 0; i < columns.length; ++i) {
+    var column = columns[i];
+    if (!column.props.flexGrow) {
+      totalWidth += column.props.width;
+      newColumns.push(column);
+      continue;
+    }
+    var columnFlexWidth = Math.floor(
+      column.props.flexGrow / remainingFlexGrow * remainingFlexWidth
+    );
+    var newColumnWidth = Math.floor(column.props.width + columnFlexWidth);
+    totalWidth += newColumnWidth;
+
+    remainingFlexGrow -= column.props.flexGrow;
+    remainingFlexWidth -= columnFlexWidth;
+
+    newColumns.push(cloneWithProps(
+      column,
+      {width: newColumnWidth}
+    ));
+  }
+
+  return {
+    columns: newColumns,
+    width: totalWidth,
+  };
+}
+
+function adjustColumnGroupWidths(
+  /*array*/ columnGroups,
+  /*number*/ expectedWidth
+) /*object*/ {
+  var allColumns = [];
+  var i;
+  for (i = 0; i < columnGroups.length; ++i) {
+    React.Children.forEach(
+      columnGroups[i].props.children,
+      function(column)  {allColumns.push(column);}
+    );
+  }
+  var columnsWidth = getTotalWidth(allColumns);
+  var remainingFlexGrow = getTotalFlexGrow(allColumns);
+  var remainingFlexWidth = Math.max(expectedWidth - columnsWidth, 0);
+
+  var newAllColumns = [];
+  var newColumnGroups = [];
+
+  for (i = 0; i < columnGroups.length; ++i) {
+    var columnGroup = columnGroups[i];
+    var currentColumns = [];
+
+    React.Children.forEach(
+      columnGroup.props.children,
+      function(column)  {currentColumns.push(column);}
+    );
+
+    var columnGroupFlexGrow = getTotalFlexGrow(currentColumns);
+    var columnGroupFlexWidth = Math.floor(
+      columnGroupFlexGrow / remainingFlexGrow * remainingFlexWidth
+    );
+
+    var newColumnSettings = distributeFlexWidth(
+      currentColumns,
+      columnGroupFlexWidth
+    );
+
+    remainingFlexGrow -= columnGroupFlexGrow;
+    remainingFlexWidth -= columnGroupFlexWidth;
+
+    for (var j = 0; j < newColumnSettings.columns.length; ++j) {
+      newAllColumns.push(newColumnSettings.columns[j]);
+    }
+
+    newColumnGroups.push(cloneWithProps(
+      columnGroup,
+      {width: newColumnSettings.width}
+    ));
+  }
+
+  return {
+    columns: newAllColumns,
+    columnGroups: newColumnGroups,
+  };
+}
+
+function adjustColumnWidths(
+  /*array*/ columns,
+  /*number*/ expectedWidth
+) /*array*/ {
+  var columnsWidth = getTotalWidth(columns);
+  if (columnsWidth < expectedWidth) {
+    return distributeFlexWidth(columns, expectedWidth - columnsWidth).columns;
+  }
+  return columns;
+}
+
+var FixedDataTableWidthHelper = {
+  getTotalWidth:getTotalWidth,
+  getTotalFlexGrow:getTotalFlexGrow,
+  distributeFlexWidth:distributeFlexWidth,
+  adjustColumnWidths:adjustColumnWidths,
+  adjustColumnGroupWidths:adjustColumnGroupWidths,
+};
+
+module.exports = FixedDataTableWidthHelper;
+
+},{"./React":36,"./cloneWithProps":44}],29:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule Heap
+ * @typechecks
+ * @preventMunge
+ */
+
+"use strict";
+
+/*
+ * @param {*} a
+ * @param {*} b
+ * @return {boolean}
+ */
+function defaultComparator(a, b) {
+  return a < b;
+}
+
+
+  function Heap(items, comparator) {
+    this._items = items || [];
+    this._size = this._items.length;
+    this._comparator = comparator || defaultComparator;
+    this._heapify();
+  }
+
+  /*
+   * @return {boolean}
+   */
+  Heap.prototype.empty=function() {
+    return this._size === 0;
+  };
+
+  /*
+   * @return {*}
+   */
+  Heap.prototype.pop=function() {
+    if (this._size === 0){
+      return;
+    }
+
+    var elt = this._items[0];
+
+    var lastElt = this._items.pop();
+    this._size--;
+
+    if (this._size > 0) {
+      this._items[0] = lastElt;
+      this._sinkDown(0);
+    }
+
+    return elt;
+  };
+
+  /*
+   * @param {*} item
+   */
+  Heap.prototype.push=function(item) {
+    this._items[this._size++] = item;
+    this._bubbleUp(this._size - 1);
+  };
+
+  /*
+   * @return {number}
+   */
+  Heap.prototype.size=function() {
+    return this._size;
+  };
+
+  /*
+   * @return {*}
+   */
+  Heap.prototype.peek=function() {
+    if (this._size === 0) {
+      return;
+    }
+
+    return this._items[0];
+  };
+
+  Heap.prototype._heapify=function() {
+    for (var index = Math.floor((this._size + 1)/ 2); index >= 0; index--) {
+      this._sinkDown(index);
+    }
+  };
+
+  /*
+   * @parent {number} index
+   */
+  Heap.prototype._bubbleUp=function(index) {
+    var elt = this._items[index];
+    while (index > 0) {
+      var parentIndex = Math.floor((index + 1) / 2) - 1;
+      var parentElt = this._items[parentIndex];
+
+      // if parentElt < elt, stop
+      if (this._comparator(parentElt, elt)) {
+        return;
+      }
+
+      // swap
+      this._items[parentIndex] = elt;
+      this._items[index] = parentElt;
+      index = parentIndex;
+    }
+  };
+
+  /*
+   * @parent {number} index
+   */
+  Heap.prototype._sinkDown=function(index) {
+    var elt = this._items[index];
+
+    while (true) {
+      var leftChildIndex = 2 * (index + 1) - 1;
+      var rightChildIndex = 2 * (index + 1);
+      var swapIndex = -1;
+
+      if (leftChildIndex < this._size) {
+        var leftChild = this._items[leftChildIndex];
+        if (this._comparator(leftChild, elt)) {
+          swapIndex = leftChildIndex;
+        }
+      }
+
+      if (rightChildIndex < this._size) {
+        var rightChild = this._items[rightChildIndex];
+        if (this._comparator(rightChild, elt)) {
+          if (swapIndex === -1 ||
+              this._comparator(rightChild, this._items[swapIndex])) {
+            swapIndex = rightChildIndex;
+          }
+        }
+      }
+
+      // if we don't have a swap, stop
+      if (swapIndex === -1) {
+        return;
+      }
+
+      this._items[index] = this._items[swapIndex];
+      this._items[swapIndex] = elt;
+      index = swapIndex;
+    }
+  };
+
+
+module.exports = Heap;
+
+},{}],30:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ImmutableObject
+ * @typechecks
+ */
+
+"use strict";
+
+var ImmutableValue = require('./ImmutableValue');
+
+var invariant = require('./invariant');
+var keyOf = require('./keyOf');
+var mergeHelpers = require('./mergeHelpers');
+
+var checkMergeObjectArgs = mergeHelpers.checkMergeObjectArgs;
+var isTerminal = mergeHelpers.isTerminal;
+
+var SECRET_KEY = keyOf({_DONT_EVER_TYPE_THIS_SECRET_KEY: null});
+
+/**
+ * Static methods creating and operating on instances of `ImmutableValue`.
+ */
+function assertImmutable(immutable) {
+  invariant(
+    immutable instanceof ImmutableValue,
+    'ImmutableObject: Attempted to set fields on an object that is not an ' +
+    'instance of ImmutableValue.'
+  );
+}
+
+/**
+ * Static methods for reasoning about instances of `ImmutableObject`. Execute
+ * the freeze commands in `process.env.NODE_ENV !== 'production'` mode to alert the programmer that something
+ * is attempting to mutate. Since freezing is very expensive, we avoid doing it
+ * at all in production.
+ */
+for(var ImmutableValue____Key in ImmutableValue){if(ImmutableValue.hasOwnProperty(ImmutableValue____Key)){ImmutableObject[ImmutableValue____Key]=ImmutableValue[ImmutableValue____Key];}}var ____SuperProtoOfImmutableValue=ImmutableValue===null?null:ImmutableValue.prototype;ImmutableObject.prototype=Object.create(____SuperProtoOfImmutableValue);ImmutableObject.prototype.constructor=ImmutableObject;ImmutableObject.__superConstructor__=ImmutableValue;
+  /**
+   * @arguments {array<object>} The arguments is an array of objects that, when
+   * merged together, will form the immutable objects.
+   */
+  function ImmutableObject() {
+    ImmutableValue.call(this,ImmutableValue[SECRET_KEY]);
+    ImmutableValue.mergeAllPropertiesInto(this, arguments);
+    if (process.env.NODE_ENV !== 'production') {
+      ImmutableValue.deepFreezeRootNode(this);
+    }
+  }
+
+  /**
+   * DEPRECATED - prefer to instantiate with new ImmutableObject().
+   *
+   * @arguments {array<object>} The arguments is an array of objects that, when
+   * merged together, will form the immutable objects.
+   */
+  ImmutableObject.create=function() {
+    var obj = Object.create(ImmutableObject.prototype);
+    ImmutableObject.apply(obj, arguments);
+    return obj;
+  };
+
+  /**
+   * Returns a new `ImmutableValue` that is identical to the supplied
+   * `ImmutableValue` but with the specified changes, `put`. Any keys that are
+   * in the intersection of `immutable` and `put` retain the ordering of
+   * `immutable`. New keys are placed after keys that exist in `immutable`.
+   *
+   * @param {ImmutableValue} immutable Starting object.
+   * @param {?object} put Fields to merge into the object.
+   * @return {ImmutableValue} The result of merging in `put` fields.
+   */
+  ImmutableObject.set=function(immutable, put) {
+    assertImmutable(immutable);
+    invariant(
+      typeof put === 'object' && put !== undefined && !Array.isArray(put),
+      'Invalid ImmutableMap.set argument `put`'
+    );
+    return new ImmutableObject(immutable, put);
+  };
+
+  /**
+   * Sugar for `ImmutableObject.set(ImmutableObject, {fieldName: putField})`.
+   * Look out for key crushing: Use `keyOf()` to guard against it.
+   *
+   * @param {ImmutableValue} immutableObject Object on which to set properties.
+   * @param {string} fieldName Name of the field to set.
+   * @param {*} putField Value of the field to set.
+   * @return {ImmutableValue} new ImmutableValue as described in `set`.
+   */
+  ImmutableObject.setProperty=function(immutableObject, fieldName, putField) {
+    var put = {};
+    put[fieldName] = putField;
+    return ImmutableObject.set(immutableObject, put);
+  };
+
+  /**
+   * Returns a new immutable object with the given field name removed.
+   * Look out for key crushing: Use `keyOf()` to guard against it.
+   *
+   * @param {ImmutableObject} immutableObject from which to delete the key.
+   * @param {string} droppedField Name of the field to delete.
+   * @return {ImmutableObject} new ImmutableObject without the key
+   */
+  ImmutableObject.deleteProperty=function(immutableObject, droppedField) {
+    var copy = {};
+    for (var key in immutableObject) {
+      if (key !== droppedField && immutableObject.hasOwnProperty(key)) {
+        copy[key] = immutableObject[key];
+      }
+    }
+    return new ImmutableObject(copy);
+  };
+
+  /**
+   * Returns a new `ImmutableValue` that is identical to the supplied object but
+   * with the supplied changes recursively applied.
+   *
+   * Experimental. Likely does not handle `Arrays` correctly.
+   *
+   * @param {ImmutableValue} immutable Object on which to set fields.
+   * @param {object} put Fields to merge into the object.
+   * @return {ImmutableValue} The result of merging in `put` fields.
+   */
+  ImmutableObject.setDeep=function(immutable, put) {
+    assertImmutable(immutable);
+    return _setDeep(immutable, put);
+  };
+
+  /**
+   * Retrieves an ImmutableObject's values as an array.
+   *
+   * @param {ImmutableValue} immutable
+   * @return {array}
+   */
+  ImmutableObject.values=function(immutable) {
+    return Object.keys(immutable).map(function(key)  {return immutable[key];});
+  };
+
+
+function _setDeep(obj, put) {
+  checkMergeObjectArgs(obj, put);
+  var totalNewFields = {};
+
+  // To maintain the order of the keys, copy the base object's entries first.
+  var keys = Object.keys(obj);
+  for (var ii = 0; ii < keys.length; ii++) {
+    var key = keys[ii];
+    if (!put.hasOwnProperty(key)) {
+      totalNewFields[key] = obj[key];
+    } else if (isTerminal(obj[key]) || isTerminal(put[key])) {
+      totalNewFields[key] = put[key];
+    } else {
+      totalNewFields[key] = _setDeep(obj[key], put[key]);
+    }
+  }
+
+  // Apply any new keys that the base obj didn't have.
+  var newKeys = Object.keys(put);
+  for (ii = 0; ii < newKeys.length; ii++) {
+    var newKey = newKeys[ii];
+    if (obj.hasOwnProperty(newKey)) {
+      continue;
+    }
+    totalNewFields[newKey] = put[newKey];
+  }
+
+  return (
+    obj instanceof ImmutableValue ? new ImmutableObject(totalNewFields) :
+    put instanceof ImmutableValue ? new ImmutableObject(totalNewFields) :
+    totalNewFields
+  );
+}
+
+module.exports = ImmutableObject;
+
+}).call(this,require('_process'))
+},{"./ImmutableValue":31,"./invariant":50,"./keyOf":55,"./mergeHelpers":56,"_process":7}],31:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ImmutableValue
+ * @typechecks
+ */
+
+"use strict";
+
+var invariant = require('./invariant');
+var isNode = require('./isNode');
+var keyOf = require('./keyOf');
+
+var SECRET_KEY = keyOf({_DONT_EVER_TYPE_THIS_SECRET_KEY: null});
+
+/**
+ * `ImmutableValue` provides a guarantee of immutability at developer time when
+ * strict mode is used. The extra computations required to enforce immutability
+ * are stripped out in production for performance reasons. `ImmutableValue`
+ * guarantees to enforce immutability for enumerable, own properties. This
+ * allows easy wrapping of `ImmutableValue` with the ability to store
+ * non-enumerable properties on the instance that only your static methods
+ * reason about. In order to achieve IE8 compatibility (which doesn't have the
+ * ability to define non-enumerable properties), modules that want to build
+ * their own reasoning of `ImmutableValue`s and store computations can define
+ * their non-enumerable properties under the name `toString`, and in IE8 only
+ * define a standard property called `toString` which will mistakenly be
+ * considered not enumerable due to its name (but only in IE8). The only
+ * limitation is that no one can store their own `toString` property.
+ * https://developer.mozilla.org/en-US/docs/ECMAScript_DontEnum_attribute#JScript_DontEnum_Bug
+ */
+
+  /**
+   * An instance of `ImmutableValue` appears to be a plain JavaScript object,
+   * except `instanceof ImmutableValue` evaluates to `true`, and it is deeply
+   * frozen in development mode.
+   *
+   * @param {number} secret Ensures this isn't accidentally constructed outside
+   * of convenience constructors. If created outside of a convenience
+   * constructor, may not be frozen. Forbidding that use case for now until we
+   * have a better API.
+   */
+  function ImmutableValue(secret) {
+    invariant(
+      secret === ImmutableValue[SECRET_KEY],
+      'Only certain classes should create instances of `ImmutableValue`.' +
+      'You probably want something like ImmutableValueObject.create.'
+    );
+  }
+
+  /**
+   * Helper method for classes that make use of `ImmutableValue`.
+   * @param {ImmutableValue} destination Object to merge properties into.
+   * @param {object} propertyObjects List of objects to merge into
+   * `destination`.
+   */
+  ImmutableValue.mergeAllPropertiesInto=function(destination, propertyObjects) {
+    var argLength = propertyObjects.length;
+    for (var i = 0; i < argLength; i++) {
+      Object.assign(destination, propertyObjects[i]);
+    }
+  };
+
+
+  /**
+   * Freezes the supplied object deeply. Other classes may implement their own
+   * version based on this.
+   *
+   * @param {*} object The object to freeze.
+   */
+  ImmutableValue.deepFreezeRootNode=function(object) {
+    if (isNode(object)) {
+      return; // Don't try to freeze DOM nodes.
+    }
+    Object.freeze(object); // First freeze the object.
+    for (var prop in object) {
+      if (object.hasOwnProperty(prop)) {
+        ImmutableValue.recurseDeepFreeze(object[prop]);
+      }
+    }
+    Object.seal(object);
+  };
+
+  /**
+   * Differs from `deepFreezeRootNode`, in that we first check if this is a
+   * necessary recursion. If the object is already an `ImmutableValue`, then the
+   * recursion is unnecessary as it is already frozen. That check obviously
+   * wouldn't work for the root node version `deepFreezeRootNode`!
+   */
+  ImmutableValue.recurseDeepFreeze=function(object) {
+    if (isNode(object) || !ImmutableValue.shouldRecurseFreeze(object)) {
+      return; // Don't try to freeze DOM nodes.
+    }
+    Object.freeze(object); // First freeze the object.
+    for (var prop in object) {
+      if (object.hasOwnProperty(prop)) {
+        ImmutableValue.recurseDeepFreeze(object[prop]);
+      }
+    }
+    Object.seal(object);
+  };
+
+  /**
+   * Checks if an object should be deep frozen. Instances of `ImmutableValue`
+   * are assumed to have already been deep frozen, so we can have large
+   * `process.env.NODE_ENV !== 'production'` time savings by skipping freezing of them.
+   *
+   * @param {*} object The object to check.
+   * @return {boolean} Whether or not deep freeze is needed.
+   */
+  ImmutableValue.shouldRecurseFreeze=function(object) {
+    return (
+      typeof object === 'object' &&
+      !(object instanceof ImmutableValue) &&
+      object !== null
+    );
+  };
+
+
+ImmutableValue._DONT_EVER_TYPE_THIS_SECRET_KEY = Math.random();
+
+module.exports = ImmutableValue;
+
+},{"./invariant":50,"./isNode":52,"./keyOf":55}],32:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule IntegerBufferSet
+ * @typechecks
+ */
+
+"use strict";
+
+var Heap = require('./Heap');
+
+var invariant = require('./invariant');
+
+// Data structure that allows to store values and assign positions to them
+// in a way to minimize changing positions of stored values when new ones are
+// added or when some values are replaced. Stored elements are alwasy assigned
+// a consecutive set of positoins startin from 0 up to count of elements less 1
+// Following actions can be executed
+// * get position assigned to given value (null if value is not stored)
+// * create new entry for new value and get assigned position back
+// * replace value that is furthest from specified value range with new value
+//   and get it's position back
+// All operations take amortized log(n) time where n is number of elements in
+// the set.
+
+  function IntegerBufferSet() {
+    this.$IntegerBufferSet_valueToPositionMap = {};
+    this.$IntegerBufferSet_size = 0;
+    this.$IntegerBufferSet_smallValues = new Heap(
+      [], // Initial data in the heap
+      this.$IntegerBufferSet_smallerComparator
+    );
+    this.$IntegerBufferSet_largeValues = new Heap(
+      [], // Initial data in the heap
+      this.$IntegerBufferSet_greaterComparator
+    );
+
+    this.getNewPositionForValue = this.getNewPositionForValue.bind(this);
+    this.getValuePosition = this.getValuePosition.bind(this);
+    this.getSize = this.getSize.bind(this);
+    this.replaceFurthestValuePosition =
+      this.replaceFurthestValuePosition.bind(this);
+  }
+
+  IntegerBufferSet.prototype.getSize=function()  {
+    return this.$IntegerBufferSet_size;
+  };
+
+  IntegerBufferSet.prototype.getValuePosition=function(value)  {
+    if (this.$IntegerBufferSet_valueToPositionMap[value] === undefined) {
+      return null;
+    }
+    return this.$IntegerBufferSet_valueToPositionMap[value];
+  };
+
+  IntegerBufferSet.prototype.getNewPositionForValue=function(value)  {
+    invariant(
+      this.$IntegerBufferSet_valueToPositionMap[value] === undefined,
+      "Shouldn't try to find new position for value already stored in BufferSet"
+    );
+    var newPosition = this.$IntegerBufferSet_size;
+    this.$IntegerBufferSet_size++;
+    this.$IntegerBufferSet_pushToHeaps(newPosition, value);
+    this.$IntegerBufferSet_valueToPositionMap[value] = newPosition;
+    return newPosition;
+  };
+
+  IntegerBufferSet.prototype.replaceFurthestValuePosition=function(
+lowValue,
+    /*number*/ highValue,
+    /*number*/ newValue)
+    {
+    invariant(
+      this.$IntegerBufferSet_valueToPositionMap[newValue] === undefined,
+      "Shouldn't try to replace values with value already stored value in " +
+      "BufferSet"
+    );
+
+    this.$IntegerBufferSet_cleanHeaps();
+    if (this.$IntegerBufferSet_smallValues.empty() || this.$IntegerBufferSet_largeValues.empty()) {
+      // Threre are currently no values stored. We will have to create new
+      // position for this value.
+      return null;
+    }
+
+    var minValue = this.$IntegerBufferSet_smallValues.peek().value;
+    var maxValue = this.$IntegerBufferSet_largeValues.peek().value;
+    if (minValue >= lowValue && maxValue <= highValue) {
+      // All values currently stored are necessary, we can't reuse any of them.
+      return null;
+    }
+
+    var valueToReplace;
+    if (lowValue - minValue > maxValue - highValue) {
+      // minValue is further from provided range. We will reuse it's position.
+      valueToReplace = minValue;
+      this.$IntegerBufferSet_smallValues.pop();
+    } else {
+      valueToReplace = maxValue;
+      this.$IntegerBufferSet_largeValues.pop();
+    }
+    var position = this.$IntegerBufferSet_valueToPositionMap[valueToReplace];
+    delete this.$IntegerBufferSet_valueToPositionMap[valueToReplace];
+    this.$IntegerBufferSet_valueToPositionMap[newValue] = position;
+    this.$IntegerBufferSet_pushToHeaps(position, newValue);
+
+    return position;
+  };
+
+  IntegerBufferSet.prototype.$IntegerBufferSet_pushToHeaps=function(position, /*number*/ value) {
+    var element = {
+      position:position,
+      value:value,
+    };
+    // We can reuse the same object in both heaps, because we don't mutate them
+    this.$IntegerBufferSet_smallValues.push(element);
+    this.$IntegerBufferSet_largeValues.push(element);
+  };
+
+  IntegerBufferSet.prototype.$IntegerBufferSet_cleanHeaps=function() {
+    // We not usually only remove object from one heap while moving value.
+    // Here we make sure that there is no stale data on top of heaps.
+    this.$IntegerBufferSet_cleanHeap(this.$IntegerBufferSet_smallValues);
+    this.$IntegerBufferSet_cleanHeap(this.$IntegerBufferSet_largeValues);
+    var minHeapSize =
+      Math.min(this.$IntegerBufferSet_smallValues.size(), this.$IntegerBufferSet_largeValues.size());
+    var maxHeapSize =
+      Math.max(this.$IntegerBufferSet_smallValues.size(), this.$IntegerBufferSet_largeValues.size());
+    if (maxHeapSize > 10 * minHeapSize) {
+      // There are many old values in one of heaps. We nned to get rid of them
+      // to not use too avoid memory leaks
+      this.$IntegerBufferSet_recreateHeaps();
+    }
+  };
+
+  IntegerBufferSet.prototype.$IntegerBufferSet_recreateHeaps=function() {
+    var sourceHeap = this.$IntegerBufferSet_smallValues.size() < this.$IntegerBufferSet_largeValues.size() ?
+      this.$IntegerBufferSet_smallValues :
+      this.$IntegerBufferSet_largeValues;
+    var newSmallValues = new Heap(
+      [], // Initial data in the heap
+      this.$IntegerBufferSet_smallerComparator
+    );
+    var newLargeValues = new Heap(
+      [], // Initial datat in the heap
+      this.$IntegerBufferSet_greaterComparator
+    );
+    while (!sourceHeap.empty()) {
+      var element = sourceHeap.pop();
+      // Push all stil valid elements to new heaps
+      if (this.$IntegerBufferSet_valueToPositionMap[element.value] !== undefined) {
+        newSmallValues.push(element);
+        newLargeValues.push(element);
+      }
+    }
+    this.$IntegerBufferSet_smallValues = newSmallValues;
+    this.$IntegerBufferSet_largeValues = newLargeValues;
+  };
+
+  IntegerBufferSet.prototype.$IntegerBufferSet_cleanHeap=function(heap) {
+    while (!heap.empty() &&
+        this.$IntegerBufferSet_valueToPositionMap[heap.peek().value] === undefined) {
+      heap.pop();
+    }
+  };
+
+  IntegerBufferSet.prototype.$IntegerBufferSet_smallerComparator=function(lhs, /*object*/ rhs)  {
+    return lhs.value < rhs.value;
+  };
+
+  IntegerBufferSet.prototype.$IntegerBufferSet_greaterComparator=function(lhs, /*object*/ rhs)  {
+    return lhs.value > rhs.value;
+  };
+
+
+
+module.exports = IntegerBufferSet;
+
+},{"./Heap":29,"./invariant":50}],33:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule Keys
+ */
+
+module.exports = {
+  BACKSPACE:  8,
+  TAB:        9,
+  RETURN:    13,
+  ALT:       18,
+  ESC:       27,
+  SPACE:     32,
+  PAGE_UP:   33,
+  PAGE_DOWN: 34,
+  END:       35,
+  HOME:      36,
+  LEFT:      37,
+  UP:        38,
+  RIGHT:     39,
+  DOWN:      40,
+  DELETE:    46,
+  COMMA:    188,
+  PERIOD:   190,
+  A:         65,
+  Z:         90,
+  ZERO:      48,
+  NUMPAD_0:  96,
+  NUMPAD_9: 105
+};
+
+},{}],34:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule Locale
+ */
+
+"use strict";
+
+// Hard code this for now.
+var Locale = {
+  isRTL: function()  {return false;},
+  getDirection: function()  {return 'LTR';}
+};
+
+module.exports = Locale;
+
+},{}],35:[function(require,module,exports){
+(function (global){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule PrefixIntervalTree
+ * @typechecks
+ */
+
+"use strict";
+
+/**
+ * An interval tree that allows to set a number at index and given the value
+ * find the largest index for which prefix sum is greater than or equal to value
+ * (lower bound) or greater than value (upper bound)
+ * Complexity:
+ *   construct: O(n)
+ *   query: O(log(n))
+ *   memory: O(log(n)),
+ * where n is leafCount from the constructor
+ */
+
+  function PrefixIntervalTree(leafCount, /*?number*/ initialLeafValue) {
+    var internalLeafCount = this.getInternalLeafCount(leafCount);
+    this.$PrefixIntervalTree_leafCount = leafCount;
+    this.$PrefixIntervalTree_internalLeafCount = internalLeafCount;
+    var nodeCount = 2 * internalLeafCount;
+    var Int32Array = global.Int32Array || Array;
+    this.$PrefixIntervalTree_value = new Int32Array(nodeCount);
+    this.$PrefixIntervalTree_initTables(initialLeafValue || 0);
+
+    this.get = this.get.bind(this);
+    this.set = this.set.bind(this);
+    this.lowerBound = this.lowerBound.bind(this);
+    this.upperBound = this.upperBound.bind(this);
+  }
+
+  PrefixIntervalTree.prototype.getInternalLeafCount=function(leafCount)  {
+    var internalLeafCount = 1;
+    while (internalLeafCount < leafCount) {
+      internalLeafCount *= 2;
+    }
+    return internalLeafCount;
+  };
+
+  PrefixIntervalTree.prototype.$PrefixIntervalTree_initTables=function(initialLeafValue) {
+    var firstLeaf = this.$PrefixIntervalTree_internalLeafCount;
+    var lastLeaf = this.$PrefixIntervalTree_internalLeafCount + this.$PrefixIntervalTree_leafCount - 1;
+    var i;
+    for (i = firstLeaf; i <= lastLeaf; ++i) {
+      this.$PrefixIntervalTree_value[i] = initialLeafValue;
+    }
+    var lastInternalNode = this.$PrefixIntervalTree_internalLeafCount - 1;
+    for (i = lastInternalNode; i > 0; --i) {
+      this.$PrefixIntervalTree_value[i] =  this.$PrefixIntervalTree_value[2 * i] + this.$PrefixIntervalTree_value[2 * i + 1];
+    }
+  };
+
+  PrefixIntervalTree.prototype.set=function(position, /*number*/ value) {
+    var nodeIndex = position + this.$PrefixIntervalTree_internalLeafCount;
+    this.$PrefixIntervalTree_value[nodeIndex] = value;
+    nodeIndex = Math.floor(nodeIndex / 2);
+    while (nodeIndex !== 0) {
+      this.$PrefixIntervalTree_value[nodeIndex] =
+        this.$PrefixIntervalTree_value[2 * nodeIndex] + this.$PrefixIntervalTree_value[2 * nodeIndex + 1];
+      nodeIndex = Math.floor(nodeIndex / 2);
+    }
+  };
+
+  /**
+   * Returns an object {index, value} for given position (including value at
+   * specified position), or the same for last position if provided position
+   * is out of range
+   */
+  PrefixIntervalTree.prototype.get=function(position)  {
+    position = Math.min(position, this.$PrefixIntervalTree_leafCount);
+    var nodeIndex = position + this.$PrefixIntervalTree_internalLeafCount;
+    var result = this.$PrefixIntervalTree_value[nodeIndex];
+    while (nodeIndex > 1) {
+      if (nodeIndex % 2 === 1) {
+        result = this.$PrefixIntervalTree_value[nodeIndex - 1] + result;
+      }
+      nodeIndex = Math.floor(nodeIndex / 2);
+    }
+    return {index: position, value: result};
+  };
+
+  /**
+   * Returns an object {index, value} where index is index of leaf that was
+   * found by upper bound algorithm. Upper bound finds first element for which
+   * value is greater than argument
+   */
+  PrefixIntervalTree.prototype.upperBound=function(value)  {
+    var result = this.$PrefixIntervalTree_upperBoundImpl(1, 0, this.$PrefixIntervalTree_internalLeafCount - 1, value);
+    if (result.index > this.$PrefixIntervalTree_leafCount - 1) {
+      result.index = this.$PrefixIntervalTree_leafCount - 1;
+    }
+    return result;
+  };
+
+  /**
+   * Returns result in the same format as upperBound, but finds first element
+   * for which value is greater than or equal to argument
+   */
+  PrefixIntervalTree.prototype.lowerBound=function(value)  {
+    var result = this.upperBound(value);
+    if (result.value > value && result.index > 0) {
+      var previousValue =
+        result.value - this.$PrefixIntervalTree_value[this.$PrefixIntervalTree_internalLeafCount + result.index];
+      if (previousValue === value) {
+        result.value = previousValue;
+        result.index--;
+      }
+    }
+    return result;
+  };
+
+  PrefixIntervalTree.prototype.$PrefixIntervalTree_upperBoundImpl=function(
+nodeIndex,
+    /*number*/ nodeIntervalBegin,
+    /*number*/ nodeIntervalEnd,
+    /*number*/ value)
+    {
+    if (nodeIntervalBegin === nodeIntervalEnd) {
+      return {
+        index: nodeIndex - this.$PrefixIntervalTree_internalLeafCount,
+        value: this.$PrefixIntervalTree_value[nodeIndex],
+      };
+    }
+
+    var nodeIntervalMidpoint =
+      Math.floor((nodeIntervalBegin + nodeIntervalEnd + 1) / 2);
+    if (value < this.$PrefixIntervalTree_value[nodeIndex * 2]) {
+      return this.$PrefixIntervalTree_upperBoundImpl(
+        2 * nodeIndex,
+        nodeIntervalBegin,
+        nodeIntervalMidpoint - 1,
+        value
+      );
+    } else {
+      var result = this.$PrefixIntervalTree_upperBoundImpl(
+        2 * nodeIndex + 1,
+        nodeIntervalMidpoint,
+        nodeIntervalEnd,
+        value - this.$PrefixIntervalTree_value[2 * nodeIndex]
+      );
+      result.value += this.$PrefixIntervalTree_value[2 * nodeIndex];
+      return result;
+    }
+  };
+
+
+module.exports = PrefixIntervalTree;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],36:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule React
+ */
+
+module.exports = require('react');
+
+},{"react":229}],37:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ReactComponentWithPureRenderMixin
+ */
+
+module.exports = require('react/lib/ReactComponentWithPureRenderMixin');
+
+},{"react/lib/ReactComponentWithPureRenderMixin":107}],38:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ReactWheelHandler
+ * @typechecks
+ */
+
+"use strict";
+
+var normalizeWheel = require('./normalizeWheel');
+var requestAnimationFramePolyfill = require('./requestAnimationFramePolyfill');
+
+
+  /**
+   * onWheel is the callback that will be called with right frame rate if
+   * any wheel events happened
+   * onWheel should is to be called with two arguments: deltaX and deltaY in
+   * this order
+   */
+  function ReactWheelHandler(
+onWheel,
+    /*boolean*/ handleScrollX,
+    /*boolean*/ handleScrollY,
+    /*?boolean*/ stopPropagation)
+   {
+    this.$ReactWheelHandler_animationFrameID = null;
+    this.$ReactWheelHandler_deltaX = 0;
+    this.$ReactWheelHandler_deltaY = 0;
+    this.$ReactWheelHandler_didWheel = this.$ReactWheelHandler_didWheel.bind(this);
+    this.$ReactWheelHandler_handleScrollX = handleScrollX;
+    this.$ReactWheelHandler_handleScrollY = handleScrollY;
+    this.$ReactWheelHandler_stopPropagation = !!stopPropagation;
+    this.$ReactWheelHandler_onWheelCallback = onWheel;
+    this.onWheel = this.onWheel.bind(this);
+  }
+
+  ReactWheelHandler.prototype.onWheel=function(event) {
+    if (this.$ReactWheelHandler_handleScrollX || this.$ReactWheelHandler_handleScrollY) {
+      event.preventDefault();
+    }
+    var normalizedEvent = normalizeWheel(event);
+
+    this.$ReactWheelHandler_deltaX += this.$ReactWheelHandler_handleScrollX ? normalizedEvent.pixelX : 0;
+    this.$ReactWheelHandler_deltaY += this.$ReactWheelHandler_handleScrollY ? normalizedEvent.pixelY : 0;
+
+    var changed;
+    if (this.$ReactWheelHandler_deltaX !== 0 || this.$ReactWheelHandler_deltaY !== 0) {
+      if (this.$ReactWheelHandler_stopPropagation) {
+        event.stopPropagation();
+      }
+      changed = true;
+    }
+
+    if (changed === true && this.$ReactWheelHandler_animationFrameID === null) {
+      this.$ReactWheelHandler_animationFrameID = requestAnimationFramePolyfill(this.$ReactWheelHandler_didWheel);
+    }
+  };
+
+  ReactWheelHandler.prototype.$ReactWheelHandler_didWheel=function() {
+    this.$ReactWheelHandler_animationFrameID = null;
+    this.$ReactWheelHandler_onWheelCallback(this.$ReactWheelHandler_deltaX, this.$ReactWheelHandler_deltaY);
+    this.$ReactWheelHandler_deltaX = 0;
+    this.$ReactWheelHandler_deltaY = 0;
+  };
+
+
+module.exports = ReactWheelHandler;
+
+},{"./normalizeWheel":58,"./requestAnimationFramePolyfill":59}],39:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule Scrollbar.react
+ * @typechecks
+ */
+
+var DOMMouseMoveTracker = require('./DOMMouseMoveTracker');
+var Keys = require('./Keys');
+var React = require('./React');
+var ReactComponentWithPureRenderMixin = require('./ReactComponentWithPureRenderMixin');
+var ReactWheelHandler = require('./ReactWheelHandler');
+
+var cssVar = require('./cssVar');
+var cx = require('./cx');
+var emptyFunction = require('./emptyFunction');
+var translateDOMPositionXY = require('./translateDOMPositionXY');
+
+var PropTypes = React.PropTypes;
+
+var UNSCROLLABLE_STATE = {
+  position: 0,
+  scrollable: false,
+};
+
+var FACE_MARGIN = parseInt(cssVar('scrollbar-face-margin'), 10);
+var FACE_MARGIN_2 = FACE_MARGIN * 2;
+var FACE_SIZE_MIN = 30;
+var KEYBOARD_SCROLL_AMOUNT = 40;
+
+var _lastScrolledScrollbar = null;
+
+var Scrollbar = React.createClass({displayName: "Scrollbar",
+  mixins: [ReactComponentWithPureRenderMixin],
+
+  propTypes: {
+    contentSize: PropTypes.number.isRequired,
+    defaultPosition: PropTypes.number,
+    isOpaque: PropTypes.bool,
+    orientation: PropTypes.oneOf(['vertical', 'horizontal']),
+    onScroll: PropTypes.func,
+    position: PropTypes.number,
+    size: PropTypes.number.isRequired,
+    trackColor: PropTypes.oneOf(['gray']),
+    zIndex: PropTypes.number,
+  },
+
+  getInitialState:function() /*object*/ {
+    var props = this.props;
+    return this._calculateState(
+      props.position || props.defaultPosition || 0,
+      props.size,
+      props.contentSize,
+      props.orientation
+    );
+  },
+
+  componentWillReceiveProps:function(/*object*/ nextProps) {
+    var controlledPosition = nextProps.position;
+    if (controlledPosition === undefined) {
+      this._setNextState(
+        this._calculateState(
+          this.state.position,
+          nextProps.size,
+          nextProps.contentSize,
+          nextProps.orientation
+        )
+      );
+    } else {
+      this._setNextState(
+        this._calculateState(
+          controlledPosition,
+          nextProps.size,
+          nextProps.contentSize,
+          nextProps.orientation
+        ),
+        nextProps
+      );
+    }
+  },
+
+  getDefaultProps:function() /*object*/ {
+    return {
+      defaultPosition: 0,
+      isOpaque: false,
+      onScroll: emptyFunction,
+      orientation: 'vertical',
+      zIndex: 99,
+    };
+  },
+
+  render:function() /*?object*/ {
+    if (!this.state.scrollable) {
+      return null;
+    }
+
+    var size = this.props.size;
+    var mainStyle;
+    var faceStyle;
+    var isHorizontal = this.state.isHorizontal;
+    var isVertical = !isHorizontal;
+    var isActive = this.state.focused || this.state.isDragging;
+    var faceSize = this.state.faceSize;
+    var isOpaque = this.props.isOpaque;
+
+    var mainClassName = cx({
+      'public/Scrollbar/main': true,
+      'public/Scrollbar/mainHorizontal': isHorizontal,
+      'public/Scrollbar/mainVertical': isVertical,
+      'Scrollbar/mainActive': isActive,
+      'Scrollbar/mainOpaque': isOpaque,
+    });
+
+    var faceClassName = cx({
+      'Scrollbar/face': true,
+      'Scrollbar/faceHorizontal': isHorizontal,
+      'Scrollbar/faceVertical': isVertical,
+      'Scrollbar/faceActive': isActive,
+    });
+
+    var position = this.state.position * this.state.scale + FACE_MARGIN;
+
+    if (isHorizontal) {
+      mainStyle = {
+        width: size,
+      };
+      faceStyle = {
+        width: faceSize - FACE_MARGIN_2
+      };
+      translateDOMPositionXY(faceStyle, position, 0);
+    } else {
+      mainStyle = {
+        height: size,
+      };
+      faceStyle = {
+        height: faceSize - FACE_MARGIN_2,
+      };
+      translateDOMPositionXY(faceStyle, 0, position);
+    }
+
+    mainStyle.zIndex = this.props.zIndex;
+
+    if (this.props.trackColor === 'gray') {
+      mainStyle.backgroundColor = cssVar('ads-cf-bg-color-gray');
+    }
+
+    return (
+      React.createElement("div", {
+        onFocus: this._onFocus, 
+        onBlur: this._onBlur, 
+        onKeyDown: this._onKeyDown, 
+        onMouseDown: this._onMouseDown, 
+        onWheel: this._wheelHandler.onWheel, 
+        className: mainClassName, 
+        style: mainStyle, 
+        tabIndex: 0}, 
+        React.createElement("div", {
+          ref: "face", 
+          className: faceClassName, 
+          style: faceStyle}
+        )
+      )
+    );
+  },
+
+  componentWillMount:function() {
+    var isHorizontal = this.props.orientation === 'horizontal';
+    var onWheel = isHorizontal ? this._onWheelX : this._onWheelY;
+
+    this._wheelHandler = new ReactWheelHandler(
+      onWheel,
+      isHorizontal, // Should hanlde horizontal scroll
+      !isHorizontal // Should handle vertical scroll
+    );
+  },
+
+  componentDidMount:function() {
+    this._mouseMoveTracker = new DOMMouseMoveTracker(
+      this._onMouseMove,
+      this._onMouseMoveEnd,
+      document.documentElement
+    );
+
+    if (this.props.position !== undefined &&
+      this.state.position !== this.props.position) {
+      this._didScroll();
+    }
+  },
+
+  componentWillUnmount:function() {
+    this._nextState = null;
+    this._mouseMoveTracker.releaseMouseMoves();
+    if (_lastScrolledScrollbar === this) {
+      _lastScrolledScrollbar = null;
+    }
+    delete this._mouseMoveTracker;
+  },
+
+  scrollBy:function(/*number*/ delta) {
+    this._onWheel(delta);
+  },
+
+  _calculateState:function(
+    /*?number*/ position,
+    /*number*/ size,
+    /*number*/ contentSize,
+    /*string*/ orientation
+    ) /*object*/ {
+
+    if (size < 1 || contentSize <= size) {
+      return UNSCROLLABLE_STATE;
+    }
+
+    position = position || 0;
+
+    // There are two types of positions here.
+    // 1) Phisical position: changed by mouse / keyboard
+    // 2) Logical position: changed by props.
+    // The logical position will be kept as as internal state and the `render()`
+    // function will translate it into physical position to render.
+
+    var isHorizontal = orientation === 'horizontal';
+    var scale = size / contentSize;
+    var faceSize = Math.round(size * scale);
+
+    if (faceSize < FACE_SIZE_MIN) {
+      scale = (size - FACE_SIZE_MIN) / (contentSize - FACE_SIZE_MIN);
+      faceSize = FACE_SIZE_MIN;
+    }
+
+    var scrollable = true;
+    var maxPosition = contentSize - size;
+
+    if (position < 0) {
+      position = 0;
+    } else if (position > maxPosition) {
+      position = maxPosition;
+    }
+
+    var isDragging = this._mouseMoveTracker ?
+      this._mouseMoveTracker.isDragging() :
+      false;
+
+    position = Math.round(position);
+    faceSize = Math.round(faceSize);
+
+    // This function should only return flat values that can be compared quiclky
+    // by `ReactComponentWithPureRenderMixin`.
+    return {
+      faceSize:faceSize,
+      isDragging:isDragging,
+      isHorizontal:isHorizontal,
+      position:position,
+      scale:scale,
+      scrollable:scrollable,
+    };
+  },
+
+  _onWheelY:function(/*number*/ deltaX, /*number*/ deltaY) {
+    this._onWheel(deltaY);
+  },
+
+  _onWheelX:function(/*number*/ deltaX, /*number*/ deltaY) {
+    this._onWheel(deltaX);
+  },
+
+  _onWheel:function(/*number*/ delta){
+    var props = this.props;
+
+    // The mouse may move faster then the animation frame does.
+    // Use `requestAnimationFrame` to avoid over-updating.
+    this._setNextState(
+      this._calculateState(
+        this.state.position + delta,
+        props.size,
+        props.contentSize,
+        props.orientation
+      )
+    );
+  },
+
+  _onMouseDown:function(/*object*/ event) {
+    var nextState;
+
+    if (event.target !== this.refs.face.getDOMNode()) {
+      // Both `offsetX` and `layerX` are non-standard DOM property but they are
+      // magically available for browsers somehow.
+      var nativeEvent = event.nativeEvent;
+      var position = this.state.isHorizontal ?
+        nativeEvent.offsetX || nativeEvent.layerX :
+        nativeEvent.offsetY || nativeEvent.layerY;
+
+      // MouseDown on the scroll-track directly, move the center of the
+      // scroll-face to the mouse position.
+      var props = this.props;
+      position = position / this.state.scale;
+      nextState = this._calculateState(
+        position - (this.state.faceSize * 0.5 / this.state.scale),
+        props.size,
+        props.contentSize,
+        props.orientation
+      );
+    } else {
+      nextState = {};
+    }
+
+    nextState.focused = true;
+    this._setNextState(nextState);
+
+    this._mouseMoveTracker.captureMouseMoves(event);
+    // Focus the node so it may receive keyboard event.
+    this.getDOMNode().focus();
+  },
+
+  _onMouseMove:function(/*number*/ deltaX, /*number*/ deltaY) {
+    var props = this.props;
+    var delta = this.state.isHorizontal ? deltaX : deltaY;
+    delta = delta / this.state.scale;
+
+    this._setNextState(
+      this._calculateState(
+        this.state.position + delta,
+        props.size,
+        props.contentSize,
+        props.orientation
+      )
+    );
+  },
+
+  _onMouseMoveEnd:function() {
+    this._nextState = null;
+    this._mouseMoveTracker.releaseMouseMoves();
+    this.setState({isDragging: false});
+  },
+
+  _onKeyDown:function(/*object*/ event) {
+    var keyCode = event.keyCode;
+
+    if (keyCode === Keys.TAB) {
+      // Let focus move off the scrollbar.
+      return;
+    }
+
+    var distance = KEYBOARD_SCROLL_AMOUNT;
+    var direction = 0;
+
+    if (this.state.isHorizontal) {
+      switch (keyCode) {
+        case Keys.HOME:
+          direction = -1;
+          distance = this.props.contentSize;
+          break;
+
+        case Keys.LEFT:
+          direction = -1;
+          break;
+
+        case Keys.RIGHT:
+          direction = 1;
+          break;
+
+        default:
+          return;
+      }
+    }
+
+    if (!this.state.isHorizontal) {
+      switch (keyCode) {
+        case Keys.SPACE:
+          if (event.shiftKey) {
+            direction = -1;
+          } else {
+            direction = 1;
+          }
+          break;
+
+        case Keys.HOME:
+          direction = -1;
+          distance = this.props.contentSize;
+          break;
+
+        case Keys.UP:
+          direction = -1;
+          break;
+
+        case Keys.DOWN:
+          direction = 1;
+          break;
+
+        case Keys.PAGE_UP:
+          direction = -1;
+          distance = this.props.size;
+          break;
+
+        case Keys.PAGE_DOWN:
+          direction = 1;
+          distance = this.props.size;
+          break;
+
+        default:
+          return;
+      }
+    }
+
+    event.preventDefault();
+
+    var props = this.props;
+    this._setNextState(
+      this._calculateState(
+        this.state.position + (distance * direction),
+        props.size,
+        props.contentSize,
+        props.orientation
+      )
+    );
+  },
+
+  _onFocus:function() {
+    this.setState({
+      focused: true,
+    });
+  },
+
+  _onBlur:function() {
+    this.setState({
+      focused: false,
+    });
+  },
+
+  _blur:function() {
+    if (this.isMounted()) {
+      try {
+        this._onBlur();
+        this.getDOMNode().blur();
+      } catch (oops) {
+        // pass
+      }
+    }
+  },
+
+  _setNextState:function(/*object*/ nextState, /*?object*/ props) {
+    props = props || this.props;
+    var controlledPosition = props.position;
+    var willScroll = this.state.position !== nextState.position;
+    if (controlledPosition === undefined) {
+      var callback = willScroll ? this._didScroll : undefined;
+      this.setState(nextState, callback);
+    } else if (controlledPosition === nextState.position) {
+      this.setState(nextState);
+    } else {
+      // Scrolling is controlled. Don't update the state and let the owner
+      // to update the scrollbar instead.
+      if (nextState.position !== undefined &&
+        nextState.position !== this.state.position) {
+        this.props.onScroll(nextState.position);
+      }
+      return;
+    }
+
+    if (willScroll && _lastScrolledScrollbar !== this) {
+      _lastScrolledScrollbar && _lastScrolledScrollbar._blur();
+      _lastScrolledScrollbar = this;
+    }
+  },
+
+  _didScroll:function() {
+    this.props.onScroll(this.state.position);
+  },
+});
+
+Scrollbar.KEYBOARD_SCROLL_AMOUNT = KEYBOARD_SCROLL_AMOUNT;
+Scrollbar.SIZE = parseInt(cssVar('scrollbar-size'), 10);
+
+module.exports = Scrollbar;
+
+},{"./DOMMouseMoveTracker":13,"./Keys":33,"./React":36,"./ReactComponentWithPureRenderMixin":37,"./ReactWheelHandler":38,"./cssVar":45,"./cx":46,"./emptyFunction":48,"./translateDOMPositionXY":61}],40:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule UserAgent_DEPRECATED
+ */
+
+/**
+ *  Provides entirely client-side User Agent and OS detection. You should prefer
+ *  the non-deprecated UserAgent module when possible, which exposes our
+ *  authoritative server-side PHP-based detection to the client.
+ *
+ *  Usage is straightforward:
+ *
+ *    if (UserAgent_DEPRECATED.ie()) {
+ *      //  IE
+ *    }
+ *
+ *  You can also do version checks:
+ *
+ *    if (UserAgent_DEPRECATED.ie() >= 7) {
+ *      //  IE7 or better
+ *    }
+ *
+ *  The browser functions will return NaN if the browser does not match, so
+ *  you can also do version compares the other way:
+ *
+ *    if (UserAgent_DEPRECATED.ie() < 7) {
+ *      //  IE6 or worse
+ *    }
+ *
+ *  Note that the version is a float and may include a minor version number,
+ *  so you should always use range operators to perform comparisons, not
+ *  strict equality.
+ *
+ *  **Note:** You should **strongly** prefer capability detection to browser
+ *  version detection where it's reasonable:
+ *
+ *    http://www.quirksmode.org/js/support.html
+ *
+ *  Further, we have a large number of mature wrapper functions and classes
+ *  which abstract away many browser irregularities. Check the documentation,
+ *  grep for things, or ask on javascript@lists.facebook.com before writing yet
+ *  another copy of "event || window.event".
+ *
+ */
+
+var _populated = false;
+
+// Browsers
+var _ie, _firefox, _opera, _webkit, _chrome;
+
+// Actual IE browser for compatibility mode
+var _ie_real_version;
+
+// Platforms
+var _osx, _windows, _linux, _android;
+
+// Architectures
+var _win64;
+
+// Devices
+var _iphone, _ipad, _native;
+
+var _mobile;
+
+function _populate() {
+  if (_populated) {
+    return;
+  }
+
+  _populated = true;
+
+  // To work around buggy JS libraries that can't handle multi-digit
+  // version numbers, Opera 10's user agent string claims it's Opera
+  // 9, then later includes a Version/X.Y field:
+  //
+  // Opera/9.80 (foo) Presto/2.2.15 Version/10.10
+  var uas = navigator.userAgent;
+  var agent = /(?:MSIE.(\d+\.\d+))|(?:(?:Firefox|GranParadiso|Iceweasel).(\d+\.\d+))|(?:Opera(?:.+Version.|.)(\d+\.\d+))|(?:AppleWebKit.(\d+(?:\.\d+)?))|(?:Trident\/\d+\.\d+.*rv:(\d+\.\d+))/.exec(uas);
+  var os    = /(Mac OS X)|(Windows)|(Linux)/.exec(uas);
+
+  _iphone = /\b(iPhone|iP[ao]d)/.exec(uas);
+  _ipad = /\b(iP[ao]d)/.exec(uas);
+  _android = /Android/i.exec(uas);
+  _native = /FBAN\/\w+;/i.exec(uas);
+  _mobile = /Mobile/i.exec(uas);
+
+  // Note that the IE team blog would have you believe you should be checking
+  // for 'Win64; x64'.  But MSDN then reveals that you can actually be coming
+  // from either x64 or ia64;  so ultimately, you should just check for Win64
+  // as in indicator of whether you're in 64-bit IE.  32-bit IE on 64-bit
+  // Windows will send 'WOW64' instead.
+  _win64 = !!(/Win64/.exec(uas));
+
+  if (agent) {
+    _ie = agent[1] ? parseFloat(agent[1]) : (
+          agent[5] ? parseFloat(agent[5]) : NaN);
+    // IE compatibility mode
+    if (_ie && document && document.documentMode) {
+      _ie = document.documentMode;
+    }
+    // grab the "true" ie version from the trident token if available
+    var trident = /(?:Trident\/(\d+.\d+))/.exec(uas);
+    _ie_real_version = trident ? parseFloat(trident[1]) + 4 : _ie;
+
+    _firefox = agent[2] ? parseFloat(agent[2]) : NaN;
+    _opera   = agent[3] ? parseFloat(agent[3]) : NaN;
+    _webkit  = agent[4] ? parseFloat(agent[4]) : NaN;
+    if (_webkit) {
+      // We do not add the regexp to the above test, because it will always
+      // match 'safari' only since 'AppleWebKit' appears before 'Chrome' in
+      // the userAgent string.
+      agent = /(?:Chrome\/(\d+\.\d+))/.exec(uas);
+      _chrome = agent && agent[1] ? parseFloat(agent[1]) : NaN;
+    } else {
+      _chrome = NaN;
+    }
+  } else {
+    _ie = _firefox = _opera = _chrome = _webkit = NaN;
+  }
+
+  if (os) {
+    if (os[1]) {
+      // Detect OS X version.  If no version number matches, set _osx to true.
+      // Version examples:  10, 10_6_1, 10.7
+      // Parses version number as a float, taking only first two sets of
+      // digits.  If only one set of digits is found, returns just the major
+      // version number.
+      var ver = /(?:Mac OS X (\d+(?:[._]\d+)?))/.exec(uas);
+
+      _osx = ver ? parseFloat(ver[1].replace('_', '.')) : true;
+    } else {
+      _osx = false;
+    }
+    _windows = !!os[2];
+    _linux   = !!os[3];
+  } else {
+    _osx = _windows = _linux = false;
+  }
+}
+
+var UserAgent_DEPRECATED = {
+
+  /**
+   *  Check if the UA is Internet Explorer.
+   *
+   *
+   *  @return float|NaN Version number (if match) or NaN.
+   */
+  ie: function() {
+    return _populate() || _ie;
+  },
+
+  /**
+   * Check if we're in Internet Explorer compatibility mode.
+   *
+   * @return bool true if in compatibility mode, false if
+   * not compatibility mode or not ie
+   */
+  ieCompatibilityMode: function() {
+    return _populate() || (_ie_real_version > _ie);
+  },
+
+
+  /**
+   * Whether the browser is 64-bit IE.  Really, this is kind of weak sauce;  we
+   * only need this because Skype can't handle 64-bit IE yet.  We need to remove
+   * this when we don't need it -- tracked by #601957.
+   */
+  ie64: function() {
+    return UserAgent_DEPRECATED.ie() && _win64;
+  },
+
+  /**
+   *  Check if the UA is Firefox.
+   *
+   *
+   *  @return float|NaN Version number (if match) or NaN.
+   */
+  firefox: function() {
+    return _populate() || _firefox;
+  },
+
+
+  /**
+   *  Check if the UA is Opera.
+   *
+   *
+   *  @return float|NaN Version number (if match) or NaN.
+   */
+  opera: function() {
+    return _populate() || _opera;
+  },
+
+
+  /**
+   *  Check if the UA is WebKit.
+   *
+   *
+   *  @return float|NaN Version number (if match) or NaN.
+   */
+  webkit: function() {
+    return _populate() || _webkit;
+  },
+
+  /**
+   *  For Push
+   *  WILL BE REMOVED VERY SOON. Use UserAgent_DEPRECATED.webkit
+   */
+  safari: function() {
+    return UserAgent_DEPRECATED.webkit();
+  },
+
+  /**
+   *  Check if the UA is a Chrome browser.
+   *
+   *
+   *  @return float|NaN Version number (if match) or NaN.
+   */
+  chrome : function() {
+    return _populate() || _chrome;
+  },
+
+
+  /**
+   *  Check if the user is running Windows.
+   *
+   *  @return bool `true' if the user's OS is Windows.
+   */
+  windows: function() {
+    return _populate() || _windows;
+  },
+
+
+  /**
+   *  Check if the user is running Mac OS X.
+   *
+   *  @return float|bool   Returns a float if a version number is detected,
+   *                       otherwise true/false.
+   */
+  osx: function() {
+    return _populate() || _osx;
+  },
+
+  /**
+   * Check if the user is running Linux.
+   *
+   * @return bool `true' if the user's OS is some flavor of Linux.
+   */
+  linux: function() {
+    return _populate() || _linux;
+  },
+
+  /**
+   * Check if the user is running on an iPhone or iPod platform.
+   *
+   * @return bool `true' if the user is running some flavor of the
+   *    iPhone OS.
+   */
+  iphone: function() {
+    return _populate() || _iphone;
+  },
+
+  mobile: function() {
+    return _populate() || (_iphone || _ipad || _android || _mobile);
+  },
+
+  nativeApp: function() {
+    // webviews inside of the native apps
+    return _populate() || _native;
+  },
+
+  android: function() {
+    return _populate() || _android;
+  },
+
+  ipad: function() {
+    return _populate() || _ipad;
+  }
+};
+
+module.exports = UserAgent_DEPRECATED;
+
+},{}],41:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule camelize
+ * @typechecks
+ */
+
+var _hyphenPattern = /-(.)/g;
+
+/**
+ * Camelcases a hyphenated string, for example:
+ *
+ *   > camelize('background-color')
+ *   < "backgroundColor"
+ *
+ * @param {string} string
+ * @return {string}
+ */
+function camelize(string) {
+  return string.replace(_hyphenPattern, function(_, character) {
+    return character.toUpperCase();
+  });
+}
+
+module.exports = camelize;
+
+},{}],42:[function(require,module,exports){
+(function (global){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule cancelAnimationFramePolyfill
+ */
+
+/**
+ * Here is the native and polyfill version of cancelAnimationFrame.
+ * Please don't use it directly and use cancelAnimationFrame module instead.
+ */
+var cancelAnimationFrame =
+  global.cancelAnimationFrame       ||
+  global.webkitCancelAnimationFrame ||
+  global.mozCancelAnimationFrame    ||
+  global.oCancelAnimationFrame      ||
+  global.msCancelAnimationFrame     ||
+  global.clearTimeout;
+
+module.exports = cancelAnimationFrame;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],43:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule clamp
+ * @typechecks
+ */
+
+ /**
+  * @param {number} min
+  * @param {number} value
+  * @param {number} max
+  * @return {number}
+  */
+function clamp(min, value, max) {
+  if (value < min) {
+    return min;
+  }
+  if (value > max) {
+    return max;
+  }
+  return value;
+}
+
+module.exports = clamp;
+
+},{}],44:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule cloneWithProps
+ */
+
+module.exports = require('react/lib/cloneWithProps');
+
+},{"react/lib/cloneWithProps":181}],45:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule cssVar
+ * @typechecks
+ */
+
+"use strict";
+
+var CSS_VARS = {
+  'scrollbar-face-active-color': '#7d7d7d',
+  'scrollbar-face-color': '#c2c2c2',
+  'scrollbar-face-margin': '4px',
+  'scrollbar-face-radius': '6px',
+  'scrollbar-size': '15px',
+  'scrollbar-size-large': '17px',
+  'scrollbar-track-color': 'rgba(255, 255, 255, 0.8)',
+};
+
+/**
+ * @param {string} name
+ */
+function cssVar(name) {
+  if (CSS_VARS.hasOwnProperty(name)) {
+    return CSS_VARS[name];
+  }
+
+  throw new Error(
+    'cssVar' + '("' + name + '"): Unexpected class transformation.'
+  );
+}
+
+cssVar.CSS_VARS = CSS_VARS;
+
+module.exports = cssVar;
+
+},{}],46:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule cx
+ */
+
+var slashReplaceRegex = /\//g;
+var cache = {};
+
+function getClassName(className) {
+  if (cache[className]) {
+    return cache[className];
+  }
+
+  cache[className] = className.replace(slashReplaceRegex, '_');
+  return cache[className];
+}
+
+/**
+ * This function is used to mark string literals representing CSS class names
+ * so that they can be transformed statically. This allows for modularization
+ * and minification of CSS class names.
+ *
+ * In static_upstream, this function is actually implemented, but it should
+ * eventually be replaced with something more descriptive, and the transform
+ * that is used in the main stack should be ported for use elsewhere.
+ *
+ * @param string|object className to modularize, or an object of key/values.
+ *                      In the object case, the values are conditions that
+ *                      determine if the className keys should be included.
+ * @param [string ...]  Variable list of classNames in the string case.
+ * @return string       Renderable space-separated CSS className.
+ */
+function cx(classNames) {
+  var classNamesArray;
+  if (typeof classNames == 'object') {
+    classNamesArray = Object.keys(classNames).filter(function(className) {
+      return classNames[className];
+    });
+  } else {
+    classNamesArray = Array.prototype.slice.call(arguments);
+  }
+
+  return classNamesArray.map(getClassName).join(' ');
+}
+
+module.exports = cx;
+
+},{}],47:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule debounceCore
+ * @typechecks
+ */
+
+/**
+ * Invokes the given callback after a specified number of milliseconds have
+ * elapsed, ignoring subsequent calls.
+ *
+ * For example, if you wanted to update a preview after the user stops typing
+ * you could do the following:
+ *
+ *   elem.addEventListener('keyup', debounce(this.updatePreview, 250), false);
+ *
+ * The returned function has a reset method which can be called to cancel a
+ * pending invocation.
+ *
+ *   var debouncedUpdatePreview = debounce(this.updatePreview, 250);
+ *   elem.addEventListener('keyup', debouncedUpdatePreview, false);
+ *
+ *   // later, to cancel pending calls
+ *   debouncedUpdatePreview.reset();
+ *
+ * @param {function} func - the function to debounce
+ * @param {number} wait - how long to wait in milliseconds
+ * @param {*} context - optional context to invoke the function in
+ * @param {?function} setTimeoutFunc - an implementation of setTimeout
+ *  if nothing is passed in the default setTimeout function is used
+  * @param {?function} clearTimeoutFunc - an implementation of clearTimeout
+ *  if nothing is passed in the default clearTimeout function is used
+ */
+function debounce(func, wait, context, setTimeoutFunc, clearTimeoutFunc) {
+  setTimeoutFunc = setTimeoutFunc || setTimeout;
+  clearTimeoutFunc = clearTimeoutFunc || clearTimeout;
+  var timeout;
+
+  function debouncer() {for (var args=[],$__0=0,$__1=arguments.length;$__0<$__1;$__0++) args.push(arguments[$__0]);
+    debouncer.reset();
+
+    timeout = setTimeoutFunc(function() {
+      func.apply(context, args);
+    }, wait);
+  }
+
+  debouncer.reset = function() {
+    clearTimeoutFunc(timeout);
+  };
+
+  return debouncer;
+}
+
+module.exports = debounce;
+
+},{}],48:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule emptyFunction
+ */
+
+function makeEmptyFunction(arg) {
+  return function() {
+    return arg;
+  };
+}
+
+/**
+ * This function accepts and discards inputs; it has no side effects. This is
+ * primarily useful idiomatically for overridable function endpoints which
+ * always need to be callable, since JS lacks a null-call idiom ala Cocoa.
+ */
+function emptyFunction() {}
+
+emptyFunction.thatReturns = makeEmptyFunction;
+emptyFunction.thatReturnsFalse = makeEmptyFunction(false);
+emptyFunction.thatReturnsTrue = makeEmptyFunction(true);
+emptyFunction.thatReturnsNull = makeEmptyFunction(null);
+emptyFunction.thatReturnsThis = function() { return this; };
+emptyFunction.thatReturnsArgument = function(arg) { return arg; };
+
+module.exports = emptyFunction;
+
+},{}],49:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule getVendorPrefixedName
+ * @typechecks
+ */
+
+var ExecutionEnvironment = require('./ExecutionEnvironment');
+
+var camelize = require('./camelize');
+var invariant = require('./invariant');
+
+var memoized = {};
+var prefixes = ['Webkit', 'ms', 'Moz', 'O'];
+var prefixRegex = new RegExp('^(' + prefixes.join('|') + ')');
+var testStyle =
+  ExecutionEnvironment.canUseDOM ? document.createElement('div').style : {};
+
+function getWithPrefix(name) {
+  for (var i = 0; i < prefixes.length; i++) {
+    var prefixedName = prefixes[i] + name;
+    if (prefixedName in testStyle) {
+      return prefixedName;
+    }
+  }
+  return null;
+}
+
+/**
+ * @param {string} property Name of a css property to check for.
+ * @return {?string} property name supported in the browser, or null if not
+ * supported.
+ */
+function getVendorPrefixedName(property) {
+  var name = camelize(property);
+  if (memoized[name] === undefined) {
+    var capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
+    if (prefixRegex.test(capitalizedName)) {
+      invariant(
+        false,
+        'getVendorPrefixedName must only be called with unprefixed' +
+        'CSS property names. It was called with %s', property
+      );
+    }
+    memoized[name] =
+      (name in testStyle) ? name : getWithPrefix(capitalizedName);
+  }
+  return memoized[name];
+}
+
+module.exports = getVendorPrefixedName;
+
+},{"./ExecutionEnvironment":15,"./camelize":41,"./invariant":50}],50:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule invariant
+ */
+
+"use strict";
+
+/**
+ * Use invariant() to assert state which your program assumes to be true.
+ *
+ * Provide sprintf-style format (only %s is supported) and arguments
+ * to provide information about what broke and what you were
+ * expecting.
+ *
+ * The invariant message will be stripped in production, but the invariant
+ * will remain to ensure logic does not differ in production.
+ */
+
+var invariant = function(condition, format, a, b, c, d, e, f) {
+  if (process.env.NODE_ENV !== 'production') {
+    if (format === undefined) {
+      throw new Error('invariant requires an error message argument');
+    }
+  }
+
+  if (!condition) {
+    var error;
+    if (format === undefined) {
+      error = new Error(
+        'Minified exception occurred; use the non-minified dev environment ' +
+        'for the full error message and additional helpful warnings.'
+      );
+    } else {
+      var args = [a, b, c, d, e, f];
+      var argIndex = 0;
+      error = new Error(
+        'Invariant Violation: ' +
+        format.replace(/%s/g, function() { return args[argIndex++]; })
+      );
+    }
+
+    error.framesToPop = 1; // we don't care about invariant's own frame
+    throw error;
+  }
+};
+
+module.exports = invariant;
+
+}).call(this,require('_process'))
+},{"_process":7}],51:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule isEventSupported
+ */
+
+'use strict';
+
+var ExecutionEnvironment = require('./ExecutionEnvironment');
+
+var useHasFeature;
+if (ExecutionEnvironment.canUseDOM) {
+  useHasFeature =
+    document.implementation &&
+    document.implementation.hasFeature &&
+    // always returns true in newer browsers as per the standard.
+    // @see http://dom.spec.whatwg.org/#dom-domimplementation-hasfeature
+    document.implementation.hasFeature('', '') !== true;
+}
+
+/**
+ * Checks if an event is supported in the current execution environment.
+ *
+ * NOTE: This will not work correctly for non-generic events such as `change`,
+ * `reset`, `load`, `error`, and `select`.
+ *
+ * Borrows from Modernizr.
+ *
+ * @param {string} eventNameSuffix Event name, e.g. "click".
+ * @param {?boolean} capture Check if the capture phase is supported.
+ * @return {boolean} True if the event is supported.
+ * @internal
+ * @license Modernizr 3.0.0pre (Custom Build) | MIT
+ */
+function isEventSupported(eventNameSuffix, capture) {
+  if (!ExecutionEnvironment.canUseDOM ||
+      capture && !('addEventListener' in document)) {
+    return false;
+  }
+
+  var eventName = 'on' + eventNameSuffix;
+  var isSupported = eventName in document;
+
+  if (!isSupported) {
+    var element = document.createElement('div');
+    element.setAttribute(eventName, 'return;');
+    isSupported = typeof element[eventName] === 'function';
+  }
+
+  if (!isSupported && useHasFeature && eventNameSuffix === 'wheel') {
+    // This is the only way to test support for the `wheel` event in IE9+.
+    isSupported = document.implementation.hasFeature('Events.wheel', '3.0');
+  }
+
+  return isSupported;
+}
+
+module.exports = isEventSupported;
+
+},{"./ExecutionEnvironment":15}],52:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule isNode
+ * @typechecks
+ */
+
+/**
+ * @param {*} object The object to check.
+ * @return {boolean} Whether or not the object is a DOM node.
+ */
+function isNode(object) {
+  return !!(object && (
+    typeof Node === 'function' ? object instanceof Node :
+      typeof object === 'object' &&
+      typeof object.nodeType === 'number' &&
+      typeof object.nodeName === 'string'
+  ));
+}
+
+module.exports = isNode;
+
+},{}],53:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule joinClasses
+ * @typechecks static-only
+ */
+
+'use strict';
+
+/**
+ * Combines multiple className strings into one.
+ * http://jsperf.com/joinclasses-args-vs-array
+ *
+ * @param {...?string} classes
+ * @return {string}
+ */
+function joinClasses(className/*, ... */) {
+  if (!className) {
+    className = '';
+  }
+  var nextClass;
+  var argLength = arguments.length;
+  if (argLength > 1) {
+    for (var ii = 1; ii < argLength; ii++) {
+      nextClass = arguments[ii];
+      if (nextClass) {
+        className = (className ? className + ' ' : '') + nextClass;
+      }
+    }
+  }
+  return className;
+}
+
+module.exports = joinClasses;
+
+},{}],54:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule keyMirror
+ * @typechecks static-only
+ */
+
+'use strict';
+
+var invariant = require('./invariant');
+
+/**
+ * Constructs an enumeration with keys equal to their value.
+ *
+ * For example:
+ *
+ *   var COLORS = keyMirror({blue: null, red: null});
+ *   var myColor = COLORS.blue;
+ *   var isColorValid = !!COLORS[myColor];
+ *
+ * The last line could not be performed if the values of the generated enum were
+ * not equal to their keys.
+ *
+ *   Input:  {key1: val1, key2: val2}
+ *   Output: {key1: key1, key2: key2}
+ *
+ * @param {object} obj
+ * @return {object}
+ */
+var keyMirror = function(obj) {
+  var ret = {};
+  var key;
+  invariant(
+    obj instanceof Object && !Array.isArray(obj),
+    'keyMirror(...): Argument must be an object.'
+  );
+  for (key in obj) {
+    if (!obj.hasOwnProperty(key)) {
+      continue;
+    }
+    ret[key] = key;
+  }
+  return ret;
+};
+
+module.exports = keyMirror;
+
+},{"./invariant":50}],55:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule keyOf
+ */
+
+/**
+ * Allows extraction of a minified key. Let's the build system minify keys
+ * without losing the ability to dynamically use key strings as values
+ * themselves. Pass in an object with a single key/val pair and it will return
+ * you the string key of that single record. Suppose you want to grab the
+ * value for a key 'className' inside of an object. Key/val minification may
+ * have aliased that key to be 'xa12'. keyOf({className: null}) will return
+ * 'xa12' in that case. Resolve keys you want to use once at startup time, then
+ * reuse those resolutions.
+ */
+var keyOf = function(oneKeyObj) {
+  var key;
+  for (key in oneKeyObj) {
+    if (!oneKeyObj.hasOwnProperty(key)) {
+      continue;
+    }
+    return key;
+  }
+  return null;
+};
+
+
+module.exports = keyOf;
+
+},{}],56:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule mergeHelpers
+ *
+ * requiresPolyfills: Array.isArray
+ */
+
+"use strict";
+
+var invariant = require('./invariant');
+var keyMirror = require('./keyMirror');
+
+/**
+ * Maximum number of levels to traverse. Will catch circular structures.
+ * @const
+ */
+var MAX_MERGE_DEPTH = 36;
+
+/**
+ * We won't worry about edge cases like new String('x') or new Boolean(true).
+ * Functions and Dates are considered terminals, and arrays are not.
+ * @param {*} o The item/object/value to test.
+ * @return {boolean} true iff the argument is a terminal.
+ */
+var isTerminal = function(o) {
+  return typeof o !== 'object' || o instanceof Date || o === null;
+};
+
+var mergeHelpers = {
+
+  MAX_MERGE_DEPTH: MAX_MERGE_DEPTH,
+
+  isTerminal: isTerminal,
+
+  /**
+   * Converts null/undefined values into empty object.
+   *
+   * @param {?Object=} arg Argument to be normalized (nullable optional)
+   * @return {!Object}
+   */
+  normalizeMergeArg: function(arg) {
+    return arg === undefined || arg === null ? {} : arg;
+  },
+
+  /**
+   * If merging Arrays, a merge strategy *must* be supplied. If not, it is
+   * likely the caller's fault. If this function is ever called with anything
+   * but `one` and `two` being `Array`s, it is the fault of the merge utilities.
+   *
+   * @param {*} one Array to merge into.
+   * @param {*} two Array to merge from.
+   */
+  checkMergeArrayArgs: function(one, two) {
+    invariant(
+      Array.isArray(one) && Array.isArray(two),
+      'Tried to merge arrays, instead got %s and %s.',
+      one,
+      two
+    );
+  },
+
+  /**
+   * @param {*} one Object to merge into.
+   * @param {*} two Object to merge from.
+   */
+  checkMergeObjectArgs: function(one, two) {
+    mergeHelpers.checkMergeObjectArg(one);
+    mergeHelpers.checkMergeObjectArg(two);
+  },
+
+  /**
+   * @param {*} arg
+   */
+  checkMergeObjectArg: function(arg) {
+    invariant(
+      !isTerminal(arg) && !Array.isArray(arg),
+      'Tried to merge an object, instead got %s.',
+      arg
+    );
+  },
+
+  /**
+   * @param {*} arg
+   */
+  checkMergeIntoObjectArg: function(arg) {
+    invariant(
+      (!isTerminal(arg) || typeof arg === 'function') && !Array.isArray(arg),
+      'Tried to merge into an object, instead got %s.',
+      arg
+    );
+  },
+
+  /**
+   * Checks that a merge was not given a circular object or an object that had
+   * too great of depth.
+   *
+   * @param {number} Level of recursion to validate against maximum.
+   */
+  checkMergeLevel: function(level) {
+    invariant(
+      level < MAX_MERGE_DEPTH,
+      'Maximum deep merge depth exceeded. You may be attempting to merge ' +
+      'circular structures in an unsupported way.'
+    );
+  },
+
+  /**
+   * Checks that the supplied merge strategy is valid.
+   *
+   * @param {string} Array merge strategy.
+   */
+  checkArrayStrategy: function(strategy) {
+    invariant(
+      strategy === undefined || strategy in mergeHelpers.ArrayStrategies,
+      'You must provide an array strategy to deep merge functions to ' +
+      'instruct the deep merge how to resolve merging two arrays.'
+    );
+  },
+
+  /**
+   * Set of possible behaviors of merge algorithms when encountering two Arrays
+   * that must be merged together.
+   * - `clobber`: The left `Array` is ignored.
+   * - `indexByIndex`: The result is achieved by recursively deep merging at
+   *   each index. (not yet supported.)
+   */
+  ArrayStrategies: keyMirror({
+    Clobber: true,
+    IndexByIndex: true
+  })
+
+};
+
+module.exports = mergeHelpers;
+
+},{"./invariant":50,"./keyMirror":54}],57:[function(require,module,exports){
+(function (global){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule nativeRequestAnimationFrame
+ */
+
+var nativeRequestAnimationFrame =
+  global.requestAnimationFrame       ||
+  global.webkitRequestAnimationFrame ||
+  global.mozRequestAnimationFrame    ||
+  global.oRequestAnimationFrame      ||
+  global.msRequestAnimationFrame;
+
+module.exports = nativeRequestAnimationFrame;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{}],58:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule normalizeWheel
+ * @typechecks
+ */
+
+"use strict";
+
+var UserAgent_DEPRECATED = require('./UserAgent_DEPRECATED');
+
+var isEventSupported = require('./isEventSupported');
+
+
+// Reasonable defaults
+var PIXEL_STEP  = 10;
+var LINE_HEIGHT = 40;
+var PAGE_HEIGHT = 800;
+
+/**
+ * Mouse wheel (and 2-finger trackpad) support on the web sucks.  It is
+ * complicated, thus this doc is long and (hopefully) detailed enough to answer
+ * your questions.
+ *
+ * If you need to react to the mouse wheel in a predictable way, this code is
+ * like your bestest friend. * hugs *
+ *
+ * As of today, there are 4 DOM event types you can listen to:
+ *
+ *   'wheel'                -- Chrome(31+), FF(17+), IE(9+)
+ *   'mousewheel'           -- Chrome, IE(6+), Opera, Safari
+ *   'MozMousePixelScroll'  -- FF(3.5 only!) (2010-2013) -- don't bother!
+ *   'DOMMouseScroll'       -- FF(0.9.7+) since 2003
+ *
+ * So what to do?  The is the best:
+ *
+ *   normalizeWheel.getEventType();
+ *
+ * In your event callback, use this code to get sane interpretation of the
+ * deltas.  This code will return an object with properties:
+ *
+ *   spinX   -- normalized spin speed (use for zoom) - x plane
+ *   spinY   -- " - y plane
+ *   pixelX  -- normalized distance (to pixels) - x plane
+ *   pixelY  -- " - y plane
+ *
+ * Wheel values are provided by the browser assuming you are using the wheel to
+ * scroll a web page by a number of lines or pixels (or pages).  Values can vary
+ * significantly on different platforms and browsers, forgetting that you can
+ * scroll at different speeds.  Some devices (like trackpads) emit more events
+ * at smaller increments with fine granularity, and some emit massive jumps with
+ * linear speed or acceleration.
+ *
+ * This code does its best to normalize the deltas for you:
+ *
+ *   - spin is trying to normalize how far the wheel was spun (or trackpad
+ *     dragged).  This is super useful for zoom support where you want to
+ *     throw away the chunky scroll steps on the PC and make those equal to
+ *     the slow and smooth tiny steps on the Mac. Key data: This code tries to
+ *     resolve a single slow step on a wheel to 1.
+ *
+ *   - pixel is normalizing the desired scroll delta in pixel units.  You'll
+ *     get the crazy differences between browsers, but at least it'll be in
+ *     pixels!
+ *
+ *   - positive value indicates scrolling DOWN/RIGHT, negative UP/LEFT.  This
+ *     should translate to positive value zooming IN, negative zooming OUT.
+ *     This matches the newer 'wheel' event.
+ *
+ * Why are there spinX, spinY (or pixels)?
+ *
+ *   - spinX is a 2-finger side drag on the trackpad, and a shift + wheel turn
+ *     with a mouse.  It results in side-scrolling in the browser by default.
+ *
+ *   - spinY is what you expect -- it's the classic axis of a mouse wheel.
+ *
+ *   - I dropped spinZ/pixelZ.  It is supported by the DOM 3 'wheel' event and
+ *     probably is by browsers in conjunction with fancy 3D controllers .. but
+ *     you know.
+ *
+ * Implementation info:
+ *
+ * Examples of 'wheel' event if you scroll slowly (down) by one step with an
+ * average mouse:
+ *
+ *   OS X + Chrome  (mouse)     -    4   pixel delta  (wheelDelta -120)
+ *   OS X + Safari  (mouse)     -  N/A   pixel delta  (wheelDelta  -12)
+ *   OS X + Firefox (mouse)     -    0.1 line  delta  (wheelDelta  N/A)
+ *   Win8 + Chrome  (mouse)     -  100   pixel delta  (wheelDelta -120)
+ *   Win8 + Firefox (mouse)     -    3   line  delta  (wheelDelta -120)
+ *
+ * On the trackpad:
+ *
+ *   OS X + Chrome  (trackpad)  -    2   pixel delta  (wheelDelta   -6)
+ *   OS X + Firefox (trackpad)  -    1   pixel delta  (wheelDelta  N/A)
+ *
+ * On other/older browsers.. it's more complicated as there can be multiple and
+ * also missing delta values.
+ *
+ * The 'wheel' event is more standard:
+ *
+ * http://www.w3.org/TR/DOM-Level-3-Events/#events-wheelevents
+ *
+ * The basics is that it includes a unit, deltaMode (pixels, lines, pages), and
+ * deltaX, deltaY and deltaZ.  Some browsers provide other values to maintain
+ * backward compatibility with older events.  Those other values help us
+ * better normalize spin speed.  Example of what the browsers provide:
+ *
+ *                          | event.wheelDelta | event.detail
+ *        ------------------+------------------+--------------
+ *          Safari v5/OS X  |       -120       |       0
+ *          Safari v5/Win7  |       -120       |       0
+ *         Chrome v17/OS X  |       -120       |       0
+ *         Chrome v17/Win7  |       -120       |       0
+ *                IE9/Win7  |       -120       |   undefined
+ *         Firefox v4/OS X  |     undefined    |       1
+ *         Firefox v4/Win7  |     undefined    |       3
+ *
+ */
+function normalizeWheel(/*object*/ event) /*object*/ {
+  var sX = 0, sY = 0,       // spinX, spinY
+      pX = 0, pY = 0;       // pixelX, pixelY
+
+  // Legacy
+  if ('detail'      in event) { sY = event.detail; }
+  if ('wheelDelta'  in event) { sY = -event.wheelDelta / 120; }
+  if ('wheelDeltaY' in event) { sY = -event.wheelDeltaY / 120; }
+  if ('wheelDeltaX' in event) { sX = -event.wheelDeltaX / 120; }
+
+  // side scrolling on FF with DOMMouseScroll
+  if ( 'axis' in event && event.axis === event.HORIZONTAL_AXIS ) {
+    sX = sY;
+    sY = 0;
+  }
+
+  pX = sX * PIXEL_STEP;
+  pY = sY * PIXEL_STEP;
+
+  if ('deltaY' in event) { pY = event.deltaY; }
+  if ('deltaX' in event) { pX = event.deltaX; }
+
+  if ((pX || pY) && event.deltaMode) {
+    if (event.deltaMode == 1) {          // delta in LINE units
+      pX *= LINE_HEIGHT;
+      pY *= LINE_HEIGHT;
+    } else {                             // delta in PAGE units
+      pX *= PAGE_HEIGHT;
+      pY *= PAGE_HEIGHT;
+    }
+  }
+
+  // Fall-back if spin cannot be determined
+  if (pX && !sX) { sX = (pX < 1) ? -1 : 1; }
+  if (pY && !sY) { sY = (pY < 1) ? -1 : 1; }
+
+  return { spinX  : sX,
+           spinY  : sY,
+           pixelX : pX,
+           pixelY : pY };
+}
+
+
+/**
+ * The best combination if you prefer spinX + spinY normalization.  It favors
+ * the older DOMMouseScroll for Firefox, as FF does not include wheelDelta with
+ * 'wheel' event, making spin speed determination impossible.
+ */
+normalizeWheel.getEventType = function() /*string*/ {
+  return (UserAgent_DEPRECATED.firefox())
+           ? 'DOMMouseScroll'
+           : (isEventSupported('wheel'))
+               ? 'wheel'
+               : 'mousewheel';
+};
+
+module.exports = normalizeWheel;
+
+},{"./UserAgent_DEPRECATED":40,"./isEventSupported":51}],59:[function(require,module,exports){
+(function (global){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule requestAnimationFramePolyfill
+ */
+
+var emptyFunction = require('./emptyFunction');
+var nativeRequestAnimationFrame = require('./nativeRequestAnimationFrame');
+
+var lastTime = 0;
+
+/**
+ * Here is the native and polyfill version of requestAnimationFrame.
+ * Please don't use it directly and use requestAnimationFrame module instead.
+ */
+var requestAnimationFrame =
+  nativeRequestAnimationFrame ||
+  function(callback) {
+    var currTime = Date.now();
+    var timeDelay = Math.max(0, 16 - (currTime - lastTime));
+    lastTime = currTime + timeDelay;
+    return global.setTimeout(function() {
+      callback(Date.now());
+    }, timeDelay);
+  };
+
+// Works around a rare bug in Safari 6 where the first request is never invoked.
+requestAnimationFrame(emptyFunction);
+
+module.exports = requestAnimationFrame;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./emptyFunction":48,"./nativeRequestAnimationFrame":57}],60:[function(require,module,exports){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule shallowEqual
+ */
+
+'use strict';
+
+/**
+ * Performs equality by iterating through keys on an object and returning
+ * false when any key has values which are not strictly equal between
+ * objA and objB. Returns true when the values of all keys are strictly equal.
+ *
+ * @return {boolean}
+ */
+function shallowEqual(objA, objB) {
+  if (objA === objB) {
+    return true;
+  }
+  var key;
+  // Test for A's keys different from B.
+  for (key in objA) {
+    if (objA.hasOwnProperty(key) &&
+        (!objB.hasOwnProperty(key) || objA[key] !== objB[key])) {
+      return false;
+    }
+  }
+  // Test for B's keys missing from A.
+  for (key in objB) {
+    if (objB.hasOwnProperty(key) && !objA.hasOwnProperty(key)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+module.exports = shallowEqual;
+
+},{}],61:[function(require,module,exports){
+(function (global){
+/**
+ * Copyright (c) 2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule translateDOMPositionXY
+ * @typechecks
+ */
+
+"use strict";
+
+var BrowserSupportCore = require('./BrowserSupportCore');
+
+var getVendorPrefixedName = require('./getVendorPrefixedName');
+
+var TRANSFORM = getVendorPrefixedName('transform');
+var BACKFACE_VISIBILITY = getVendorPrefixedName('backfaceVisibility');
+
+var translateDOMPositionXY = (function() {
+  if (BrowserSupportCore.hasCSSTransforms()) {
+    var ua = global.window ? global.window.navigator.userAgent : 'UNKNOWN';
+    var isSafari = (/Safari\//).test(ua) && !(/Chrome\//).test(ua);
+    // It appears that Safari messes up the composition order
+    // of GPU-accelerated layers
+    // (see bug https://bugs.webkit.org/show_bug.cgi?id=61824).
+    // Use 2D translation instead.
+    if (!isSafari && BrowserSupportCore.hasCSS3DTransforms()) {
+      return function(/*object*/ style, /*number*/ x, /*number*/ y) {
+        style[TRANSFORM] ='translate3d(' + x + 'px,' + y + 'px,0)';
+        style[BACKFACE_VISIBILITY] = 'hidden';
+      };
+    } else {
+      return function(/*object*/ style, /*number*/ x, /*number*/ y) {
+        style[TRANSFORM] = 'translate(' + x + 'px,' + y + 'px)';
+      };
+    }
+  } else {
+    return function(/*object*/ style, /*number*/ x, /*number*/ y) {
+      style.left = x + 'px';
+      style.top = y + 'px';
+    };
+  }
+})();
+
+module.exports = translateDOMPositionXY;
+
+}).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
+},{"./BrowserSupportCore":12,"./getVendorPrefixedName":49}],62:[function(require,module,exports){
+module.exports = require('./internal/FixedDataTableRoot');
+
+},{"./internal/FixedDataTableRoot":24}],63:[function(require,module,exports){
+/*!
+ * numeral.js
+ * version : 1.5.3
+ * author : Adam Draper
+ * license : MIT
+ * http://adamwdraper.github.com/Numeral-js/
+ */
+
+(function () {
+
+    /************************************
+        Constants
+    ************************************/
+
+    var numeral,
+        VERSION = '1.5.3',
+        // internal storage for language config files
+        languages = {},
+        currentLanguage = 'en',
+        zeroFormat = null,
+        defaultFormat = '0,0',
+        // check for nodeJS
+        hasModule = (typeof module !== 'undefined' && module.exports);
+
+
+    /************************************
+        Constructors
+    ************************************/
+
+
+    // Numeral prototype object
+    function Numeral (number) {
+        this._value = number;
+    }
+
+    /**
+     * Implementation of toFixed() that treats floats more like decimals
+     *
+     * Fixes binary rounding issues (eg. (0.615).toFixed(2) === '0.61') that present
+     * problems for accounting- and finance-related software.
+     */
+    function toFixed (value, precision, roundingFunction, optionals) {
+        var power = Math.pow(10, precision),
+            optionalsRegExp,
+            output;
+            
+        //roundingFunction = (roundingFunction !== undefined ? roundingFunction : Math.round);
+        // Multiply up by precision, round accurately, then divide and use native toFixed():
+        output = (roundingFunction(value * power) / power).toFixed(precision);
+
+        if (optionals) {
+            optionalsRegExp = new RegExp('0{1,' + optionals + '}$');
+            output = output.replace(optionalsRegExp, '');
+        }
+
+        return output;
+    }
+
+    /************************************
+        Formatting
+    ************************************/
+
+    // determine what type of formatting we need to do
+    function formatNumeral (n, format, roundingFunction) {
+        var output;
+
+        // figure out what kind of format we are dealing with
+        if (format.indexOf('$') > -1) { // currency!!!!!
+            output = formatCurrency(n, format, roundingFunction);
+        } else if (format.indexOf('%') > -1) { // percentage
+            output = formatPercentage(n, format, roundingFunction);
+        } else if (format.indexOf(':') > -1) { // time
+            output = formatTime(n, format);
+        } else { // plain ol' numbers or bytes
+            output = formatNumber(n._value, format, roundingFunction);
+        }
+
+        // return string
+        return output;
+    }
+
+    // revert to number
+    function unformatNumeral (n, string) {
+        var stringOriginal = string,
+            thousandRegExp,
+            millionRegExp,
+            billionRegExp,
+            trillionRegExp,
+            suffixes = ['KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
+            bytesMultiplier = false,
+            power;
+
+        if (string.indexOf(':') > -1) {
+            n._value = unformatTime(string);
+        } else {
+            if (string === zeroFormat) {
+                n._value = 0;
+            } else {
+                if (languages[currentLanguage].delimiters.decimal !== '.') {
+                    string = string.replace(/\./g,'').replace(languages[currentLanguage].delimiters.decimal, '.');
+                }
+
+                // see if abbreviations are there so that we can multiply to the correct number
+                thousandRegExp = new RegExp('[^a-zA-Z]' + languages[currentLanguage].abbreviations.thousand + '(?:\\)|(\\' + languages[currentLanguage].currency.symbol + ')?(?:\\))?)?$');
+                millionRegExp = new RegExp('[^a-zA-Z]' + languages[currentLanguage].abbreviations.million + '(?:\\)|(\\' + languages[currentLanguage].currency.symbol + ')?(?:\\))?)?$');
+                billionRegExp = new RegExp('[^a-zA-Z]' + languages[currentLanguage].abbreviations.billion + '(?:\\)|(\\' + languages[currentLanguage].currency.symbol + ')?(?:\\))?)?$');
+                trillionRegExp = new RegExp('[^a-zA-Z]' + languages[currentLanguage].abbreviations.trillion + '(?:\\)|(\\' + languages[currentLanguage].currency.symbol + ')?(?:\\))?)?$');
+
+                // see if bytes are there so that we can multiply to the correct number
+                for (power = 0; power <= suffixes.length; power++) {
+                    bytesMultiplier = (string.indexOf(suffixes[power]) > -1) ? Math.pow(1024, power + 1) : false;
+
+                    if (bytesMultiplier) {
+                        break;
+                    }
+                }
+
+                // do some math to create our number
+                n._value = ((bytesMultiplier) ? bytesMultiplier : 1) * ((stringOriginal.match(thousandRegExp)) ? Math.pow(10, 3) : 1) * ((stringOriginal.match(millionRegExp)) ? Math.pow(10, 6) : 1) * ((stringOriginal.match(billionRegExp)) ? Math.pow(10, 9) : 1) * ((stringOriginal.match(trillionRegExp)) ? Math.pow(10, 12) : 1) * ((string.indexOf('%') > -1) ? 0.01 : 1) * (((string.split('-').length + Math.min(string.split('(').length-1, string.split(')').length-1)) % 2)? 1: -1) * Number(string.replace(/[^0-9\.]+/g, ''));
+
+                // round if we are talking about bytes
+                n._value = (bytesMultiplier) ? Math.ceil(n._value) : n._value;
+            }
+        }
+        return n._value;
+    }
+
+    function formatCurrency (n, format, roundingFunction) {
+        var symbolIndex = format.indexOf('$'),
+            openParenIndex = format.indexOf('('),
+            minusSignIndex = format.indexOf('-'),
+            space = '',
+            spliceIndex,
+            output;
+
+        // check for space before or after currency
+        if (format.indexOf(' $') > -1) {
+            space = ' ';
+            format = format.replace(' $', '');
+        } else if (format.indexOf('$ ') > -1) {
+            space = ' ';
+            format = format.replace('$ ', '');
+        } else {
+            format = format.replace('$', '');
+        }
+
+        // format the number
+        output = formatNumber(n._value, format, roundingFunction);
+
+        // position the symbol
+        if (symbolIndex <= 1) {
+            if (output.indexOf('(') > -1 || output.indexOf('-') > -1) {
+                output = output.split('');
+                spliceIndex = 1;
+                if (symbolIndex < openParenIndex || symbolIndex < minusSignIndex){
+                    // the symbol appears before the "(" or "-"
+                    spliceIndex = 0;
+                }
+                output.splice(spliceIndex, 0, languages[currentLanguage].currency.symbol + space);
+                output = output.join('');
+            } else {
+                output = languages[currentLanguage].currency.symbol + space + output;
+            }
+        } else {
+            if (output.indexOf(')') > -1) {
+                output = output.split('');
+                output.splice(-1, 0, space + languages[currentLanguage].currency.symbol);
+                output = output.join('');
+            } else {
+                output = output + space + languages[currentLanguage].currency.symbol;
+            }
+        }
+
+        return output;
+    }
+
+    function formatPercentage (n, format, roundingFunction) {
+        var space = '',
+            output,
+            value = n._value * 100;
+
+        // check for space before %
+        if (format.indexOf(' %') > -1) {
+            space = ' ';
+            format = format.replace(' %', '');
+        } else {
+            format = format.replace('%', '');
+        }
+
+        output = formatNumber(value, format, roundingFunction);
+        
+        if (output.indexOf(')') > -1 ) {
+            output = output.split('');
+            output.splice(-1, 0, space + '%');
+            output = output.join('');
+        } else {
+            output = output + space + '%';
+        }
+
+        return output;
+    }
+
+    function formatTime (n) {
+        var hours = Math.floor(n._value/60/60),
+            minutes = Math.floor((n._value - (hours * 60 * 60))/60),
+            seconds = Math.round(n._value - (hours * 60 * 60) - (minutes * 60));
+        return hours + ':' + ((minutes < 10) ? '0' + minutes : minutes) + ':' + ((seconds < 10) ? '0' + seconds : seconds);
+    }
+
+    function unformatTime (string) {
+        var timeArray = string.split(':'),
+            seconds = 0;
+        // turn hours and minutes into seconds and add them all up
+        if (timeArray.length === 3) {
+            // hours
+            seconds = seconds + (Number(timeArray[0]) * 60 * 60);
+            // minutes
+            seconds = seconds + (Number(timeArray[1]) * 60);
+            // seconds
+            seconds = seconds + Number(timeArray[2]);
+        } else if (timeArray.length === 2) {
+            // minutes
+            seconds = seconds + (Number(timeArray[0]) * 60);
+            // seconds
+            seconds = seconds + Number(timeArray[1]);
+        }
+        return Number(seconds);
+    }
+
+    function formatNumber (value, format, roundingFunction) {
+        var negP = false,
+            signed = false,
+            optDec = false,
+            abbr = '',
+            abbrK = false, // force abbreviation to thousands
+            abbrM = false, // force abbreviation to millions
+            abbrB = false, // force abbreviation to billions
+            abbrT = false, // force abbreviation to trillions
+            abbrForce = false, // force abbreviation
+            bytes = '',
+            ord = '',
+            abs = Math.abs(value),
+            suffixes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'],
+            min,
+            max,
+            power,
+            w,
+            precision,
+            thousands,
+            d = '',
+            neg = false;
+
+        // check if number is zero and a custom zero format has been set
+        if (value === 0 && zeroFormat !== null) {
+            return zeroFormat;
+        } else {
+            // see if we should use parentheses for negative number or if we should prefix with a sign
+            // if both are present we default to parentheses
+            if (format.indexOf('(') > -1) {
+                negP = true;
+                format = format.slice(1, -1);
+            } else if (format.indexOf('+') > -1) {
+                signed = true;
+                format = format.replace(/\+/g, '');
+            }
+
+            // see if abbreviation is wanted
+            if (format.indexOf('a') > -1) {
+                // check if abbreviation is specified
+                abbrK = format.indexOf('aK') >= 0;
+                abbrM = format.indexOf('aM') >= 0;
+                abbrB = format.indexOf('aB') >= 0;
+                abbrT = format.indexOf('aT') >= 0;
+                abbrForce = abbrK || abbrM || abbrB || abbrT;
+
+                // check for space before abbreviation
+                if (format.indexOf(' a') > -1) {
+                    abbr = ' ';
+                    format = format.replace(' a', '');
+                } else {
+                    format = format.replace('a', '');
+                }
+
+                if (abs >= Math.pow(10, 12) && !abbrForce || abbrT) {
+                    // trillion
+                    abbr = abbr + languages[currentLanguage].abbreviations.trillion;
+                    value = value / Math.pow(10, 12);
+                } else if (abs < Math.pow(10, 12) && abs >= Math.pow(10, 9) && !abbrForce || abbrB) {
+                    // billion
+                    abbr = abbr + languages[currentLanguage].abbreviations.billion;
+                    value = value / Math.pow(10, 9);
+                } else if (abs < Math.pow(10, 9) && abs >= Math.pow(10, 6) && !abbrForce || abbrM) {
+                    // million
+                    abbr = abbr + languages[currentLanguage].abbreviations.million;
+                    value = value / Math.pow(10, 6);
+                } else if (abs < Math.pow(10, 6) && abs >= Math.pow(10, 3) && !abbrForce || abbrK) {
+                    // thousand
+                    abbr = abbr + languages[currentLanguage].abbreviations.thousand;
+                    value = value / Math.pow(10, 3);
+                }
+            }
+
+            // see if we are formatting bytes
+            if (format.indexOf('b') > -1) {
+                // check for space before
+                if (format.indexOf(' b') > -1) {
+                    bytes = ' ';
+                    format = format.replace(' b', '');
+                } else {
+                    format = format.replace('b', '');
+                }
+
+                for (power = 0; power <= suffixes.length; power++) {
+                    min = Math.pow(1024, power);
+                    max = Math.pow(1024, power+1);
+
+                    if (value >= min && value < max) {
+                        bytes = bytes + suffixes[power];
+                        if (min > 0) {
+                            value = value / min;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // see if ordinal is wanted
+            if (format.indexOf('o') > -1) {
+                // check for space before
+                if (format.indexOf(' o') > -1) {
+                    ord = ' ';
+                    format = format.replace(' o', '');
+                } else {
+                    format = format.replace('o', '');
+                }
+
+                ord = ord + languages[currentLanguage].ordinal(value);
+            }
+
+            if (format.indexOf('[.]') > -1) {
+                optDec = true;
+                format = format.replace('[.]', '.');
+            }
+
+            w = value.toString().split('.')[0];
+            precision = format.split('.')[1];
+            thousands = format.indexOf(',');
+
+            if (precision) {
+                if (precision.indexOf('[') > -1) {
+                    precision = precision.replace(']', '');
+                    precision = precision.split('[');
+                    d = toFixed(value, (precision[0].length + precision[1].length), roundingFunction, precision[1].length);
+                } else {
+                    d = toFixed(value, precision.length, roundingFunction);
+                }
+
+                w = d.split('.')[0];
+
+                if (d.split('.')[1].length) {
+                    d = languages[currentLanguage].delimiters.decimal + d.split('.')[1];
+                } else {
+                    d = '';
+                }
+
+                if (optDec && Number(d.slice(1)) === 0) {
+                    d = '';
+                }
+            } else {
+                w = toFixed(value, null, roundingFunction);
+            }
+
+            // format number
+            if (w.indexOf('-') > -1) {
+                w = w.slice(1);
+                neg = true;
+            }
+
+            if (thousands > -1) {
+                w = w.toString().replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1' + languages[currentLanguage].delimiters.thousands);
+            }
+
+            if (format.indexOf('.') === 0) {
+                w = '';
+            }
+
+            return ((negP && neg) ? '(' : '') + ((!negP && neg) ? '-' : '') + ((!neg && signed) ? '+' : '') + w + d + ((ord) ? ord : '') + ((abbr) ? abbr : '') + ((bytes) ? bytes : '') + ((negP && neg) ? ')' : '');
+        }
+    }
+
+    /************************************
+        Top Level Functions
+    ************************************/
+
+    numeral = function (input) {
+        if (numeral.isNumeral(input)) {
+            input = input.value();
+        } else if (input === 0 || typeof input === 'undefined') {
+            input = 0;
+        } else if (!Number(input)) {
+            input = numeral.fn.unformat(input);
+        }
+
+        return new Numeral(Number(input));
+    };
+
+    // version number
+    numeral.version = VERSION;
+
+    // compare numeral object
+    numeral.isNumeral = function (obj) {
+        return obj instanceof Numeral;
+    };
+
+    // This function will load languages and then set the global language.  If
+    // no arguments are passed in, it will simply return the current global
+    // language key.
+    numeral.language = function (key, values) {
+        if (!key) {
+            return currentLanguage;
+        }
+
+        if (key && !values) {
+            if(!languages[key]) {
+                throw new Error('Unknown language : ' + key);
+            }
+            currentLanguage = key;
+        }
+
+        if (values || !languages[key]) {
+            loadLanguage(key, values);
+        }
+
+        return numeral;
+    };
+    
+    // This function provides access to the loaded language data.  If
+    // no arguments are passed in, it will simply return the current
+    // global language object.
+    numeral.languageData = function (key) {
+        if (!key) {
+            return languages[currentLanguage];
+        }
+        
+        if (!languages[key]) {
+            throw new Error('Unknown language : ' + key);
+        }
+        
+        return languages[key];
+    };
+
+    numeral.language('en', {
+        delimiters: {
+            thousands: ',',
+            decimal: '.'
+        },
+        abbreviations: {
+            thousand: 'k',
+            million: 'm',
+            billion: 'b',
+            trillion: 't'
+        },
+        ordinal: function (number) {
+            var b = number % 10;
+            return (~~ (number % 100 / 10) === 1) ? 'th' :
+                (b === 1) ? 'st' :
+                (b === 2) ? 'nd' :
+                (b === 3) ? 'rd' : 'th';
+        },
+        currency: {
+            symbol: '$'
+        }
+    });
+
+    numeral.zeroFormat = function (format) {
+        zeroFormat = typeof(format) === 'string' ? format : null;
+    };
+
+    numeral.defaultFormat = function (format) {
+        defaultFormat = typeof(format) === 'string' ? format : '0.0';
+    };
+
+    /************************************
+        Helpers
+    ************************************/
+
+    function loadLanguage(key, values) {
+        languages[key] = values;
+    }
+
+    /************************************
+        Floating-point helpers
+    ************************************/
+
+    // The floating-point helper functions and implementation
+    // borrows heavily from sinful.js: http://guipn.github.io/sinful.js/
+
+    /**
+     * Array.prototype.reduce for browsers that don't support it
+     * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/Reduce#Compatibility
+     */
+    if ('function' !== typeof Array.prototype.reduce) {
+        Array.prototype.reduce = function (callback, opt_initialValue) {
+            'use strict';
+            
+            if (null === this || 'undefined' === typeof this) {
+                // At the moment all modern browsers, that support strict mode, have
+                // native implementation of Array.prototype.reduce. For instance, IE8
+                // does not support strict mode, so this check is actually useless.
+                throw new TypeError('Array.prototype.reduce called on null or undefined');
+            }
+            
+            if ('function' !== typeof callback) {
+                throw new TypeError(callback + ' is not a function');
+            }
+
+            var index,
+                value,
+                length = this.length >>> 0,
+                isValueSet = false;
+
+            if (1 < arguments.length) {
+                value = opt_initialValue;
+                isValueSet = true;
+            }
+
+            for (index = 0; length > index; ++index) {
+                if (this.hasOwnProperty(index)) {
+                    if (isValueSet) {
+                        value = callback(value, this[index], index, this);
+                    } else {
+                        value = this[index];
+                        isValueSet = true;
+                    }
+                }
+            }
+
+            if (!isValueSet) {
+                throw new TypeError('Reduce of empty array with no initial value');
+            }
+
+            return value;
+        };
+    }
+
+    
+    /**
+     * Computes the multiplier necessary to make x >= 1,
+     * effectively eliminating miscalculations caused by
+     * finite precision.
+     */
+    function multiplier(x) {
+        var parts = x.toString().split('.');
+        if (parts.length < 2) {
+            return 1;
+        }
+        return Math.pow(10, parts[1].length);
+    }
+
+    /**
+     * Given a variable number of arguments, returns the maximum
+     * multiplier that must be used to normalize an operation involving
+     * all of them.
+     */
+    function correctionFactor() {
+        var args = Array.prototype.slice.call(arguments);
+        return args.reduce(function (prev, next) {
+            var mp = multiplier(prev),
+                mn = multiplier(next);
+        return mp > mn ? mp : mn;
+        }, -Infinity);
+    }        
+
+
+    /************************************
+        Numeral Prototype
+    ************************************/
+
+
+    numeral.fn = Numeral.prototype = {
+
+        clone : function () {
+            return numeral(this);
+        },
+
+        format : function (inputString, roundingFunction) {
+            return formatNumeral(this, 
+                  inputString ? inputString : defaultFormat, 
+                  (roundingFunction !== undefined) ? roundingFunction : Math.round
+              );
+        },
+
+        unformat : function (inputString) {
+            if (Object.prototype.toString.call(inputString) === '[object Number]') { 
+                return inputString; 
+            }
+            return unformatNumeral(this, inputString ? inputString : defaultFormat);
+        },
+
+        value : function () {
+            return this._value;
+        },
+
+        valueOf : function () {
+            return this._value;
+        },
+
+        set : function (value) {
+            this._value = Number(value);
+            return this;
+        },
+
+        add : function (value) {
+            var corrFactor = correctionFactor.call(null, this._value, value);
+            function cback(accum, curr, currI, O) {
+                return accum + corrFactor * curr;
+            }
+            this._value = [this._value, value].reduce(cback, 0) / corrFactor;
+            return this;
+        },
+
+        subtract : function (value) {
+            var corrFactor = correctionFactor.call(null, this._value, value);
+            function cback(accum, curr, currI, O) {
+                return accum - corrFactor * curr;
+            }
+            this._value = [value].reduce(cback, this._value * corrFactor) / corrFactor;            
+            return this;
+        },
+
+        multiply : function (value) {
+            function cback(accum, curr, currI, O) {
+                var corrFactor = correctionFactor(accum, curr);
+                return (accum * corrFactor) * (curr * corrFactor) /
+                    (corrFactor * corrFactor);
+            }
+            this._value = [this._value, value].reduce(cback, 1);
+            return this;
+        },
+
+        divide : function (value) {
+            function cback(accum, curr, currI, O) {
+                var corrFactor = correctionFactor(accum, curr);
+                return (accum * corrFactor) / (curr * corrFactor);
+            }
+            this._value = [this._value, value].reduce(cback);            
+            return this;
+        },
+
+        difference : function (value) {
+            return Math.abs(numeral(this._value).subtract(value).value());
+        }
+
+    };
+
+    /************************************
+        Exposing Numeral
+    ************************************/
+
+    // CommonJS module is defined
+    if (hasModule) {
+        module.exports = numeral;
+    }
+
+    /*global ender:false */
+    if (typeof ender === 'undefined') {
+        // here, `this` means `window` in the browser, or `global` on the server
+        // add `numeral` as a global object via a string identifier,
+        // for Closure Compiler 'advanced' mode
+        this['numeral'] = numeral;
+    }
+
+    /*global define:false */
+    if (typeof define === 'function' && define.amd) {
+        define([], function () {
+            return numeral;
+        });
+    }
+}).call(this);
+
+},{}],64:[function(require,module,exports){
 var _ = require("./lodash.custom.js");
 var rewind = require("geojson-rewind");
 
@@ -3113,7 +9965,7 @@ osmtogeojson.toGeojson = osmtogeojson;
 
 module.exports = osmtogeojson;
 
-},{"./lodash.custom.js":13,"./polygon_features.json":17,"geojson-rewind":14}],13:[function(require,module,exports){
+},{"./lodash.custom.js":65,"./polygon_features.json":69,"geojson-rewind":66}],65:[function(require,module,exports){
 (function (global){
 /**
  * @license
@@ -4911,7 +11763,7 @@ module.exports = osmtogeojson;
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],14:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 var geojsonArea = require('geojson-area');
 
 module.exports = rewind;
@@ -4962,7 +11814,7 @@ function cw(_) {
     return geojsonArea.ring(_) >= 0;
 }
 
-},{"geojson-area":15}],15:[function(require,module,exports){
+},{"geojson-area":67}],67:[function(require,module,exports){
 var wgs84 = require('wgs84');
 
 module.exports.geometry = geometry;
@@ -5028,12 +11880,12 @@ function rad(_) {
     return _ * Math.PI / 180;
 }
 
-},{"wgs84":16}],16:[function(require,module,exports){
+},{"wgs84":68}],68:[function(require,module,exports){
 module.exports.RADIUS = 6378137;
 module.exports.FLATTENING = 1/298.257223563;
 module.exports.POLAR_RADIUS = 6356752.3142;
 
-},{}],17:[function(require,module,exports){
+},{}],69:[function(require,module,exports){
 module.exports={
     "building": true,
     "highway": {
@@ -5117,7 +11969,7 @@ module.exports={
     "golf": true
 }
 
-},{}],18:[function(require,module,exports){
+},{}],70:[function(require,module,exports){
 module.exports = function (data) {
     var lines = data.split('\n'),
                 isNameLine = true,
@@ -5183,7 +12035,7 @@ module.exports = function (data) {
     return gj;
 };
 
-},{}],19:[function(require,module,exports){
+},{}],71:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -5210,7 +12062,7 @@ var AutoFocusMixin = {
 
 module.exports = AutoFocusMixin;
 
-},{"./focusNode":137}],20:[function(require,module,exports){
+},{"./focusNode":192}],72:[function(require,module,exports){
 /**
  * Copyright 2013-2015 Facebook, Inc.
  * All rights reserved.
@@ -5705,7 +12557,7 @@ var BeforeInputEventPlugin = {
 
 module.exports = BeforeInputEventPlugin;
 
-},{"./EventConstants":32,"./EventPropagators":37,"./ExecutionEnvironment":38,"./FallbackCompositionState":39,"./SyntheticCompositionEvent":111,"./SyntheticInputEvent":115,"./keyOf":159}],21:[function(require,module,exports){
+},{"./EventConstants":84,"./EventPropagators":89,"./ExecutionEnvironment":90,"./FallbackCompositionState":91,"./SyntheticCompositionEvent":165,"./SyntheticInputEvent":169,"./keyOf":215}],73:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -5826,7 +12678,7 @@ var CSSProperty = {
 
 module.exports = CSSProperty;
 
-},{}],22:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -6008,7 +12860,7 @@ var CSSPropertyOperations = {
 module.exports = CSSPropertyOperations;
 
 }).call(this,require('_process'))
-},{"./CSSProperty":21,"./ExecutionEnvironment":38,"./camelizeStyleName":126,"./dangerousStyleValue":131,"./hyphenateStyleName":151,"./memoizeStringOnly":161,"./warning":172,"_process":7}],23:[function(require,module,exports){
+},{"./CSSProperty":73,"./ExecutionEnvironment":90,"./camelizeStyleName":180,"./dangerousStyleValue":186,"./hyphenateStyleName":206,"./memoizeStringOnly":217,"./warning":228,"_process":7}],75:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -6108,7 +12960,7 @@ PooledClass.addPoolingTo(CallbackQueue);
 module.exports = CallbackQueue;
 
 }).call(this,require('_process'))
-},{"./Object.assign":44,"./PooledClass":45,"./invariant":153,"_process":7}],24:[function(require,module,exports){
+},{"./Object.assign":96,"./PooledClass":97,"./invariant":208,"_process":7}],76:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -6490,7 +13342,7 @@ var ChangeEventPlugin = {
 
 module.exports = ChangeEventPlugin;
 
-},{"./EventConstants":32,"./EventPluginHub":34,"./EventPropagators":37,"./ExecutionEnvironment":38,"./ReactUpdates":105,"./SyntheticEvent":113,"./isEventSupported":154,"./isTextInputElement":156,"./keyOf":159}],25:[function(require,module,exports){
+},{"./EventConstants":84,"./EventPluginHub":86,"./EventPropagators":89,"./ExecutionEnvironment":90,"./ReactUpdates":159,"./SyntheticEvent":167,"./isEventSupported":209,"./isTextInputElement":211,"./keyOf":215}],77:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -6515,7 +13367,7 @@ var ClientReactRootIndex = {
 
 module.exports = ClientReactRootIndex;
 
-},{}],26:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -6653,7 +13505,7 @@ var DOMChildrenOperations = {
 module.exports = DOMChildrenOperations;
 
 }).call(this,require('_process'))
-},{"./Danger":29,"./ReactMultiChildUpdateTypes":90,"./invariant":153,"./setTextContent":167,"_process":7}],27:[function(require,module,exports){
+},{"./Danger":81,"./ReactMultiChildUpdateTypes":143,"./invariant":208,"./setTextContent":223,"_process":7}],79:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -6952,7 +13804,7 @@ var DOMProperty = {
 module.exports = DOMProperty;
 
 }).call(this,require('_process'))
-},{"./invariant":153,"_process":7}],28:[function(require,module,exports){
+},{"./invariant":208,"_process":7}],80:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -7144,7 +13996,7 @@ var DOMPropertyOperations = {
 module.exports = DOMPropertyOperations;
 
 }).call(this,require('_process'))
-},{"./DOMProperty":27,"./quoteAttributeValueForBrowser":165,"./warning":172,"_process":7}],29:[function(require,module,exports){
+},{"./DOMProperty":79,"./quoteAttributeValueForBrowser":221,"./warning":228,"_process":7}],81:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -7331,7 +14183,7 @@ var Danger = {
 module.exports = Danger;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":38,"./createNodesFromMarkup":130,"./emptyFunction":132,"./getMarkupWrap":145,"./invariant":153,"_process":7}],30:[function(require,module,exports){
+},{"./ExecutionEnvironment":90,"./createNodesFromMarkup":185,"./emptyFunction":187,"./getMarkupWrap":200,"./invariant":208,"_process":7}],82:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -7370,7 +14222,7 @@ var DefaultEventPluginOrder = [
 
 module.exports = DefaultEventPluginOrder;
 
-},{"./keyOf":159}],31:[function(require,module,exports){
+},{"./keyOf":215}],83:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -7510,7 +14362,7 @@ var EnterLeaveEventPlugin = {
 
 module.exports = EnterLeaveEventPlugin;
 
-},{"./EventConstants":32,"./EventPropagators":37,"./ReactMount":88,"./SyntheticMouseEvent":117,"./keyOf":159}],32:[function(require,module,exports){
+},{"./EventConstants":84,"./EventPropagators":89,"./ReactMount":141,"./SyntheticMouseEvent":171,"./keyOf":215}],84:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -7582,7 +14434,7 @@ var EventConstants = {
 
 module.exports = EventConstants;
 
-},{"./keyMirror":158}],33:[function(require,module,exports){
+},{"./keyMirror":214}],85:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -7672,7 +14524,7 @@ var EventListener = {
 module.exports = EventListener;
 
 }).call(this,require('_process'))
-},{"./emptyFunction":132,"_process":7}],34:[function(require,module,exports){
+},{"./emptyFunction":187,"_process":7}],86:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -7950,7 +14802,7 @@ var EventPluginHub = {
 module.exports = EventPluginHub;
 
 }).call(this,require('_process'))
-},{"./EventPluginRegistry":35,"./EventPluginUtils":36,"./accumulateInto":123,"./forEachAccumulated":138,"./invariant":153,"_process":7}],35:[function(require,module,exports){
+},{"./EventPluginRegistry":87,"./EventPluginUtils":88,"./accumulateInto":177,"./forEachAccumulated":193,"./invariant":208,"_process":7}],87:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -8230,7 +15082,7 @@ var EventPluginRegistry = {
 module.exports = EventPluginRegistry;
 
 }).call(this,require('_process'))
-},{"./invariant":153,"_process":7}],36:[function(require,module,exports){
+},{"./invariant":208,"_process":7}],88:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -8451,7 +15303,7 @@ var EventPluginUtils = {
 module.exports = EventPluginUtils;
 
 }).call(this,require('_process'))
-},{"./EventConstants":32,"./invariant":153,"_process":7}],37:[function(require,module,exports){
+},{"./EventConstants":84,"./invariant":208,"_process":7}],89:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -8593,7 +15445,7 @@ var EventPropagators = {
 module.exports = EventPropagators;
 
 }).call(this,require('_process'))
-},{"./EventConstants":32,"./EventPluginHub":34,"./accumulateInto":123,"./forEachAccumulated":138,"_process":7}],38:[function(require,module,exports){
+},{"./EventConstants":84,"./EventPluginHub":86,"./accumulateInto":177,"./forEachAccumulated":193,"_process":7}],90:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -8637,7 +15489,7 @@ var ExecutionEnvironment = {
 
 module.exports = ExecutionEnvironment;
 
-},{}],39:[function(require,module,exports){
+},{}],91:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -8728,7 +15580,7 @@ PooledClass.addPoolingTo(FallbackCompositionState);
 
 module.exports = FallbackCompositionState;
 
-},{"./Object.assign":44,"./PooledClass":45,"./getTextContentAccessor":148}],40:[function(require,module,exports){
+},{"./Object.assign":96,"./PooledClass":97,"./getTextContentAccessor":203}],92:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -8933,7 +15785,7 @@ var HTMLDOMPropertyConfig = {
 
 module.exports = HTMLDOMPropertyConfig;
 
-},{"./DOMProperty":27,"./ExecutionEnvironment":38}],41:[function(require,module,exports){
+},{"./DOMProperty":79,"./ExecutionEnvironment":90}],93:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -9089,7 +15941,7 @@ var LinkedValueUtils = {
 module.exports = LinkedValueUtils;
 
 }).call(this,require('_process'))
-},{"./ReactPropTypes":96,"./invariant":153,"_process":7}],42:[function(require,module,exports){
+},{"./ReactPropTypes":150,"./invariant":208,"_process":7}],94:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -9146,7 +15998,7 @@ var LocalEventTrapMixin = {
 module.exports = LocalEventTrapMixin;
 
 }).call(this,require('_process'))
-},{"./ReactBrowserEventEmitter":48,"./accumulateInto":123,"./forEachAccumulated":138,"./invariant":153,"_process":7}],43:[function(require,module,exports){
+},{"./ReactBrowserEventEmitter":100,"./accumulateInto":177,"./forEachAccumulated":193,"./invariant":208,"_process":7}],95:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -9204,7 +16056,7 @@ var MobileSafariClickEventPlugin = {
 
 module.exports = MobileSafariClickEventPlugin;
 
-},{"./EventConstants":32,"./emptyFunction":132}],44:[function(require,module,exports){
+},{"./EventConstants":84,"./emptyFunction":187}],96:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -9253,7 +16105,7 @@ function assign(target, sources) {
 
 module.exports = assign;
 
-},{}],45:[function(require,module,exports){
+},{}],97:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -9369,7 +16221,7 @@ var PooledClass = {
 module.exports = PooledClass;
 
 }).call(this,require('_process'))
-},{"./invariant":153,"_process":7}],46:[function(require,module,exports){
+},{"./invariant":208,"_process":7}],98:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -9521,7 +16373,7 @@ React.version = '0.13.1';
 module.exports = React;
 
 }).call(this,require('_process'))
-},{"./EventPluginUtils":36,"./ExecutionEnvironment":38,"./Object.assign":44,"./ReactChildren":50,"./ReactClass":51,"./ReactComponent":52,"./ReactContext":56,"./ReactCurrentOwner":57,"./ReactDOM":58,"./ReactDOMTextComponent":69,"./ReactDefaultInjection":72,"./ReactElement":75,"./ReactElementValidator":76,"./ReactInstanceHandles":84,"./ReactMount":88,"./ReactPerf":93,"./ReactPropTypes":96,"./ReactReconciler":99,"./ReactServerRendering":102,"./findDOMNode":135,"./onlyChild":162,"_process":7}],47:[function(require,module,exports){
+},{"./EventPluginUtils":88,"./ExecutionEnvironment":90,"./Object.assign":96,"./ReactChildren":102,"./ReactClass":103,"./ReactComponent":104,"./ReactContext":109,"./ReactCurrentOwner":110,"./ReactDOM":111,"./ReactDOMTextComponent":122,"./ReactDefaultInjection":125,"./ReactElement":128,"./ReactElementValidator":129,"./ReactInstanceHandles":137,"./ReactMount":141,"./ReactPerf":146,"./ReactPropTypes":150,"./ReactReconciler":153,"./ReactServerRendering":156,"./findDOMNode":190,"./onlyChild":218,"_process":7}],99:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -9552,7 +16404,7 @@ var ReactBrowserComponentMixin = {
 
 module.exports = ReactBrowserComponentMixin;
 
-},{"./findDOMNode":135}],48:[function(require,module,exports){
+},{"./findDOMNode":190}],100:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -9905,7 +16757,7 @@ var ReactBrowserEventEmitter = assign({}, ReactEventEmitterMixin, {
 
 module.exports = ReactBrowserEventEmitter;
 
-},{"./EventConstants":32,"./EventPluginHub":34,"./EventPluginRegistry":35,"./Object.assign":44,"./ReactEventEmitterMixin":79,"./ViewportMetrics":122,"./isEventSupported":154}],49:[function(require,module,exports){
+},{"./EventConstants":84,"./EventPluginHub":86,"./EventPluginRegistry":87,"./Object.assign":96,"./ReactEventEmitterMixin":132,"./ViewportMetrics":176,"./isEventSupported":209}],101:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -10032,7 +16884,7 @@ var ReactChildReconciler = {
 
 module.exports = ReactChildReconciler;
 
-},{"./ReactReconciler":99,"./flattenChildren":136,"./instantiateReactComponent":152,"./shouldUpdateReactComponent":169}],50:[function(require,module,exports){
+},{"./ReactReconciler":153,"./flattenChildren":191,"./instantiateReactComponent":207,"./shouldUpdateReactComponent":225}],102:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -10185,7 +17037,7 @@ var ReactChildren = {
 module.exports = ReactChildren;
 
 }).call(this,require('_process'))
-},{"./PooledClass":45,"./ReactFragment":81,"./traverseAllChildren":171,"./warning":172,"_process":7}],51:[function(require,module,exports){
+},{"./PooledClass":97,"./ReactFragment":134,"./traverseAllChildren":227,"./warning":228,"_process":7}],103:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -11131,7 +17983,7 @@ var ReactClass = {
 module.exports = ReactClass;
 
 }).call(this,require('_process'))
-},{"./Object.assign":44,"./ReactComponent":52,"./ReactCurrentOwner":57,"./ReactElement":75,"./ReactErrorUtils":78,"./ReactInstanceMap":85,"./ReactLifeCycle":86,"./ReactPropTypeLocationNames":94,"./ReactPropTypeLocations":95,"./ReactUpdateQueue":104,"./invariant":153,"./keyMirror":158,"./keyOf":159,"./warning":172,"_process":7}],52:[function(require,module,exports){
+},{"./Object.assign":96,"./ReactComponent":104,"./ReactCurrentOwner":110,"./ReactElement":128,"./ReactErrorUtils":131,"./ReactInstanceMap":138,"./ReactLifeCycle":139,"./ReactPropTypeLocationNames":148,"./ReactPropTypeLocations":149,"./ReactUpdateQueue":158,"./invariant":208,"./keyMirror":214,"./keyOf":215,"./warning":228,"_process":7}],104:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -11267,7 +18119,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = ReactComponent;
 
 }).call(this,require('_process'))
-},{"./ReactUpdateQueue":104,"./invariant":153,"./warning":172,"_process":7}],53:[function(require,module,exports){
+},{"./ReactUpdateQueue":158,"./invariant":208,"./warning":228,"_process":7}],105:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -11314,7 +18166,7 @@ var ReactComponentBrowserEnvironment = {
 
 module.exports = ReactComponentBrowserEnvironment;
 
-},{"./ReactDOMIDOperations":62,"./ReactMount":88}],54:[function(require,module,exports){
+},{"./ReactDOMIDOperations":115,"./ReactMount":141}],106:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -11375,7 +18227,56 @@ var ReactComponentEnvironment = {
 module.exports = ReactComponentEnvironment;
 
 }).call(this,require('_process'))
-},{"./invariant":153,"_process":7}],55:[function(require,module,exports){
+},{"./invariant":208,"_process":7}],107:[function(require,module,exports){
+/**
+ * Copyright 2013-2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+* @providesModule ReactComponentWithPureRenderMixin
+*/
+
+'use strict';
+
+var shallowEqual = require("./shallowEqual");
+
+/**
+ * If your React component's render function is "pure", e.g. it will render the
+ * same result given the same props and state, provide this Mixin for a
+ * considerable performance boost.
+ *
+ * Most React components have pure render functions.
+ *
+ * Example:
+ *
+ *   var ReactComponentWithPureRenderMixin =
+ *     require('ReactComponentWithPureRenderMixin');
+ *   React.createClass({
+ *     mixins: [ReactComponentWithPureRenderMixin],
+ *
+ *     render: function() {
+ *       return <div className={this.props.className}>foo</div>;
+ *     }
+ *   });
+ *
+ * Note: This only checks shallow equality for props and state. If these contain
+ * complex data structures this mixin may have false-negatives for deeper
+ * differences. Only mixin to components which have simple props and state, or
+ * use `forceUpdate()` when you know deep data structures have changed.
+ */
+var ReactComponentWithPureRenderMixin = {
+  shouldComponentUpdate: function(nextProps, nextState) {
+    return !shallowEqual(this.props, nextProps) ||
+           !shallowEqual(this.state, nextState);
+  }
+};
+
+module.exports = ReactComponentWithPureRenderMixin;
+
+},{"./shallowEqual":224}],108:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -12265,7 +19166,7 @@ var ReactCompositeComponent = {
 module.exports = ReactCompositeComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":44,"./ReactComponentEnvironment":54,"./ReactContext":56,"./ReactCurrentOwner":57,"./ReactElement":75,"./ReactElementValidator":76,"./ReactInstanceMap":85,"./ReactLifeCycle":86,"./ReactNativeComponent":91,"./ReactPerf":93,"./ReactPropTypeLocationNames":94,"./ReactPropTypeLocations":95,"./ReactReconciler":99,"./ReactUpdates":105,"./emptyObject":133,"./invariant":153,"./shouldUpdateReactComponent":169,"./warning":172,"_process":7}],56:[function(require,module,exports){
+},{"./Object.assign":96,"./ReactComponentEnvironment":106,"./ReactContext":109,"./ReactCurrentOwner":110,"./ReactElement":128,"./ReactElementValidator":129,"./ReactInstanceMap":138,"./ReactLifeCycle":139,"./ReactNativeComponent":144,"./ReactPerf":146,"./ReactPropTypeLocationNames":148,"./ReactPropTypeLocations":149,"./ReactReconciler":153,"./ReactUpdates":159,"./emptyObject":188,"./invariant":208,"./shouldUpdateReactComponent":225,"./warning":228,"_process":7}],109:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -12343,7 +19244,7 @@ var ReactContext = {
 module.exports = ReactContext;
 
 }).call(this,require('_process'))
-},{"./Object.assign":44,"./emptyObject":133,"./warning":172,"_process":7}],57:[function(require,module,exports){
+},{"./Object.assign":96,"./emptyObject":188,"./warning":228,"_process":7}],110:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -12377,7 +19278,7 @@ var ReactCurrentOwner = {
 
 module.exports = ReactCurrentOwner;
 
-},{}],58:[function(require,module,exports){
+},{}],111:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -12555,7 +19456,7 @@ var ReactDOM = mapObject({
 module.exports = ReactDOM;
 
 }).call(this,require('_process'))
-},{"./ReactElement":75,"./ReactElementValidator":76,"./mapObject":160,"_process":7}],59:[function(require,module,exports){
+},{"./ReactElement":128,"./ReactElementValidator":129,"./mapObject":216,"_process":7}],112:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -12619,7 +19520,7 @@ var ReactDOMButton = ReactClass.createClass({
 
 module.exports = ReactDOMButton;
 
-},{"./AutoFocusMixin":19,"./ReactBrowserComponentMixin":47,"./ReactClass":51,"./ReactElement":75,"./keyMirror":158}],60:[function(require,module,exports){
+},{"./AutoFocusMixin":71,"./ReactBrowserComponentMixin":99,"./ReactClass":103,"./ReactElement":128,"./keyMirror":214}],113:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -13125,7 +20026,7 @@ ReactDOMComponent.injection = {
 module.exports = ReactDOMComponent;
 
 }).call(this,require('_process'))
-},{"./CSSPropertyOperations":22,"./DOMProperty":27,"./DOMPropertyOperations":28,"./Object.assign":44,"./ReactBrowserEventEmitter":48,"./ReactComponentBrowserEnvironment":53,"./ReactMount":88,"./ReactMultiChild":89,"./ReactPerf":93,"./escapeTextContentForBrowser":134,"./invariant":153,"./isEventSupported":154,"./keyOf":159,"./warning":172,"_process":7}],61:[function(require,module,exports){
+},{"./CSSPropertyOperations":74,"./DOMProperty":79,"./DOMPropertyOperations":80,"./Object.assign":96,"./ReactBrowserEventEmitter":100,"./ReactComponentBrowserEnvironment":105,"./ReactMount":141,"./ReactMultiChild":142,"./ReactPerf":146,"./escapeTextContentForBrowser":189,"./invariant":208,"./isEventSupported":209,"./keyOf":215,"./warning":228,"_process":7}],114:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -13174,7 +20075,7 @@ var ReactDOMForm = ReactClass.createClass({
 
 module.exports = ReactDOMForm;
 
-},{"./EventConstants":32,"./LocalEventTrapMixin":42,"./ReactBrowserComponentMixin":47,"./ReactClass":51,"./ReactElement":75}],62:[function(require,module,exports){
+},{"./EventConstants":84,"./LocalEventTrapMixin":94,"./ReactBrowserComponentMixin":99,"./ReactClass":103,"./ReactElement":128}],115:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -13342,7 +20243,7 @@ ReactPerf.measureMethods(ReactDOMIDOperations, 'ReactDOMIDOperations', {
 module.exports = ReactDOMIDOperations;
 
 }).call(this,require('_process'))
-},{"./CSSPropertyOperations":22,"./DOMChildrenOperations":26,"./DOMPropertyOperations":28,"./ReactMount":88,"./ReactPerf":93,"./invariant":153,"./setInnerHTML":166,"_process":7}],63:[function(require,module,exports){
+},{"./CSSPropertyOperations":74,"./DOMChildrenOperations":78,"./DOMPropertyOperations":80,"./ReactMount":141,"./ReactPerf":146,"./invariant":208,"./setInnerHTML":222,"_process":7}],116:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -13387,7 +20288,7 @@ var ReactDOMIframe = ReactClass.createClass({
 
 module.exports = ReactDOMIframe;
 
-},{"./EventConstants":32,"./LocalEventTrapMixin":42,"./ReactBrowserComponentMixin":47,"./ReactClass":51,"./ReactElement":75}],64:[function(require,module,exports){
+},{"./EventConstants":84,"./LocalEventTrapMixin":94,"./ReactBrowserComponentMixin":99,"./ReactClass":103,"./ReactElement":128}],117:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -13433,7 +20334,7 @@ var ReactDOMImg = ReactClass.createClass({
 
 module.exports = ReactDOMImg;
 
-},{"./EventConstants":32,"./LocalEventTrapMixin":42,"./ReactBrowserComponentMixin":47,"./ReactClass":51,"./ReactElement":75}],65:[function(require,module,exports){
+},{"./EventConstants":84,"./LocalEventTrapMixin":94,"./ReactBrowserComponentMixin":99,"./ReactClass":103,"./ReactElement":128}],118:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -13610,7 +20511,7 @@ var ReactDOMInput = ReactClass.createClass({
 module.exports = ReactDOMInput;
 
 }).call(this,require('_process'))
-},{"./AutoFocusMixin":19,"./DOMPropertyOperations":28,"./LinkedValueUtils":41,"./Object.assign":44,"./ReactBrowserComponentMixin":47,"./ReactClass":51,"./ReactElement":75,"./ReactMount":88,"./ReactUpdates":105,"./invariant":153,"_process":7}],66:[function(require,module,exports){
+},{"./AutoFocusMixin":71,"./DOMPropertyOperations":80,"./LinkedValueUtils":93,"./Object.assign":96,"./ReactBrowserComponentMixin":99,"./ReactClass":103,"./ReactElement":128,"./ReactMount":141,"./ReactUpdates":159,"./invariant":208,"_process":7}],119:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -13662,7 +20563,7 @@ var ReactDOMOption = ReactClass.createClass({
 module.exports = ReactDOMOption;
 
 }).call(this,require('_process'))
-},{"./ReactBrowserComponentMixin":47,"./ReactClass":51,"./ReactElement":75,"./warning":172,"_process":7}],67:[function(require,module,exports){
+},{"./ReactBrowserComponentMixin":99,"./ReactClass":103,"./ReactElement":128,"./warning":228,"_process":7}],120:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -13840,7 +20741,7 @@ var ReactDOMSelect = ReactClass.createClass({
 
 module.exports = ReactDOMSelect;
 
-},{"./AutoFocusMixin":19,"./LinkedValueUtils":41,"./Object.assign":44,"./ReactBrowserComponentMixin":47,"./ReactClass":51,"./ReactElement":75,"./ReactUpdates":105}],68:[function(require,module,exports){
+},{"./AutoFocusMixin":71,"./LinkedValueUtils":93,"./Object.assign":96,"./ReactBrowserComponentMixin":99,"./ReactClass":103,"./ReactElement":128,"./ReactUpdates":159}],121:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14053,7 +20954,7 @@ var ReactDOMSelection = {
 
 module.exports = ReactDOMSelection;
 
-},{"./ExecutionEnvironment":38,"./getNodeForCharacterOffset":146,"./getTextContentAccessor":148}],69:[function(require,module,exports){
+},{"./ExecutionEnvironment":90,"./getNodeForCharacterOffset":201,"./getTextContentAccessor":203}],122:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14170,7 +21071,7 @@ assign(ReactDOMTextComponent.prototype, {
 
 module.exports = ReactDOMTextComponent;
 
-},{"./DOMPropertyOperations":28,"./Object.assign":44,"./ReactComponentBrowserEnvironment":53,"./ReactDOMComponent":60,"./escapeTextContentForBrowser":134}],70:[function(require,module,exports){
+},{"./DOMPropertyOperations":80,"./Object.assign":96,"./ReactComponentBrowserEnvironment":105,"./ReactDOMComponent":113,"./escapeTextContentForBrowser":189}],123:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -14310,7 +21211,7 @@ var ReactDOMTextarea = ReactClass.createClass({
 module.exports = ReactDOMTextarea;
 
 }).call(this,require('_process'))
-},{"./AutoFocusMixin":19,"./DOMPropertyOperations":28,"./LinkedValueUtils":41,"./Object.assign":44,"./ReactBrowserComponentMixin":47,"./ReactClass":51,"./ReactElement":75,"./ReactUpdates":105,"./invariant":153,"./warning":172,"_process":7}],71:[function(require,module,exports){
+},{"./AutoFocusMixin":71,"./DOMPropertyOperations":80,"./LinkedValueUtils":93,"./Object.assign":96,"./ReactBrowserComponentMixin":99,"./ReactClass":103,"./ReactElement":128,"./ReactUpdates":159,"./invariant":208,"./warning":228,"_process":7}],124:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14383,7 +21284,7 @@ var ReactDefaultBatchingStrategy = {
 
 module.exports = ReactDefaultBatchingStrategy;
 
-},{"./Object.assign":44,"./ReactUpdates":105,"./Transaction":121,"./emptyFunction":132}],72:[function(require,module,exports){
+},{"./Object.assign":96,"./ReactUpdates":159,"./Transaction":175,"./emptyFunction":187}],125:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -14542,7 +21443,7 @@ module.exports = {
 };
 
 }).call(this,require('_process'))
-},{"./BeforeInputEventPlugin":20,"./ChangeEventPlugin":24,"./ClientReactRootIndex":25,"./DefaultEventPluginOrder":30,"./EnterLeaveEventPlugin":31,"./ExecutionEnvironment":38,"./HTMLDOMPropertyConfig":40,"./MobileSafariClickEventPlugin":43,"./ReactBrowserComponentMixin":47,"./ReactClass":51,"./ReactComponentBrowserEnvironment":53,"./ReactDOMButton":59,"./ReactDOMComponent":60,"./ReactDOMForm":61,"./ReactDOMIDOperations":62,"./ReactDOMIframe":63,"./ReactDOMImg":64,"./ReactDOMInput":65,"./ReactDOMOption":66,"./ReactDOMSelect":67,"./ReactDOMTextComponent":69,"./ReactDOMTextarea":70,"./ReactDefaultBatchingStrategy":71,"./ReactDefaultPerf":73,"./ReactElement":75,"./ReactEventListener":80,"./ReactInjection":82,"./ReactInstanceHandles":84,"./ReactMount":88,"./ReactReconcileTransaction":98,"./SVGDOMPropertyConfig":106,"./SelectEventPlugin":107,"./ServerReactRootIndex":108,"./SimpleEventPlugin":109,"./createFullPageComponent":129,"_process":7}],73:[function(require,module,exports){
+},{"./BeforeInputEventPlugin":72,"./ChangeEventPlugin":76,"./ClientReactRootIndex":77,"./DefaultEventPluginOrder":82,"./EnterLeaveEventPlugin":83,"./ExecutionEnvironment":90,"./HTMLDOMPropertyConfig":92,"./MobileSafariClickEventPlugin":95,"./ReactBrowserComponentMixin":99,"./ReactClass":103,"./ReactComponentBrowserEnvironment":105,"./ReactDOMButton":112,"./ReactDOMComponent":113,"./ReactDOMForm":114,"./ReactDOMIDOperations":115,"./ReactDOMIframe":116,"./ReactDOMImg":117,"./ReactDOMInput":118,"./ReactDOMOption":119,"./ReactDOMSelect":120,"./ReactDOMTextComponent":122,"./ReactDOMTextarea":123,"./ReactDefaultBatchingStrategy":124,"./ReactDefaultPerf":126,"./ReactElement":128,"./ReactEventListener":133,"./ReactInjection":135,"./ReactInstanceHandles":137,"./ReactMount":141,"./ReactReconcileTransaction":152,"./SVGDOMPropertyConfig":160,"./SelectEventPlugin":161,"./ServerReactRootIndex":162,"./SimpleEventPlugin":163,"./createFullPageComponent":184,"_process":7}],126:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14808,7 +21709,7 @@ var ReactDefaultPerf = {
 
 module.exports = ReactDefaultPerf;
 
-},{"./DOMProperty":27,"./ReactDefaultPerfAnalysis":74,"./ReactMount":88,"./ReactPerf":93,"./performanceNow":164}],74:[function(require,module,exports){
+},{"./DOMProperty":79,"./ReactDefaultPerfAnalysis":127,"./ReactMount":141,"./ReactPerf":146,"./performanceNow":220}],127:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -15014,7 +21915,7 @@ var ReactDefaultPerfAnalysis = {
 
 module.exports = ReactDefaultPerfAnalysis;
 
-},{"./Object.assign":44}],75:[function(require,module,exports){
+},{"./Object.assign":96}],128:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -15322,7 +22223,7 @@ ReactElement.isValidElement = function(object) {
 module.exports = ReactElement;
 
 }).call(this,require('_process'))
-},{"./Object.assign":44,"./ReactContext":56,"./ReactCurrentOwner":57,"./warning":172,"_process":7}],76:[function(require,module,exports){
+},{"./Object.assign":96,"./ReactContext":109,"./ReactCurrentOwner":110,"./warning":228,"_process":7}],129:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -15787,7 +22688,7 @@ var ReactElementValidator = {
 module.exports = ReactElementValidator;
 
 }).call(this,require('_process'))
-},{"./ReactCurrentOwner":57,"./ReactElement":75,"./ReactFragment":81,"./ReactNativeComponent":91,"./ReactPropTypeLocationNames":94,"./ReactPropTypeLocations":95,"./getIteratorFn":144,"./invariant":153,"./warning":172,"_process":7}],77:[function(require,module,exports){
+},{"./ReactCurrentOwner":110,"./ReactElement":128,"./ReactFragment":134,"./ReactNativeComponent":144,"./ReactPropTypeLocationNames":148,"./ReactPropTypeLocations":149,"./getIteratorFn":199,"./invariant":208,"./warning":228,"_process":7}],130:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -15882,7 +22783,7 @@ var ReactEmptyComponent = {
 module.exports = ReactEmptyComponent;
 
 }).call(this,require('_process'))
-},{"./ReactElement":75,"./ReactInstanceMap":85,"./invariant":153,"_process":7}],78:[function(require,module,exports){
+},{"./ReactElement":128,"./ReactInstanceMap":138,"./invariant":208,"_process":7}],131:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -15914,7 +22815,7 @@ var ReactErrorUtils = {
 
 module.exports = ReactErrorUtils;
 
-},{}],79:[function(require,module,exports){
+},{}],132:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -15964,7 +22865,7 @@ var ReactEventEmitterMixin = {
 
 module.exports = ReactEventEmitterMixin;
 
-},{"./EventPluginHub":34}],80:[function(require,module,exports){
+},{"./EventPluginHub":86}],133:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16147,7 +23048,7 @@ var ReactEventListener = {
 
 module.exports = ReactEventListener;
 
-},{"./EventListener":33,"./ExecutionEnvironment":38,"./Object.assign":44,"./PooledClass":45,"./ReactInstanceHandles":84,"./ReactMount":88,"./ReactUpdates":105,"./getEventTarget":143,"./getUnboundedScrollPosition":149}],81:[function(require,module,exports){
+},{"./EventListener":85,"./ExecutionEnvironment":90,"./Object.assign":96,"./PooledClass":97,"./ReactInstanceHandles":137,"./ReactMount":141,"./ReactUpdates":159,"./getEventTarget":198,"./getUnboundedScrollPosition":204}],134:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2015, Facebook, Inc.
@@ -16332,7 +23233,7 @@ var ReactFragment = {
 module.exports = ReactFragment;
 
 }).call(this,require('_process'))
-},{"./ReactElement":75,"./warning":172,"_process":7}],82:[function(require,module,exports){
+},{"./ReactElement":128,"./warning":228,"_process":7}],135:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16374,7 +23275,7 @@ var ReactInjection = {
 
 module.exports = ReactInjection;
 
-},{"./DOMProperty":27,"./EventPluginHub":34,"./ReactBrowserEventEmitter":48,"./ReactClass":51,"./ReactComponentEnvironment":54,"./ReactDOMComponent":60,"./ReactEmptyComponent":77,"./ReactNativeComponent":91,"./ReactPerf":93,"./ReactRootIndex":101,"./ReactUpdates":105}],83:[function(require,module,exports){
+},{"./DOMProperty":79,"./EventPluginHub":86,"./ReactBrowserEventEmitter":100,"./ReactClass":103,"./ReactComponentEnvironment":106,"./ReactDOMComponent":113,"./ReactEmptyComponent":130,"./ReactNativeComponent":144,"./ReactPerf":146,"./ReactRootIndex":155,"./ReactUpdates":159}],136:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16509,7 +23410,7 @@ var ReactInputSelection = {
 
 module.exports = ReactInputSelection;
 
-},{"./ReactDOMSelection":68,"./containsNode":127,"./focusNode":137,"./getActiveElement":139}],84:[function(require,module,exports){
+},{"./ReactDOMSelection":121,"./containsNode":182,"./focusNode":192,"./getActiveElement":194}],137:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -16845,7 +23746,7 @@ var ReactInstanceHandles = {
 module.exports = ReactInstanceHandles;
 
 }).call(this,require('_process'))
-},{"./ReactRootIndex":101,"./invariant":153,"_process":7}],85:[function(require,module,exports){
+},{"./ReactRootIndex":155,"./invariant":208,"_process":7}],138:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16894,7 +23795,7 @@ var ReactInstanceMap = {
 
 module.exports = ReactInstanceMap;
 
-},{}],86:[function(require,module,exports){
+},{}],139:[function(require,module,exports){
 /**
  * Copyright 2015, Facebook, Inc.
  * All rights reserved.
@@ -16931,7 +23832,7 @@ var ReactLifeCycle = {
 
 module.exports = ReactLifeCycle;
 
-},{}],87:[function(require,module,exports){
+},{}],140:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16979,7 +23880,7 @@ var ReactMarkupChecksum = {
 
 module.exports = ReactMarkupChecksum;
 
-},{"./adler32":124}],88:[function(require,module,exports){
+},{"./adler32":178}],141:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -17870,7 +24771,7 @@ ReactPerf.measureMethods(ReactMount, 'ReactMount', {
 module.exports = ReactMount;
 
 }).call(this,require('_process'))
-},{"./DOMProperty":27,"./ReactBrowserEventEmitter":48,"./ReactCurrentOwner":57,"./ReactElement":75,"./ReactElementValidator":76,"./ReactEmptyComponent":77,"./ReactInstanceHandles":84,"./ReactInstanceMap":85,"./ReactMarkupChecksum":87,"./ReactPerf":93,"./ReactReconciler":99,"./ReactUpdateQueue":104,"./ReactUpdates":105,"./containsNode":127,"./emptyObject":133,"./getReactRootElementInContainer":147,"./instantiateReactComponent":152,"./invariant":153,"./setInnerHTML":166,"./shouldUpdateReactComponent":169,"./warning":172,"_process":7}],89:[function(require,module,exports){
+},{"./DOMProperty":79,"./ReactBrowserEventEmitter":100,"./ReactCurrentOwner":110,"./ReactElement":128,"./ReactElementValidator":129,"./ReactEmptyComponent":130,"./ReactInstanceHandles":137,"./ReactInstanceMap":138,"./ReactMarkupChecksum":140,"./ReactPerf":146,"./ReactReconciler":153,"./ReactUpdateQueue":158,"./ReactUpdates":159,"./containsNode":182,"./emptyObject":188,"./getReactRootElementInContainer":202,"./instantiateReactComponent":207,"./invariant":208,"./setInnerHTML":222,"./shouldUpdateReactComponent":225,"./warning":228,"_process":7}],142:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -18300,7 +25201,7 @@ var ReactMultiChild = {
 
 module.exports = ReactMultiChild;
 
-},{"./ReactChildReconciler":49,"./ReactComponentEnvironment":54,"./ReactMultiChildUpdateTypes":90,"./ReactReconciler":99}],90:[function(require,module,exports){
+},{"./ReactChildReconciler":101,"./ReactComponentEnvironment":106,"./ReactMultiChildUpdateTypes":143,"./ReactReconciler":153}],143:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -18333,7 +25234,7 @@ var ReactMultiChildUpdateTypes = keyMirror({
 
 module.exports = ReactMultiChildUpdateTypes;
 
-},{"./keyMirror":158}],91:[function(require,module,exports){
+},{"./keyMirror":214}],144:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -18440,7 +25341,7 @@ var ReactNativeComponent = {
 module.exports = ReactNativeComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":44,"./invariant":153,"_process":7}],92:[function(require,module,exports){
+},{"./Object.assign":96,"./invariant":208,"_process":7}],145:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -18552,7 +25453,7 @@ var ReactOwner = {
 module.exports = ReactOwner;
 
 }).call(this,require('_process'))
-},{"./invariant":153,"_process":7}],93:[function(require,module,exports){
+},{"./invariant":208,"_process":7}],146:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -18656,7 +25557,117 @@ function _noMeasure(objName, fnName, func) {
 module.exports = ReactPerf;
 
 }).call(this,require('_process'))
-},{"_process":7}],94:[function(require,module,exports){
+},{"_process":7}],147:[function(require,module,exports){
+/**
+ * Copyright 2013-2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule ReactPropTransferer
+ */
+
+'use strict';
+
+var assign = require("./Object.assign");
+var emptyFunction = require("./emptyFunction");
+var joinClasses = require("./joinClasses");
+
+/**
+ * Creates a transfer strategy that will merge prop values using the supplied
+ * `mergeStrategy`. If a prop was previously unset, this just sets it.
+ *
+ * @param {function} mergeStrategy
+ * @return {function}
+ */
+function createTransferStrategy(mergeStrategy) {
+  return function(props, key, value) {
+    if (!props.hasOwnProperty(key)) {
+      props[key] = value;
+    } else {
+      props[key] = mergeStrategy(props[key], value);
+    }
+  };
+}
+
+var transferStrategyMerge = createTransferStrategy(function(a, b) {
+  // `merge` overrides the first object's (`props[key]` above) keys using the
+  // second object's (`value`) keys. An object's style's existing `propA` would
+  // get overridden. Flip the order here.
+  return assign({}, b, a);
+});
+
+/**
+ * Transfer strategies dictate how props are transferred by `transferPropsTo`.
+ * NOTE: if you add any more exceptions to this list you should be sure to
+ * update `cloneWithProps()` accordingly.
+ */
+var TransferStrategies = {
+  /**
+   * Never transfer `children`.
+   */
+  children: emptyFunction,
+  /**
+   * Transfer the `className` prop by merging them.
+   */
+  className: createTransferStrategy(joinClasses),
+  /**
+   * Transfer the `style` prop (which is an object) by merging them.
+   */
+  style: transferStrategyMerge
+};
+
+/**
+ * Mutates the first argument by transferring the properties from the second
+ * argument.
+ *
+ * @param {object} props
+ * @param {object} newProps
+ * @return {object}
+ */
+function transferInto(props, newProps) {
+  for (var thisKey in newProps) {
+    if (!newProps.hasOwnProperty(thisKey)) {
+      continue;
+    }
+
+    var transferStrategy = TransferStrategies[thisKey];
+
+    if (transferStrategy && TransferStrategies.hasOwnProperty(thisKey)) {
+      transferStrategy(props, thisKey, newProps[thisKey]);
+    } else if (!props.hasOwnProperty(thisKey)) {
+      props[thisKey] = newProps[thisKey];
+    }
+  }
+  return props;
+}
+
+/**
+ * ReactPropTransferer are capable of transferring props to another component
+ * using a `transferPropsTo` method.
+ *
+ * @class ReactPropTransferer
+ */
+var ReactPropTransferer = {
+
+  /**
+   * Merge two props objects using TransferStrategies.
+   *
+   * @param {object} oldProps original props (they take precedence)
+   * @param {object} newProps new props to merge in
+   * @return {object} a new object containing both sets of props merged.
+   */
+  mergeProps: function(oldProps, newProps) {
+    return transferInto(assign({}, oldProps), newProps);
+  }
+
+};
+
+module.exports = ReactPropTransferer;
+
+},{"./Object.assign":96,"./emptyFunction":187,"./joinClasses":213}],148:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -18684,7 +25695,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = ReactPropTypeLocationNames;
 
 }).call(this,require('_process'))
-},{"_process":7}],95:[function(require,module,exports){
+},{"_process":7}],149:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -18708,7 +25719,7 @@ var ReactPropTypeLocations = keyMirror({
 
 module.exports = ReactPropTypeLocations;
 
-},{"./keyMirror":158}],96:[function(require,module,exports){
+},{"./keyMirror":214}],150:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19057,7 +26068,7 @@ function getPreciseType(propValue) {
 
 module.exports = ReactPropTypes;
 
-},{"./ReactElement":75,"./ReactFragment":81,"./ReactPropTypeLocationNames":94,"./emptyFunction":132}],97:[function(require,module,exports){
+},{"./ReactElement":128,"./ReactFragment":134,"./ReactPropTypeLocationNames":148,"./emptyFunction":187}],151:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19113,7 +26124,7 @@ PooledClass.addPoolingTo(ReactPutListenerQueue);
 
 module.exports = ReactPutListenerQueue;
 
-},{"./Object.assign":44,"./PooledClass":45,"./ReactBrowserEventEmitter":48}],98:[function(require,module,exports){
+},{"./Object.assign":96,"./PooledClass":97,"./ReactBrowserEventEmitter":100}],152:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19289,7 +26300,7 @@ PooledClass.addPoolingTo(ReactReconcileTransaction);
 
 module.exports = ReactReconcileTransaction;
 
-},{"./CallbackQueue":23,"./Object.assign":44,"./PooledClass":45,"./ReactBrowserEventEmitter":48,"./ReactInputSelection":83,"./ReactPutListenerQueue":97,"./Transaction":121}],99:[function(require,module,exports){
+},{"./CallbackQueue":75,"./Object.assign":96,"./PooledClass":97,"./ReactBrowserEventEmitter":100,"./ReactInputSelection":136,"./ReactPutListenerQueue":151,"./Transaction":175}],153:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -19413,7 +26424,7 @@ var ReactReconciler = {
 module.exports = ReactReconciler;
 
 }).call(this,require('_process'))
-},{"./ReactElementValidator":76,"./ReactRef":100,"_process":7}],100:[function(require,module,exports){
+},{"./ReactElementValidator":129,"./ReactRef":154,"_process":7}],154:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19484,7 +26495,7 @@ ReactRef.detachRefs = function(instance, element) {
 
 module.exports = ReactRef;
 
-},{"./ReactOwner":92}],101:[function(require,module,exports){
+},{"./ReactOwner":145}],155:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -19515,7 +26526,7 @@ var ReactRootIndex = {
 
 module.exports = ReactRootIndex;
 
-},{}],102:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -19597,7 +26608,7 @@ module.exports = {
 };
 
 }).call(this,require('_process'))
-},{"./ReactElement":75,"./ReactInstanceHandles":84,"./ReactMarkupChecksum":87,"./ReactServerRenderingTransaction":103,"./emptyObject":133,"./instantiateReactComponent":152,"./invariant":153,"_process":7}],103:[function(require,module,exports){
+},{"./ReactElement":128,"./ReactInstanceHandles":137,"./ReactMarkupChecksum":140,"./ReactServerRenderingTransaction":157,"./emptyObject":188,"./instantiateReactComponent":207,"./invariant":208,"_process":7}],157:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -19710,7 +26721,7 @@ PooledClass.addPoolingTo(ReactServerRenderingTransaction);
 
 module.exports = ReactServerRenderingTransaction;
 
-},{"./CallbackQueue":23,"./Object.assign":44,"./PooledClass":45,"./ReactPutListenerQueue":97,"./Transaction":121,"./emptyFunction":132}],104:[function(require,module,exports){
+},{"./CallbackQueue":75,"./Object.assign":96,"./PooledClass":97,"./ReactPutListenerQueue":151,"./Transaction":175,"./emptyFunction":187}],158:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2015, Facebook, Inc.
@@ -20009,7 +27020,7 @@ var ReactUpdateQueue = {
 module.exports = ReactUpdateQueue;
 
 }).call(this,require('_process'))
-},{"./Object.assign":44,"./ReactCurrentOwner":57,"./ReactElement":75,"./ReactInstanceMap":85,"./ReactLifeCycle":86,"./ReactUpdates":105,"./invariant":153,"./warning":172,"_process":7}],105:[function(require,module,exports){
+},{"./Object.assign":96,"./ReactCurrentOwner":110,"./ReactElement":128,"./ReactInstanceMap":138,"./ReactLifeCycle":139,"./ReactUpdates":159,"./invariant":208,"./warning":228,"_process":7}],159:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -20291,7 +27302,7 @@ var ReactUpdates = {
 module.exports = ReactUpdates;
 
 }).call(this,require('_process'))
-},{"./CallbackQueue":23,"./Object.assign":44,"./PooledClass":45,"./ReactCurrentOwner":57,"./ReactPerf":93,"./ReactReconciler":99,"./Transaction":121,"./invariant":153,"./warning":172,"_process":7}],106:[function(require,module,exports){
+},{"./CallbackQueue":75,"./Object.assign":96,"./PooledClass":97,"./ReactCurrentOwner":110,"./ReactPerf":146,"./ReactReconciler":153,"./Transaction":175,"./invariant":208,"./warning":228,"_process":7}],160:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20383,7 +27394,7 @@ var SVGDOMPropertyConfig = {
 
 module.exports = SVGDOMPropertyConfig;
 
-},{"./DOMProperty":27}],107:[function(require,module,exports){
+},{"./DOMProperty":79}],161:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20578,7 +27589,7 @@ var SelectEventPlugin = {
 
 module.exports = SelectEventPlugin;
 
-},{"./EventConstants":32,"./EventPropagators":37,"./ReactInputSelection":83,"./SyntheticEvent":113,"./getActiveElement":139,"./isTextInputElement":156,"./keyOf":159,"./shallowEqual":168}],108:[function(require,module,exports){
+},{"./EventConstants":84,"./EventPropagators":89,"./ReactInputSelection":136,"./SyntheticEvent":167,"./getActiveElement":194,"./isTextInputElement":211,"./keyOf":215,"./shallowEqual":224}],162:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20609,7 +27620,7 @@ var ServerReactRootIndex = {
 
 module.exports = ServerReactRootIndex;
 
-},{}],109:[function(require,module,exports){
+},{}],163:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -21037,7 +28048,7 @@ var SimpleEventPlugin = {
 module.exports = SimpleEventPlugin;
 
 }).call(this,require('_process'))
-},{"./EventConstants":32,"./EventPluginUtils":36,"./EventPropagators":37,"./SyntheticClipboardEvent":110,"./SyntheticDragEvent":112,"./SyntheticEvent":113,"./SyntheticFocusEvent":114,"./SyntheticKeyboardEvent":116,"./SyntheticMouseEvent":117,"./SyntheticTouchEvent":118,"./SyntheticUIEvent":119,"./SyntheticWheelEvent":120,"./getEventCharCode":140,"./invariant":153,"./keyOf":159,"./warning":172,"_process":7}],110:[function(require,module,exports){
+},{"./EventConstants":84,"./EventPluginUtils":88,"./EventPropagators":89,"./SyntheticClipboardEvent":164,"./SyntheticDragEvent":166,"./SyntheticEvent":167,"./SyntheticFocusEvent":168,"./SyntheticKeyboardEvent":170,"./SyntheticMouseEvent":171,"./SyntheticTouchEvent":172,"./SyntheticUIEvent":173,"./SyntheticWheelEvent":174,"./getEventCharCode":195,"./invariant":208,"./keyOf":215,"./warning":228,"_process":7}],164:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21082,7 +28093,7 @@ SyntheticEvent.augmentClass(SyntheticClipboardEvent, ClipboardEventInterface);
 
 module.exports = SyntheticClipboardEvent;
 
-},{"./SyntheticEvent":113}],111:[function(require,module,exports){
+},{"./SyntheticEvent":167}],165:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21127,7 +28138,7 @@ SyntheticEvent.augmentClass(
 
 module.exports = SyntheticCompositionEvent;
 
-},{"./SyntheticEvent":113}],112:[function(require,module,exports){
+},{"./SyntheticEvent":167}],166:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21166,7 +28177,7 @@ SyntheticMouseEvent.augmentClass(SyntheticDragEvent, DragEventInterface);
 
 module.exports = SyntheticDragEvent;
 
-},{"./SyntheticMouseEvent":117}],113:[function(require,module,exports){
+},{"./SyntheticMouseEvent":171}],167:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21332,7 +28343,7 @@ PooledClass.addPoolingTo(SyntheticEvent, PooledClass.threeArgumentPooler);
 
 module.exports = SyntheticEvent;
 
-},{"./Object.assign":44,"./PooledClass":45,"./emptyFunction":132,"./getEventTarget":143}],114:[function(require,module,exports){
+},{"./Object.assign":96,"./PooledClass":97,"./emptyFunction":187,"./getEventTarget":198}],168:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21371,7 +28382,7 @@ SyntheticUIEvent.augmentClass(SyntheticFocusEvent, FocusEventInterface);
 
 module.exports = SyntheticFocusEvent;
 
-},{"./SyntheticUIEvent":119}],115:[function(require,module,exports){
+},{"./SyntheticUIEvent":173}],169:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21417,7 +28428,7 @@ SyntheticEvent.augmentClass(
 
 module.exports = SyntheticInputEvent;
 
-},{"./SyntheticEvent":113}],116:[function(require,module,exports){
+},{"./SyntheticEvent":167}],170:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21504,7 +28515,7 @@ SyntheticUIEvent.augmentClass(SyntheticKeyboardEvent, KeyboardEventInterface);
 
 module.exports = SyntheticKeyboardEvent;
 
-},{"./SyntheticUIEvent":119,"./getEventCharCode":140,"./getEventKey":141,"./getEventModifierState":142}],117:[function(require,module,exports){
+},{"./SyntheticUIEvent":173,"./getEventCharCode":195,"./getEventKey":196,"./getEventModifierState":197}],171:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21585,7 +28596,7 @@ SyntheticUIEvent.augmentClass(SyntheticMouseEvent, MouseEventInterface);
 
 module.exports = SyntheticMouseEvent;
 
-},{"./SyntheticUIEvent":119,"./ViewportMetrics":122,"./getEventModifierState":142}],118:[function(require,module,exports){
+},{"./SyntheticUIEvent":173,"./ViewportMetrics":176,"./getEventModifierState":197}],172:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21633,7 +28644,7 @@ SyntheticUIEvent.augmentClass(SyntheticTouchEvent, TouchEventInterface);
 
 module.exports = SyntheticTouchEvent;
 
-},{"./SyntheticUIEvent":119,"./getEventModifierState":142}],119:[function(require,module,exports){
+},{"./SyntheticUIEvent":173,"./getEventModifierState":197}],173:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21695,7 +28706,7 @@ SyntheticEvent.augmentClass(SyntheticUIEvent, UIEventInterface);
 
 module.exports = SyntheticUIEvent;
 
-},{"./SyntheticEvent":113,"./getEventTarget":143}],120:[function(require,module,exports){
+},{"./SyntheticEvent":167,"./getEventTarget":198}],174:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21756,7 +28767,7 @@ SyntheticMouseEvent.augmentClass(SyntheticWheelEvent, WheelEventInterface);
 
 module.exports = SyntheticWheelEvent;
 
-},{"./SyntheticMouseEvent":117}],121:[function(require,module,exports){
+},{"./SyntheticMouseEvent":171}],175:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -21997,7 +29008,7 @@ var Transaction = {
 module.exports = Transaction;
 
 }).call(this,require('_process'))
-},{"./invariant":153,"_process":7}],122:[function(require,module,exports){
+},{"./invariant":208,"_process":7}],176:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22026,7 +29037,7 @@ var ViewportMetrics = {
 
 module.exports = ViewportMetrics;
 
-},{}],123:[function(require,module,exports){
+},{}],177:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -22092,7 +29103,7 @@ function accumulateInto(current, next) {
 module.exports = accumulateInto;
 
 }).call(this,require('_process'))
-},{"./invariant":153,"_process":7}],124:[function(require,module,exports){
+},{"./invariant":208,"_process":7}],178:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22126,7 +29137,7 @@ function adler32(data) {
 
 module.exports = adler32;
 
-},{}],125:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22158,7 +29169,7 @@ function camelize(string) {
 
 module.exports = camelize;
 
-},{}],126:[function(require,module,exports){
+},{}],180:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -22200,7 +29211,66 @@ function camelizeStyleName(string) {
 
 module.exports = camelizeStyleName;
 
-},{"./camelize":125}],127:[function(require,module,exports){
+},{"./camelize":179}],181:[function(require,module,exports){
+(function (process){
+/**
+ * Copyright 2013-2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @typechecks static-only
+ * @providesModule cloneWithProps
+ */
+
+'use strict';
+
+var ReactElement = require("./ReactElement");
+var ReactPropTransferer = require("./ReactPropTransferer");
+
+var keyOf = require("./keyOf");
+var warning = require("./warning");
+
+var CHILDREN_PROP = keyOf({children: null});
+
+/**
+ * Sometimes you want to change the props of a child passed to you. Usually
+ * this is to add a CSS class.
+ *
+ * @param {ReactElement} child child element you'd like to clone
+ * @param {object} props props you'd like to modify. className and style will be
+ * merged automatically.
+ * @return {ReactElement} a clone of child with props merged in.
+ */
+function cloneWithProps(child, props) {
+  if ("production" !== process.env.NODE_ENV) {
+    ("production" !== process.env.NODE_ENV ? warning(
+      !child.ref,
+      'You are calling cloneWithProps() on a child with a ref. This is ' +
+      'dangerous because you\'re creating a new child which will not be ' +
+      'added as a ref to its parent.'
+    ) : null);
+  }
+
+  var newProps = ReactPropTransferer.mergeProps(props, child.props);
+
+  // Use `child.props.children` if it is provided.
+  if (!newProps.hasOwnProperty(CHILDREN_PROP) &&
+      child.props.hasOwnProperty(CHILDREN_PROP)) {
+    newProps.children = child.props.children;
+  }
+
+  // The current API doesn't retain _owner and _context, which is why this
+  // doesn't use ReactElement.cloneAndReplaceProps.
+  return ReactElement.createElement(child.type, newProps);
+}
+
+module.exports = cloneWithProps;
+
+}).call(this,require('_process'))
+},{"./ReactElement":128,"./ReactPropTransferer":147,"./keyOf":215,"./warning":228,"_process":7}],182:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22244,7 +29314,7 @@ function containsNode(outerNode, innerNode) {
 
 module.exports = containsNode;
 
-},{"./isTextNode":157}],128:[function(require,module,exports){
+},{"./isTextNode":212}],183:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22330,7 +29400,7 @@ function createArrayFromMixed(obj) {
 
 module.exports = createArrayFromMixed;
 
-},{"./toArray":170}],129:[function(require,module,exports){
+},{"./toArray":226}],184:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22392,7 +29462,7 @@ function createFullPageComponent(tag) {
 module.exports = createFullPageComponent;
 
 }).call(this,require('_process'))
-},{"./ReactClass":51,"./ReactElement":75,"./invariant":153,"_process":7}],130:[function(require,module,exports){
+},{"./ReactClass":103,"./ReactElement":128,"./invariant":208,"_process":7}],185:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22482,7 +29552,7 @@ function createNodesFromMarkup(markup, handleScript) {
 module.exports = createNodesFromMarkup;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":38,"./createArrayFromMixed":128,"./getMarkupWrap":145,"./invariant":153,"_process":7}],131:[function(require,module,exports){
+},{"./ExecutionEnvironment":90,"./createArrayFromMixed":183,"./getMarkupWrap":200,"./invariant":208,"_process":7}],186:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22540,7 +29610,7 @@ function dangerousStyleValue(name, value) {
 
 module.exports = dangerousStyleValue;
 
-},{"./CSSProperty":21}],132:[function(require,module,exports){
+},{"./CSSProperty":73}],187:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22574,7 +29644,7 @@ emptyFunction.thatReturnsArgument = function(arg) { return arg; };
 
 module.exports = emptyFunction;
 
-},{}],133:[function(require,module,exports){
+},{}],188:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22598,7 +29668,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = emptyObject;
 
 }).call(this,require('_process'))
-},{"_process":7}],134:[function(require,module,exports){
+},{"_process":7}],189:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22638,7 +29708,7 @@ function escapeTextContentForBrowser(text) {
 
 module.exports = escapeTextContentForBrowser;
 
-},{}],135:[function(require,module,exports){
+},{}],190:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22711,7 +29781,7 @@ function findDOMNode(componentOrElement) {
 module.exports = findDOMNode;
 
 }).call(this,require('_process'))
-},{"./ReactCurrentOwner":57,"./ReactInstanceMap":85,"./ReactMount":88,"./invariant":153,"./isNode":155,"./warning":172,"_process":7}],136:[function(require,module,exports){
+},{"./ReactCurrentOwner":110,"./ReactInstanceMap":138,"./ReactMount":141,"./invariant":208,"./isNode":210,"./warning":228,"_process":7}],191:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22769,7 +29839,7 @@ function flattenChildren(children) {
 module.exports = flattenChildren;
 
 }).call(this,require('_process'))
-},{"./traverseAllChildren":171,"./warning":172,"_process":7}],137:[function(require,module,exports){
+},{"./traverseAllChildren":227,"./warning":228,"_process":7}],192:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -22798,7 +29868,7 @@ function focusNode(node) {
 
 module.exports = focusNode;
 
-},{}],138:[function(require,module,exports){
+},{}],193:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22829,7 +29899,7 @@ var forEachAccumulated = function(arr, cb, scope) {
 
 module.exports = forEachAccumulated;
 
-},{}],139:[function(require,module,exports){
+},{}],194:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22858,7 +29928,7 @@ function getActiveElement() /*?DOMElement*/ {
 
 module.exports = getActiveElement;
 
-},{}],140:[function(require,module,exports){
+},{}],195:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22910,7 +29980,7 @@ function getEventCharCode(nativeEvent) {
 
 module.exports = getEventCharCode;
 
-},{}],141:[function(require,module,exports){
+},{}],196:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23015,7 +30085,7 @@ function getEventKey(nativeEvent) {
 
 module.exports = getEventKey;
 
-},{"./getEventCharCode":140}],142:[function(require,module,exports){
+},{"./getEventCharCode":195}],197:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23062,7 +30132,7 @@ function getEventModifierState(nativeEvent) {
 
 module.exports = getEventModifierState;
 
-},{}],143:[function(require,module,exports){
+},{}],198:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23093,7 +30163,7 @@ function getEventTarget(nativeEvent) {
 
 module.exports = getEventTarget;
 
-},{}],144:[function(require,module,exports){
+},{}],199:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23137,7 +30207,7 @@ function getIteratorFn(maybeIterable) {
 
 module.exports = getIteratorFn;
 
-},{}],145:[function(require,module,exports){
+},{}],200:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -23254,7 +30324,7 @@ function getMarkupWrap(nodeName) {
 module.exports = getMarkupWrap;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":38,"./invariant":153,"_process":7}],146:[function(require,module,exports){
+},{"./ExecutionEnvironment":90,"./invariant":208,"_process":7}],201:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23329,7 +30399,7 @@ function getNodeForCharacterOffset(root, offset) {
 
 module.exports = getNodeForCharacterOffset;
 
-},{}],147:[function(require,module,exports){
+},{}],202:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23364,7 +30434,7 @@ function getReactRootElementInContainer(container) {
 
 module.exports = getReactRootElementInContainer;
 
-},{}],148:[function(require,module,exports){
+},{}],203:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23401,7 +30471,7 @@ function getTextContentAccessor() {
 
 module.exports = getTextContentAccessor;
 
-},{"./ExecutionEnvironment":38}],149:[function(require,module,exports){
+},{"./ExecutionEnvironment":90}],204:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23441,7 +30511,7 @@ function getUnboundedScrollPosition(scrollable) {
 
 module.exports = getUnboundedScrollPosition;
 
-},{}],150:[function(require,module,exports){
+},{}],205:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23474,7 +30544,7 @@ function hyphenate(string) {
 
 module.exports = hyphenate;
 
-},{}],151:[function(require,module,exports){
+},{}],206:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23515,7 +30585,7 @@ function hyphenateStyleName(string) {
 
 module.exports = hyphenateStyleName;
 
-},{"./hyphenate":150}],152:[function(require,module,exports){
+},{"./hyphenate":205}],207:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -23652,7 +30722,7 @@ function instantiateReactComponent(node, parentCompositeType) {
 module.exports = instantiateReactComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":44,"./ReactCompositeComponent":55,"./ReactEmptyComponent":77,"./ReactNativeComponent":91,"./invariant":153,"./warning":172,"_process":7}],153:[function(require,module,exports){
+},{"./Object.assign":96,"./ReactCompositeComponent":108,"./ReactEmptyComponent":130,"./ReactNativeComponent":144,"./invariant":208,"./warning":228,"_process":7}],208:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -23709,7 +30779,7 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 module.exports = invariant;
 
 }).call(this,require('_process'))
-},{"_process":7}],154:[function(require,module,exports){
+},{"_process":7}],209:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23774,7 +30844,7 @@ function isEventSupported(eventNameSuffix, capture) {
 
 module.exports = isEventSupported;
 
-},{"./ExecutionEnvironment":38}],155:[function(require,module,exports){
+},{"./ExecutionEnvironment":90}],210:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23801,7 +30871,7 @@ function isNode(object) {
 
 module.exports = isNode;
 
-},{}],156:[function(require,module,exports){
+},{}],211:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23844,7 +30914,7 @@ function isTextInputElement(elem) {
 
 module.exports = isTextInputElement;
 
-},{}],157:[function(require,module,exports){
+},{}],212:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23869,7 +30939,48 @@ function isTextNode(object) {
 
 module.exports = isTextNode;
 
-},{"./isNode":155}],158:[function(require,module,exports){
+},{"./isNode":210}],213:[function(require,module,exports){
+/**
+ * Copyright 2013-2015, Facebook, Inc.
+ * All rights reserved.
+ *
+ * This source code is licensed under the BSD-style license found in the
+ * LICENSE file in the root directory of this source tree. An additional grant
+ * of patent rights can be found in the PATENTS file in the same directory.
+ *
+ * @providesModule joinClasses
+ * @typechecks static-only
+ */
+
+'use strict';
+
+/**
+ * Combines multiple className strings into one.
+ * http://jsperf.com/joinclasses-args-vs-array
+ *
+ * @param {...?string} classes
+ * @return {string}
+ */
+function joinClasses(className/*, ... */) {
+  if (!className) {
+    className = '';
+  }
+  var nextClass;
+  var argLength = arguments.length;
+  if (argLength > 1) {
+    for (var ii = 1; ii < argLength; ii++) {
+      nextClass = arguments[ii];
+      if (nextClass) {
+        className = (className ? className + ' ' : '') + nextClass;
+      }
+    }
+  }
+  return className;
+}
+
+module.exports = joinClasses;
+
+},{}],214:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -23924,7 +31035,7 @@ var keyMirror = function(obj) {
 module.exports = keyMirror;
 
 }).call(this,require('_process'))
-},{"./invariant":153,"_process":7}],159:[function(require,module,exports){
+},{"./invariant":208,"_process":7}],215:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23960,7 +31071,7 @@ var keyOf = function(oneKeyObj) {
 
 module.exports = keyOf;
 
-},{}],160:[function(require,module,exports){
+},{}],216:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24013,7 +31124,7 @@ function mapObject(object, callback, context) {
 
 module.exports = mapObject;
 
-},{}],161:[function(require,module,exports){
+},{}],217:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24046,7 +31157,7 @@ function memoizeStringOnly(callback) {
 
 module.exports = memoizeStringOnly;
 
-},{}],162:[function(require,module,exports){
+},{}],218:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -24086,7 +31197,7 @@ function onlyChild(children) {
 module.exports = onlyChild;
 
 }).call(this,require('_process'))
-},{"./ReactElement":75,"./invariant":153,"_process":7}],163:[function(require,module,exports){
+},{"./ReactElement":128,"./invariant":208,"_process":7}],219:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24114,7 +31225,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = performance || {};
 
-},{"./ExecutionEnvironment":38}],164:[function(require,module,exports){
+},{"./ExecutionEnvironment":90}],220:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24142,7 +31253,7 @@ var performanceNow = performance.now.bind(performance);
 
 module.exports = performanceNow;
 
-},{"./performance":163}],165:[function(require,module,exports){
+},{"./performance":219}],221:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24170,7 +31281,7 @@ function quoteAttributeValueForBrowser(value) {
 
 module.exports = quoteAttributeValueForBrowser;
 
-},{"./escapeTextContentForBrowser":134}],166:[function(require,module,exports){
+},{"./escapeTextContentForBrowser":189}],222:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24259,7 +31370,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = setInnerHTML;
 
-},{"./ExecutionEnvironment":38}],167:[function(require,module,exports){
+},{"./ExecutionEnvironment":90}],223:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24301,7 +31412,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = setTextContent;
 
-},{"./ExecutionEnvironment":38,"./escapeTextContentForBrowser":134,"./setInnerHTML":166}],168:[function(require,module,exports){
+},{"./ExecutionEnvironment":90,"./escapeTextContentForBrowser":189,"./setInnerHTML":222}],224:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24345,7 +31456,7 @@ function shallowEqual(objA, objB) {
 
 module.exports = shallowEqual;
 
-},{}],169:[function(require,module,exports){
+},{}],225:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -24449,7 +31560,7 @@ function shouldUpdateReactComponent(prevElement, nextElement) {
 module.exports = shouldUpdateReactComponent;
 
 }).call(this,require('_process'))
-},{"./warning":172,"_process":7}],170:[function(require,module,exports){
+},{"./warning":228,"_process":7}],226:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -24521,7 +31632,7 @@ function toArray(obj) {
 module.exports = toArray;
 
 }).call(this,require('_process'))
-},{"./invariant":153,"_process":7}],171:[function(require,module,exports){
+},{"./invariant":208,"_process":7}],227:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -24774,7 +31885,7 @@ function traverseAllChildren(children, callback, traverseContext) {
 module.exports = traverseAllChildren;
 
 }).call(this,require('_process'))
-},{"./ReactElement":75,"./ReactFragment":81,"./ReactInstanceHandles":84,"./getIteratorFn":144,"./invariant":153,"./warning":172,"_process":7}],172:[function(require,module,exports){
+},{"./ReactElement":128,"./ReactFragment":134,"./ReactInstanceHandles":137,"./getIteratorFn":199,"./invariant":208,"./warning":228,"_process":7}],228:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -24837,10 +31948,10 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = warning;
 
 }).call(this,require('_process'))
-},{"./emptyFunction":132,"_process":7}],173:[function(require,module,exports){
+},{"./emptyFunction":187,"_process":7}],229:[function(require,module,exports){
 module.exports = require('./lib/React');
 
-},{"./lib/React":46}],174:[function(require,module,exports){
+},{"./lib/React":98}],230:[function(require,module,exports){
 (function (process){
 var toGeoJSON = (function() {
     'use strict';
@@ -25197,7 +32308,7 @@ var toGeoJSON = (function() {
 if (typeof module !== 'undefined') module.exports = toGeoJSON;
 
 }).call(this,require('_process'))
-},{"_process":7,"xmldom":2}],175:[function(require,module,exports){
+},{"_process":7,"xmldom":2}],231:[function(require,module,exports){
 !function() {
   var topojson = {
     version: "1.6.18",
@@ -25733,135 +32844,1371 @@ if (typeof module !== 'undefined') module.exports = toGeoJSON;
   else this.topojson = topojson;
 }();
 
-},{}],176:[function(require,module,exports){
-// http://stackoverflow.com/questions/839899/how-do-i-calculate-a-point-on-a-circles-circumference
-// radians = degrees * (pi/180)
-// https://github.com/bjornharrtell/jsts/blob/master/examples/buffer.html
-
-var featurecollection = require('turf-featurecollection');
-var jsts = require('jsts');
-var normalize = require('geojson-normalize');
+},{}],232:[function(require,module,exports){
+var geometryArea = require('geojson-area').geometry;
 
 /**
-* Calculates a buffer for input features for a given radius. Units supported are miles, kilometers, and degrees.
-*
-* @module turf/buffer
-* @category transformation
-* @param {(Feature|FeatureCollection)} feature input to be buffered
-* @param {Number} distance distance to draw the buffer
-* @param {String} unit 'miles', 'feet', 'kilometers', 'meters', or 'degrees'
-* @return {FeatureCollection<Polygon>|FeatureCollection<MultiPolygon>|Polygon|MultiPolygon} buffered features
-*
-* @example
-* var pt = {
-*   "type": "Feature",
-*   "properties": {},
-*   "geometry": {
-*     "type": "Point",
-*     "coordinates": [-90.548630, 14.616599]
-*   }
-* };
-* var unit = 'miles';
-*
-* var buffered = turf.buffer(pt, 500, unit);
-* var result = turf.featurecollection([buffered, pt]);
-*
-* //=result
-*/
-
-module.exports = function(feature, radius, units) {
-
-  switch (units) {
-    case 'miles':
-      radius = radius / 69.047;
-    break;
-    case 'feet':
-      radius = radius / 364568.0;
-    break;
-    case 'kilometers':
-      radius = radius / 111.12;
-    break;
-    case 'meters':
-      radius = radius / 111120.0;
-    break;
-    case 'degrees':
-    break;
-  }
-
-  var fc = normalize(feature);
-  var buffered = normalize(featurecollection(fc.features.map(function(f) {
-    return bufferOp(f, radius);
-  })));
-
-  if(buffered.features.length > 1) return buffered;
-  else if(buffered.features.length === 1) return buffered.features[0];
-};
-
-var bufferOp = function(feature, radius) {
-  var reader = new jsts.io.GeoJSONReader();
-  var geom = reader.read(JSON.stringify(feature.geometry));
-  var buffered = geom.buffer(radius);
-  var parser = new jsts.io.GeoJSONParser();
-  buffered = parser.write(buffered);
-
-  return {
-    type: 'Feature',
-    geometry: buffered,
-    properties: {}
-  };
-};
-
-},{"geojson-normalize":177,"jsts":178,"turf-featurecollection":182}],177:[function(require,module,exports){
-module.exports = normalize;
-
-var types = {
-    Point: 'geometry',
-    MultiPoint: 'geometry',
-    LineString: 'geometry',
-    MultiLineString: 'geometry',
-    Polygon: 'geometry',
-    MultiPolygon: 'geometry',
-    GeometryCollection: 'geometry',
-    Feature: 'feature',
-    FeatureCollection: 'featurecollection'
-};
-
-/**
- * Normalize a GeoJSON feature into a FeatureCollection.
+ * Takes a {@link GeoJSON} feature or {@link FeatureCollection} of any type and returns the area of that feature
+ * in square meters.
  *
- * @param {object} gj geojson data
- * @returns {object} normalized geojson data
+ * @module turf/area
+ * @category measurement
+ * @param {GeoJSON} input a {@link Feature} or {@link FeatureCollection} of any type
+ * @return {Number} area in square meters
+ * @example
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-67.031021, 10.458102],
+ *           [-67.031021, 10.53372],
+ *           [-66.929397, 10.53372],
+ *           [-66.929397, 10.458102],
+ *           [-67.031021, 10.458102]
+ *         ]]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-66.919784, 10.397325],
+ *           [-66.919784, 10.513467],
+ *           [-66.805114, 10.513467],
+ *           [-66.805114, 10.397325],
+ *           [-66.919784, 10.397325]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var area = turf.area(polygons);
+ *
+ * //=area
  */
-function normalize(gj) {
-    if (!gj || !gj.type) return null;
-    var type = types[gj.type];
-    if (!type) return null;
+module.exports = function(_) {
+    if (_.type === 'FeatureCollection') {
+        for (var i = 0, sum = 0; i < _.features.length; i++) {
+            if (_.features[i].geometry) {
+                sum += geometryArea(_.features[i].geometry);
+            }
+        }
+        return sum;
+    } else if (_.type === 'Feature') {
+        return geometryArea(_.geometry);
+    } else {
+        return geometryArea(_);
+    }
+};
 
-    if (type === 'geometry') {
-        return {
-            type: 'FeatureCollection',
-            features: [{
-                type: 'Feature',
-                properties: {},
-                geometry: gj
-            }]
-        };
-    } else if (type === 'feature') {
-        return {
-            type: 'FeatureCollection',
-            features: [gj]
-        };
-    } else if (type === 'featurecollection') {
-        return gj;
+},{"geojson-area":233}],233:[function(require,module,exports){
+var wgs84 = require('wgs84');
+
+module.exports.geometry = geometry;
+module.exports.ring = ringArea;
+
+function geometry(_) {
+    var area = 0, i;
+    switch (_.type) {
+        case 'Polygon':
+            return polygonArea(_.coordinates);
+        case 'MultiPolygon':
+            for (i = 0; i < _.coordinates.length; i++) {
+                area += polygonArea(_.coordinates[i]);
+            }
+            return area;
+        case 'Point':
+        case 'MultiPoint':
+        case 'LineString':
+        case 'MultiLineString':
+            return 0;
+        case 'GeometryCollection':
+            for (i = 0; i < _.geometries.length; i++) {
+                area += geometry(_.geometries[i]);
+            }
+            return area;
     }
 }
 
-},{}],178:[function(require,module,exports){
+function polygonArea(coords) {
+    var area = 0;
+    if (coords && coords.length > 0) {
+        area += Math.abs(ringArea(coords[0]));
+        for (var i = 1; i < coords.length; i++) {
+            area -= Math.abs(ringArea(coords[i]));
+        }
+    }
+    return area;
+}
+
+/**
+ * Calculate the approximate area of the polygon were it projected onto
+ *     the earth.  Note that this area will be positive if ring is oriented
+ *     clockwise, otherwise it will be negative.
+ *
+ * Reference:
+ * Robert. G. Chamberlain and William H. Duquette, "Some Algorithms for
+ *     Polygons on a Sphere", JPL Publication 07-03, Jet Propulsion
+ *     Laboratory, Pasadena, CA, June 2007 http://trs-new.jpl.nasa.gov/dspace/handle/2014/40409
+ *
+ * Returns:
+ * {float} The approximate signed geodesic area of the polygon in square
+ *     meters.
+ */
+
+function ringArea(coords) {
+    var area = 0;
+
+    if (coords.length > 2) {
+        var p1, p2;
+        for (var i = 0; i < coords.length - 1; i++) {
+            p1 = coords[i];
+            p2 = coords[i + 1];
+            area += rad(p2[0] - p1[0]) * (2 + Math.sin(rad(p1[1])) + Math.sin(rad(p2[1])));
+        }
+
+        area = area * wgs84.RADIUS * wgs84.RADIUS / 2;
+    }
+
+    return area;
+}
+
+function rad(_) {
+    return _ * Math.PI / 180;
+}
+
+},{"wgs84":234}],234:[function(require,module,exports){
+arguments[4][68][0].apply(exports,arguments)
+},{"dup":68}],235:[function(require,module,exports){
+//http://en.wikipedia.org/wiki/Haversine_formula
+//http://www.movable-type.co.uk/scripts/latlong.html
+
+/**
+ * Takes two {@link Point} features and finds the bearing between them.
+ *
+ * @module turf/bearing
+ * @category measurement
+ * @param {Point} start starting Point
+ * @param {Point} end ending Point
+ * @category measurement
+ * @returns {Number} bearing in decimal degrees
+ * @example
+ * var point1 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "marker-color": '#f00'
+ *   },
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-75.343, 39.984]
+ *   }
+ * };
+ * var point2 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "marker-color": '#0f0'
+ *   },
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-75.534, 39.123]
+ *   }
+ * };
+ *
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [point1, point2]
+ * };
+ *
+ * //=points
+ *
+ * var bearing = turf.bearing(point1, point2);
+ *
+ * //=bearing
+ */
+module.exports = function (point1, point2) {
+    var coordinates1 = point1.geometry.coordinates;
+    var coordinates2 = point2.geometry.coordinates;
+
+    var lon1 = toRad(coordinates1[0]);
+    var lon2 = toRad(coordinates2[0]);
+    var lat1 = toRad(coordinates1[1]);
+    var lat2 = toRad(coordinates2[1]);
+    var a = Math.sin(lon2 - lon1) * Math.cos(lat2);
+    var b = Math.cos(lat1) * Math.sin(lat2) -
+        Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1);
+
+    var bearing = toDeg(Math.atan2(a, b));
+
+    return bearing;
+};
+
+function toRad(degree) {
+    return degree * Math.PI / 180;
+}
+
+function toDeg(radian) {
+    return radian * 180 / Math.PI;
+}
+
+},{}],236:[function(require,module,exports){
+/**
+ * Combines a {@link FeatureCollection} of {@link Point}, {@link LineString}, or {@link Polygon} features into {@link MultiPoint}, {@link MultiLineString}, or {@link MultiPolygon} features.
+ *
+ * @module turf/combine
+ * @category misc
+ * @param {FeatureCollection} fc a FeatureCollection of any type
+ * @return {FeatureCollection} a FeatureCollection of corresponding type to input
+ * @example
+ * var fc = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [19.026432, 47.49134]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [19.074497, 47.509548]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var combined = turf.combine(fc);
+ *
+ * //=combined
+ */
+
+module.exports = function(fc) {
+  var type = fc.features[0].geometry.type;
+  var geometries = fc.features.map(function(f) {
+    return f.geometry;
+  });
+
+  switch (type) {
+    case 'Point':
+      return {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'MultiPoint',
+          coordinates: pluckCoods(geometries)
+        }
+      };
+    case 'LineString':
+      return {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'MultiLineString',
+          coordinates: pluckCoods(geometries)
+        }
+      };
+    case 'Polygon':
+      return {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'MultiPolygon',
+          coordinates: pluckCoods(geometries)
+        }
+      };
+    default:
+      return fc;
+  }
+};
+
+function pluckCoods(multi){
+  return multi.map(function(geom){
+    return geom.coordinates;
+  });
+}
+
+},{}],237:[function(require,module,exports){
+var featureCollection = require('turf-featurecollection');
+var each = require('turf-meta').coordEach;
+var point = require('turf-point');
+
+/**
+ * Takes any {@link GeoJSON} object and return all positions as
+ * a {@link FeatureCollection} of {@link Point} features.
+ *
+ * @module turf/explode
+ * @category misc
+ * @param {GeoJSON} input input features
+ * @return {FeatureCollection} a FeatureCollection of {@link Point} features representing the exploded input features
+ * @throws {Error} if it encounters an unknown geometry type
+ * @example
+ * var poly = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [177.434692, -17.77517],
+ *       [177.402076, -17.779093],
+ *       [177.38079, -17.803937],
+ *       [177.40242, -17.826164],
+ *       [177.438468, -17.824857],
+ *       [177.454948, -17.796746],
+ *       [177.434692, -17.77517]
+ *     ]]
+ *   }
+ * };
+ *
+ * var points = turf.explode(poly);
+ *
+ * //=poly
+ *
+ * //=points
+ */
+module.exports = function(layer) {
+  var points = [];
+  each(layer, function(coord) {
+    points.push(point(coord));
+  });
+  return featureCollection(points);
+};
+
+},{"turf-featurecollection":238,"turf-meta":239,"turf-point":240}],238:[function(require,module,exports){
+/**
+ * Takes one or more {@link Feature|Features} and creates a {@link FeatureCollection}
+ *
+ * @module turf/featurecollection
+ * @category helper
+ * @param {Feature} features input Features
+ * @returns {FeatureCollection} a FeatureCollection of input features
+ * @example
+ * var features = [
+ *  turf.point([-75.343, 39.984], {name: 'Location A'}),
+ *  turf.point([-75.833, 39.284], {name: 'Location B'}),
+ *  turf.point([-75.534, 39.123], {name: 'Location C'})
+ * ];
+ *
+ * var fc = turf.featurecollection(features);
+ *
+ * //=fc
+ */
+module.exports = function(features){
+  return {
+    type: "FeatureCollection",
+    features: features
+  };
+};
+
+},{}],239:[function(require,module,exports){
+/**
+ * Lazily iterate over coordinates in any GeoJSON object, similar to
+ * Array.forEach.
+ *
+ * @param {Object} layer any GeoJSON object
+ * @param {Function} callback a method that takes (value)
+ * @param {boolean=} excludeWrapCoord whether or not to include
+ * the final coordinate of LinearRings that wraps the ring in its iteration.
+ * @example
+ * var point = { type: 'Point', coordinates: [0, 0] };
+ * coordEach(point, function(coords) {
+ *   // coords is equal to [0, 0]
+ * });
+ */
+function coordEach(layer, callback, excludeWrapCoord) {
+  var i, j, k, g, geometry, stopG, coords,
+    geometryMaybeCollection,
+    wrapShrink = 0,
+    isGeometryCollection,
+    isFeatureCollection = layer.type === 'FeatureCollection',
+    isFeature = layer.type === 'Feature',
+    stop = isFeatureCollection ? layer.features.length : 1;
+
+  // This logic may look a little weird. The reason why it is that way
+  // is because it's trying to be fast. GeoJSON supports multiple kinds
+  // of objects at its root: FeatureCollection, Features, Geometries.
+  // This function has the responsibility of handling all of them, and that
+  // means that some of the `for` loops you see below actually just don't apply
+  // to certain inputs. For instance, if you give this just a
+  // Point geometry, then both loops are short-circuited and all we do
+  // is gradually rename the input until it's called 'geometry'.
+  //
+  // This also aims to allocate as few resources as possible: just a
+  // few numbers and booleans, rather than any temporary arrays as would
+  // be required with the normalization approach.
+  for (i = 0; i < stop; i++) {
+
+    geometryMaybeCollection = (isFeatureCollection ? layer.features[i].geometry :
+        (isFeature ? layer.geometry : layer));
+    isGeometryCollection = geometryMaybeCollection.type === 'GeometryCollection';
+    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
+
+    for (g = 0; g < stopG; g++) {
+
+      geometry = isGeometryCollection ?
+          geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
+      coords = geometry.coordinates;
+
+      wrapShrink = (excludeWrapCoord &&
+        (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon')) ?
+        1 : 0;
+
+      if (geometry.type === 'Point') {
+        callback(coords);
+      } else if (geometry.type === 'LineString' || geometry.type === 'MultiPoint') {
+        for (j = 0; j < coords.length; j++) callback(coords[j]);
+      } else if (geometry.type === 'Polygon' || geometry.type === 'MultiLineString') {
+        for (j = 0; j < coords.length; j++)
+          for (k = 0; k < coords[j].length - wrapShrink; k++)
+            callback(coords[j][k]);
+      } else if (geometry.type === 'MultiPolygon') {
+        for (j = 0; j < coords.length; j++)
+          for (k = 0; k < coords[j].length; k++)
+            for (l = 0; l < coords[j][k].length - wrapShrink; l++)
+              callback(coords[j][k][l]);
+      } else {
+        throw new Error('Unknown Geometry Type');
+      }
+    }
+  }
+}
+module.exports.coordEach = coordEach;
+
+/**
+ * Lazily reduce coordinates in any GeoJSON object into a single value,
+ * similar to how Array.reduce works. However, in this case we lazily run
+ * the reduction, so an array of all coordinates is unnecessary.
+ *
+ * @param {Object} layer any GeoJSON object
+ * @param {Function} callback a method that takes (memo, value) and returns
+ * a new memo
+ * @param {boolean=} excludeWrapCoord whether or not to include
+ * the final coordinate of LinearRings that wraps the ring in its iteration.
+ * @param {*} memo the starting value of memo: can be any type.
+ */
+function coordReduce(layer, callback, memo, excludeWrapCoord) {
+  coordEach(layer, function(coord) {
+    memo = callback(memo, coord);
+  }, excludeWrapCoord);
+  return memo;
+}
+module.exports.coordReduce = coordReduce;
+
+/**
+ * Lazily iterate over property objects in any GeoJSON object, similar to
+ * Array.forEach.
+ *
+ * @param {Object} layer any GeoJSON object
+ * @param {Function} callback a method that takes (value)
+ * @example
+ * var point = { type: 'Feature', geometry: null, properties: { foo: 1 } };
+ * propEach(point, function(props) {
+ *   // props is equal to { foo: 1}
+ * });
+ */
+function propEach(layer, callback) {
+  var i;
+  switch (layer.type) {
+      case 'FeatureCollection':
+        features = layer.features;
+        for (i = 0; i < layer.features.length; i++) {
+            callback(layer.features[i].properties);
+        }
+        break;
+      case 'Feature':
+        callback(layer.properties);
+        break;
+  }
+}
+module.exports.propEach = propEach;
+
+/**
+ * Lazily reduce properties in any GeoJSON object into a single value,
+ * similar to how Array.reduce works. However, in this case we lazily run
+ * the reduction, so an array of all properties is unnecessary.
+ *
+ * @param {Object} layer any GeoJSON object
+ * @param {Function} callback a method that takes (memo, coord) and returns
+ * a new memo
+ * @param {*} memo the starting value of memo: can be any type.
+ */
+function propReduce(layer, callback, memo) {
+  propEach(layer, function(prop) {
+    memo = callback(memo, prop);
+  });
+  return memo;
+}
+module.exports.propReduce = propReduce;
+
+},{}],240:[function(require,module,exports){
+/**
+ * Takes coordinates and properties (optional) and returns a new {@link Point} feature.
+ *
+ * @module turf/point
+ * @category helper
+ * @param {number} longitude position west to east in decimal degrees
+ * @param {number} latitude position south to north in decimal degrees
+ * @param {Object} properties an Object that is used as the {@link Feature}'s
+ * properties
+ * @return {Point} a Point feature
+ * @example
+ * var pt1 = turf.point([-75.343, 39.984]);
+ *
+ * //=pt1
+ */
+var isArray = Array.isArray || function(arg) {
+  return Object.prototype.toString.call(arg) === '[object Array]';
+};
+module.exports = function(coordinates, properties) {
+  if (!isArray(coordinates)) throw new Error('Coordinates must be an array');
+  if (coordinates.length < 2) throw new Error('Coordinates must be at least 2 numbers long');
+  return {
+    type: "Feature",
+    geometry: {
+      type: "Point",
+      coordinates: coordinates
+    },
+    properties: properties || {}
+  };
+};
+
+},{}],241:[function(require,module,exports){
+/**
+ * Takes a {@link GeoJSON} object of any type and flips all of its coordinates
+ * from `[x, y]` to `[y, x]`.
+ *
+ * @module turf/flip
+ * @category misc
+ * @param {GeoJSON} input input GeoJSON object
+ * @returns {GeoJSON} a GeoJSON object of the same type as `input` with flipped coordinates
+ * @example
+ * var serbia = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [20.566406, 43.421008]
+ *   }
+ * };
+ *
+ * //=serbia
+ *
+ * var saudiArabia = turf.flip(serbia);
+ *
+ * //=saudiArabia
+ */
+module.exports = flipAny;
+
+function flipAny(_) {
+    // ensure that we don't modify features in-place and changes to the
+    // output do not change the previous feature, including changes to nested
+    // properties.
+    var input = JSON.parse(JSON.stringify(_));
+    switch (input.type) {
+        case 'FeatureCollection':
+            for (var i = 0; i < input.features.length; i++)
+                flipGeometry(input.features[i].geometry);
+            return input;
+        case 'Feature':
+            flipGeometry(input.geometry);
+            return input;
+        default:
+            flipGeometry(input);
+            return input;
+    }
+}
+
+function flipGeometry(geometry) {
+    var coords = geometry.coordinates;
+    switch(geometry.type) {
+      case 'Point':
+        flip0(coords);
+        break;
+      case 'LineString':
+      case 'MultiPoint':
+        flip1(coords);
+        break;
+      case 'Polygon':
+      case 'MultiLineString':
+        flip2(coords);
+        break;
+      case 'MultiPolygon':
+        flip3(coords);
+        break;
+      case 'GeometryCollection':
+        geometry.geometries.forEach(flipGeometry);
+        break;
+    }
+}
+
+function flip0(coord) {
+    coord.reverse();
+}
+
+function flip1(coords) {
+  for(var i = 0; i < coords.length; i++) coords[i].reverse();
+}
+
+function flip2(coords) {
+  for(var i = 0; i < coords.length; i++)
+    for(var j = 0; j < coords[i].length; j++) coords[i][j].reverse();
+}
+
+function flip3(coords) {
+  for(var i = 0; i < coords.length; i++)
+    for(var j = 0; j < coords[i].length; j++)
+      for(var k = 0; k < coords[i][j].length; k++) coords[i][j][k].reverse();
+}
+
+},{}],242:[function(require,module,exports){
+var point = require('turf-point');
+var polygon = require('turf-polygon');
+var distance = require('turf-distance');
+var featurecollection = require('turf-featurecollection');
+
+/**
+ * Takes a bounding box and a cell size in degrees and returns a {@link FeatureCollection} of flat-topped
+ * hexagons ({@link Polygon} features) aligned in an "odd-q" vertical grid as
+ * described in [Hexagonal Grids](http://www.redblobgames.com/grids/hexagons/)
+ *
+ * @module turf/hex-grid
+ * @category interpolation
+ * @param {Array<number>} bbox bounding box in [minX, minY, maxX, maxY] order
+ * @param {Number} cellWidth width of cell in specified units
+ * @param {String} units used in calculating cellWidth ('miles' or 'kilometers')
+ * @return {FeatureCollection} units used in calculating cellWidth ('miles' or 'kilometers')
+ * @example
+ * var bbox = [-96,31,-84,40];
+ * var cellWidth = 50;
+ * var units = 'miles';
+ *
+ * var hexgrid = turf.hexGrid(bbox, cellWidth, units);
+ *
+ * //=hexgrid
+ */
+
+//Precompute cosines and sines of angles used in hexagon creation
+// for performance gain
+var cosines = [];
+var sines = [];
+for (var i = 0; i < 6; i++) {
+  var angle = 2 * Math.PI/6 * i;
+  cosines.push(Math.cos(angle));
+  sines.push(Math.sin(angle));
+}
+
+module.exports = function hexgrid(bbox, cell, units) {
+  var xFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[2], bbox[1]]), units));
+  var cellWidth = xFraction * (bbox[2] - bbox[0]);
+  var yFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[0], bbox[3]]), units));
+  var cellHeight = yFraction * (bbox[3] - bbox[1]);
+  var radius = cellWidth / 2;
+
+  var hex_width = radius * 2;
+  var hex_height = Math.sqrt(3)/2 * hex_width;
+
+  var box_width = bbox[2] - bbox[0];
+  var box_height = bbox[3] - bbox[1];
+
+  var x_interval = 3/4 * hex_width;
+  var y_interval = hex_height;
+
+  var x_span = box_width / (hex_width - radius/2);
+  var x_count = Math.ceil(x_span);
+  if (Math.round(x_span) === x_count) {
+    x_count++;
+  }
+
+  var x_adjust = ((x_count * x_interval - radius/2) - box_width)/2 - radius/2;
+
+  var y_count = Math.ceil(box_height / hex_height);
+
+  var y_adjust = (box_height - y_count * hex_height)/2;
+
+  var hasOffsetY = y_count * hex_height - box_height > hex_height/2;
+  if (hasOffsetY) {
+    y_adjust -= hex_height/4;
+  }
+
+  var fc = featurecollection([]);
+  for (var x = 0; x < x_count; x++) {
+    for (var y = 0; y <= y_count; y++) {
+
+      var isOdd = x % 2 === 1;
+      if (y === 0 && isOdd) {
+        continue;
+      }
+
+      if (y === 0 && hasOffsetY) {
+        continue;
+      }
+
+      var center_x = x * x_interval + bbox[0] - x_adjust;
+      var center_y = y * y_interval + bbox[1] + y_adjust;
+
+      if (isOdd) {
+        center_y -= hex_height/2;
+      }
+      fc.features.push(hexagon([center_x, center_y], radius));
+    }
+  }
+
+  return fc;
+};
+
+//Center should be [x, y]
+function hexagon(center, radius) {
+  var vertices = [];
+  for (var i = 0; i < 6; i++) {
+    var x = center[0] + radius * cosines[i];
+    var y = center[1] + radius * sines[i];
+    vertices.push([x,y]);
+  }
+  //first and last vertex must be the same
+  vertices.push(vertices[0]);
+  return polygon([vertices]);
+}
+},{"turf-distance":243,"turf-featurecollection":245,"turf-point":246,"turf-polygon":247}],243:[function(require,module,exports){
+var invariant = require('turf-invariant');
+//http://en.wikipedia.org/wiki/Haversine_formula
+//http://www.movable-type.co.uk/scripts/latlong.html
+
+/**
+ * Takes two {@link Point} features and calculates
+ * the distance between them in degress, radians,
+ * miles, or kilometers. This uses the
+ * [Haversine formula](http://en.wikipedia.org/wiki/Haversine_formula)
+ * to account for global curvature.
+ *
+ * @module turf/distance
+ * @category measurement
+ * @param {Feature} from origin point
+ * @param {Feature} to destination point
+ * @param {String} [units=kilometers] can be degrees, radians, miles, or kilometers
+ * @return {Number} distance between the two points
+ * @example
+ * var point1 = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-75.343, 39.984]
+ *   }
+ * };
+ * var point2 = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-75.534, 39.123]
+ *   }
+ * };
+ * var units = "miles";
+ *
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [point1, point2]
+ * };
+ *
+ * //=points
+ *
+ * var distance = turf.distance(point1, point2, units);
+ *
+ * //=distance
+ */
+module.exports = function(point1, point2, units){
+  invariant.featureOf(point1, 'Point', 'distance');
+  invariant.featureOf(point2, 'Point', 'distance');
+  var coordinates1 = point1.geometry.coordinates;
+  var coordinates2 = point2.geometry.coordinates;
+
+  var dLat = toRad(coordinates2[1] - coordinates1[1]);
+  var dLon = toRad(coordinates2[0] - coordinates1[0]);
+  var lat1 = toRad(coordinates1[1]);
+  var lat2 = toRad(coordinates2[1]);
+  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  var R;
+  switch(units){
+    case 'miles':
+      R = 3960;
+      break;
+    case 'kilometers':
+      R = 6373;
+      break;
+    case 'degrees':
+      R = 57.2957795;
+      break;
+    case 'radians':
+      R = 1;
+      break;
+    case undefined:
+      R = 6373;
+      break;
+    default:
+      throw new Error('unknown option given to "units"');
+  }
+
+  var distance = R * c;
+  return distance;
+};
+
+function toRad(degree) {
+  return degree * Math.PI / 180;
+}
+
+},{"turf-invariant":244}],244:[function(require,module,exports){
+module.exports.geojsonType = geojsonType;
+module.exports.collectionOf = collectionOf;
+module.exports.featureOf = featureOf;
+
+/**
+ * Enforce expectations about types of GeoJSON objects for Turf.
+ *
+ * @alias geojsonType
+ * @param {GeoJSON} value any GeoJSON object
+ * @param {string} type expected GeoJSON type
+ * @param {String} name name of calling function
+ * @throws Error if value is not the expected type.
+ */
+function geojsonType(value, type, name) {
+    if (!type || !name) throw new Error('type and name required');
+
+    if (!value || value.type !== type) {
+        throw new Error('Invalid input to ' + name + ': must be a ' + type + ', given ' + value.type);
+    }
+}
+
+/**
+ * Enforce expectations about types of {@link Feature} inputs for Turf.
+ * Internally this uses {@link geojsonType} to judge geometry types.
+ *
+ * @alias featureOf
+ * @param {Feature} feature a feature with an expected geometry type
+ * @param {string} type expected GeoJSON type
+ * @param {String} name name of calling function
+ * @throws Error if value is not the expected type.
+ */
+function featureOf(value, type, name) {
+    if (!name) throw new Error('.featureOf() requires a name');
+    if (!value || value.type !== 'Feature' || !value.geometry) {
+        throw new Error('Invalid input to ' + name + ', Feature with geometry required');
+    }
+    if (!value.geometry || value.geometry.type !== type) {
+        throw new Error('Invalid input to ' + name + ': must be a ' + type + ', given ' + value.geometry.type);
+    }
+}
+
+/**
+ * Enforce expectations about types of {@link FeatureCollection} inputs for Turf.
+ * Internally this uses {@link geojsonType} to judge geometry types.
+ *
+ * @alias collectionOf
+ * @param {FeatureCollection} featurecollection a featurecollection for which features will be judged
+ * @param {string} type expected GeoJSON type
+ * @param {String} name name of calling function
+ * @throws Error if value is not the expected type.
+ */
+function collectionOf(value, type, name) {
+    if (!name) throw new Error('.collectionOf() requires a name');
+    if (!value || value.type !== 'FeatureCollection') {
+        throw new Error('Invalid input to ' + name + ', FeatureCollection required');
+    }
+    for (var i = 0; i < value.features.length; i++) {
+        var feature = value.features[i];
+        if (!feature || feature.type !== 'Feature' || !feature.geometry) {
+            throw new Error('Invalid input to ' + name + ', Feature with geometry required');
+        }
+        if (!feature.geometry || feature.geometry.type !== type) {
+            throw new Error('Invalid input to ' + name + ': must be a ' + type + ', given ' + feature.geometry.type);
+        }
+    }
+}
+
+},{}],245:[function(require,module,exports){
+arguments[4][238][0].apply(exports,arguments)
+},{"dup":238}],246:[function(require,module,exports){
+arguments[4][240][0].apply(exports,arguments)
+},{"dup":240}],247:[function(require,module,exports){
+/**
+ * Takes an array of LinearRings and optionally an {@link Object} with properties and returns a GeoJSON {@link Polygon} feature.
+ *
+ * @module turf/polygon
+ * @category helper
+ * @param {Array<Array<Number>>} rings an array of LinearRings
+ * @param {Object} properties an optional properties object
+ * @return {Polygon} a Polygon feature
+ * @throws {Error} throw an error if a LinearRing of the polygon has too few positions
+ * or if a LinearRing of the Polygon does not have matching Positions at the
+ * beginning & end.
+ * @example
+ * var polygon = turf.polygon([[
+ *  [-2.275543, 53.464547],
+ *  [-2.275543, 53.489271],
+ *  [-2.215118, 53.489271],
+ *  [-2.215118, 53.464547],
+ *  [-2.275543, 53.464547]
+ * ]], { name: 'poly1', population: 400});
+ *
+ * //=polygon
+ */
+module.exports = function(coordinates, properties){
+
+  if (coordinates === null) throw new Error('No coordinates passed');
+
+  for (var i = 0; i < coordinates.length; i++) {
+    var ring = coordinates[i];
+    for (var j = 0; j < ring[ring.length - 1].length; j++) {
+      if (ring.length < 4) {
+        throw new Error('Each LinearRing of a Polygon must have 4 or more Positions.');
+      }
+      if (ring[ring.length - 1][j] !== ring[0][j]) {
+        throw new Error('First and last Position are not equivalent.');
+      }
+    }
+  }
+
+  var polygon = {
+    "type": "Feature",
+    "geometry": {
+      "type": "Polygon",
+      "coordinates": coordinates
+    },
+    "properties": properties
+  };
+
+  if (!polygon.properties) {
+    polygon.properties = {};
+  }
+
+  return polygon;
+};
+
+},{}],248:[function(require,module,exports){
+/**
+ * Takes a {@link Polygon} feature and returns a {@link FeatureCollection} of {@link Point} features at all self-intersections.
+ *
+ * @module turf/kinks
+ * @category misc
+ * @param {Polygon} polygon a Polygon feature
+ * @returns {FeatureCollection} a FeatureCollection of {@link Point} features representing self-intersections
+ * @example
+ * var poly = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-12.034835, 8.901183],
+ *       [-12.060413, 8.899826],
+ *       [-12.03638, 8.873199],
+ *       [-12.059383, 8.871418],
+ *       [-12.034835, 8.901183]
+ *     ]]
+ *   }
+ * };
+ * 
+ * var kinks = turf.kinks(poly);
+ *
+ * var resultFeatures = kinks.intersections.features.concat(poly);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+
+var polygon = require('turf-polygon');
+var point = require('turf-point');
+var fc = require('turf-featurecollection');
+
+module.exports = function(polyIn) {
+  var poly;
+  var results = {intersections: fc([]), fixed: null};
+  if (polyIn.type === 'Feature') {
+    poly = polyIn.geometry;
+  } else {
+    poly = polyIn;
+  }
+  var intersectionHash = {};
+  poly.coordinates.forEach(function(ring1){
+    poly.coordinates.forEach(function(ring2){
+      for(var i = 0; i < ring1.length-1; i++) {
+        for(var k = 0; k < ring2.length-1; k++) {
+          var intersection = lineIntersects(ring1[i][0],ring1[i][1],ring1[i+1][0],ring1[i+1][1],
+            ring2[k][0],ring2[k][1],ring2[k+1][0],ring2[k+1][1]);
+          if(intersection) {
+            results.intersections.features.push(point([intersection[0], intersection[1]]));
+          }
+        }
+      }
+    })
+  })
+  return results;
+}
+
+
+// modified from http://jsfiddle.net/justin_c_rounds/Gd2S2/light/
+function lineIntersects(line1StartX, line1StartY, line1EndX, line1EndY, line2StartX, line2StartY, line2EndX, line2EndY) {
+  // if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite) and booleans for whether line segment 1 or line segment 2 contain the point
+  var denominator, a, b, numerator1, numerator2, result = {
+    x: null,
+    y: null,
+    onLine1: false,
+    onLine2: false
+  };
+  denominator = ((line2EndY - line2StartY) * (line1EndX - line1StartX)) - ((line2EndX - line2StartX) * (line1EndY - line1StartY));
+  if (denominator == 0) {
+    if(result.x != null && result.y != null) {
+      return result;
+    } else {
+      return false;
+    }
+  }
+  a = line1StartY - line2StartY;
+  b = line1StartX - line2StartX;
+  numerator1 = ((line2EndX - line2StartX) * a) - ((line2EndY - line2StartY) * b);
+  numerator2 = ((line1EndX - line1StartX) * a) - ((line1EndY - line1StartY) * b);
+  a = numerator1 / denominator;
+  b = numerator2 / denominator;
+
+  // if we cast these lines infinitely in both directions, they intersect here:
+  result.x = line1StartX + (a * (line1EndX - line1StartX));
+  result.y = line1StartY + (a * (line1EndY - line1StartY));
+
+  // if line1 is a segment and line2 is infinite, they intersect if:
+  if (a > 0 && a < 1) {
+    result.onLine1 = true;
+  }
+  // if line2 is a segment and line1 is infinite, they intersect if:
+  if (b > 0 && b < 1) {
+    result.onLine2 = true;
+  }
+  // if line1 and line2 are segments, they intersect if both of the above are true
+  if(result.onLine1 && result.onLine2){
+    return [result.x, result.y];
+  }
+  else {
+    return false;
+  }
+}
+
+},{"turf-featurecollection":249,"turf-point":250,"turf-polygon":251}],249:[function(require,module,exports){
+arguments[4][238][0].apply(exports,arguments)
+},{"dup":238}],250:[function(require,module,exports){
+arguments[4][240][0].apply(exports,arguments)
+},{"dup":240}],251:[function(require,module,exports){
+arguments[4][247][0].apply(exports,arguments)
+},{"dup":247}],252:[function(require,module,exports){
+var clone = require('clone');
+var union = require('turf-union');
+
+/**
+ * Takes a {@link FeatureCollection} of {@link Polygon} features and returns a single merged
+ * polygon feature. If the input Polygon features are not contiguous, this function returns a {@link MultiPolygon} feature.
+ * @module turf/merge
+ * @category transformation
+ * @param {FeatureCollection} fc a FeatureCollection of {@link Polygon} features
+ * @return {Feature} a {@link Polygon} or {@link MultiPolygon} feature
+ * @example
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "fill": "#0f0"
+ *       },
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [9.994812, 53.549487],
+ *           [10.046997, 53.598209],
+ *           [10.117721, 53.531737],
+ *           [9.994812, 53.549487]
+ *         ]]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "fill": "#00f"
+ *       },
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [10.000991, 53.50418],
+ *           [10.03807, 53.562539],
+ *           [9.926834, 53.551731],
+ *           [10.000991, 53.50418]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var merged = turf.merge(polygons);
+ *
+ * //=polygons
+ *
+ * //=merged
+ */
+module.exports = function(polygons, done){
+
+  var merged = clone(polygons.features[0]),
+    features = polygons.features;
+
+  for (var i = 0, len = features.length; i < len; i++) {
+    var poly = features[i];
+
+    if(poly.geometry){
+      merged = union(merged, poly);
+    }
+  }
+
+  return merged;
+};
+
+},{"clone":253,"turf-union":254}],253:[function(require,module,exports){
+(function (Buffer){
+'use strict';
+
+function objectToString(o) {
+  return Object.prototype.toString.call(o);
+}
+
+// shim for Node's 'util' package
+// DO NOT REMOVE THIS! It is required for compatibility with EnderJS (http://enderjs.com/).
+var util = {
+  isArray: function (ar) {
+    return Array.isArray(ar) || (typeof ar === 'object' && objectToString(ar) === '[object Array]');
+  },
+  isDate: function (d) {
+    return typeof d === 'object' && objectToString(d) === '[object Date]';
+  },
+  isRegExp: function (re) {
+    return typeof re === 'object' && objectToString(re) === '[object RegExp]';
+  },
+  getRegExpFlags: function (re) {
+    var flags = '';
+    re.global && (flags += 'g');
+    re.ignoreCase && (flags += 'i');
+    re.multiline && (flags += 'm');
+    return flags;
+  }
+};
+
+
+if (typeof module === 'object')
+  module.exports = clone;
+
+/**
+ * Clones (copies) an Object using deep copying.
+ *
+ * This function supports circular references by default, but if you are certain
+ * there are no circular references in your object, you can save some CPU time
+ * by calling clone(obj, false).
+ *
+ * Caution: if `circular` is false and `parent` contains circular references,
+ * your program may enter an infinite loop and crash.
+ *
+ * @param `parent` - the object to be cloned
+ * @param `circular` - set to true if the object to be cloned may contain
+ *    circular references. (optional - true by default)
+ * @param `depth` - set to a number if the object is only to be cloned to
+ *    a particular depth. (optional - defaults to Infinity)
+ * @param `prototype` - sets the prototype to be used when cloning an object.
+ *    (optional - defaults to parent prototype).
+*/
+
+function clone(parent, circular, depth, prototype) {
+  // maintain two arrays for circular references, where corresponding parents
+  // and children have the same index
+  var allParents = [];
+  var allChildren = [];
+
+  var useBuffer = typeof Buffer != 'undefined';
+
+  if (typeof circular == 'undefined')
+    circular = true;
+
+  if (typeof depth == 'undefined')
+    depth = Infinity;
+
+  // recurse this function so we don't reset allParents and allChildren
+  function _clone(parent, depth) {
+    // cloning null always returns null
+    if (parent === null)
+      return null;
+
+    if (depth == 0)
+      return parent;
+
+    var child;
+    var proto;
+    if (typeof parent != 'object') {
+      return parent;
+    }
+
+    if (util.isArray(parent)) {
+      child = [];
+    } else if (util.isRegExp(parent)) {
+      child = new RegExp(parent.source, util.getRegExpFlags(parent));
+      if (parent.lastIndex) child.lastIndex = parent.lastIndex;
+    } else if (util.isDate(parent)) {
+      child = new Date(parent.getTime());
+    } else if (useBuffer && Buffer.isBuffer(parent)) {
+      child = new Buffer(parent.length);
+      parent.copy(child);
+      return child;
+    } else {
+      if (typeof prototype == 'undefined') {
+        proto = Object.getPrototypeOf(parent);
+        child = Object.create(proto);
+      }
+      else {
+        child = Object.create(prototype);
+        proto = prototype;
+      }
+    }
+
+    if (circular) {
+      var index = allParents.indexOf(parent);
+
+      if (index != -1) {
+        return allChildren[index];
+      }
+      allParents.push(parent);
+      allChildren.push(child);
+    }
+
+    for (var i in parent) {
+      var attrs;
+      if (proto) {
+        attrs = Object.getOwnPropertyDescriptor(proto, i);
+      }
+      
+      if (attrs && attrs.set == null) {
+        continue;
+      }
+      child[i] = _clone(parent[i], depth - 1);
+    }
+
+    return child;
+  }
+
+  return _clone(parent, depth);
+}
+
+/**
+ * Simple flat clone using prototype, accepts only objects, usefull for property
+ * override on FLAT configuration object (no nested props).
+ *
+ * USE WITH CAUTION! This may not behave as you wish if you do not know how this
+ * works.
+ */
+clone.clonePrototype = function(parent) {
+  if (parent === null)
+    return null;
+
+  var c = function () {};
+  c.prototype = parent;
+  return new c();
+};
+
+}).call(this,require("buffer").Buffer)
+},{"buffer":3}],254:[function(require,module,exports){
+// look here for help http://svn.osgeo.org/grass/grass/branches/releasebranch_6_4/vector/v.overlay/main.c
+//must be array of polygons
+
+// depend on jsts for now https://github.com/bjornharrtell/jsts/blob/master/examples/overlay.html
+
+var jsts = require('jsts');
+
+/**
+ * Takes two {@link Polygon|polygons} and returns a combined polygon. If the input polygons are not contiguous, this function returns a {@link MultiPolygon} feature.
+ *
+ * @module turf/union
+ * @category transformation
+ * @param {Feature<Polygon>} poly1 input polygon
+ * @param {Feature<Polygon>} poly2 another input polygon
+ * @return {Feature<(Polygon|MultiPolygon)>} a combined {@link Polygon} or {@link MultiPolygon} feature
+ * @example
+ * var poly1 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "fill": "#0f0"
+ *   },
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-82.574787, 35.594087],
+ *       [-82.574787, 35.615581],
+ *       [-82.545261, 35.615581],
+ *       [-82.545261, 35.594087],
+ *       [-82.574787, 35.594087]
+ *     ]]
+ *   }
+ * };
+ * var poly2 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "fill": "#00f"
+ *   },
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-82.560024, 35.585153],
+ *       [-82.560024, 35.602602],
+ *       [-82.52964, 35.602602],
+ *       [-82.52964, 35.585153],
+ *       [-82.560024, 35.585153]
+ *     ]]
+ *   }
+ * };
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [poly1, poly2]
+ * };
+ *
+ * var union = turf.union(poly1, poly2);
+ *
+ * //=polygons
+ *
+ * //=union
+ */
+module.exports = function(poly1, poly2){
+  var reader = new jsts.io.GeoJSONReader();
+  var a = reader.read(JSON.stringify(poly1.geometry));
+  var b = reader.read(JSON.stringify(poly2.geometry));
+  var union = a.union(b);
+  var parser = new jsts.io.GeoJSONParser();
+
+  union = parser.write(union);
+  return {
+    type: 'Feature',
+    geometry: union,
+    properties: poly1.properties
+  };
+}
+
+},{"jsts":255}],255:[function(require,module,exports){
 require('javascript.util');
 var jsts = require('./lib/jsts');
 module.exports = jsts
 
-},{"./lib/jsts":179,"javascript.util":181}],179:[function(require,module,exports){
+},{"./lib/jsts":256,"javascript.util":258}],256:[function(require,module,exports){
 /* The JSTS Topology Suite is a collection of JavaScript classes that
 implement the fundamental operations required to validate a given
 geo-spatial data set to a known topological specification.
@@ -27571,7 +35918,7 @@ return true;if(this.isBoundaryPoint(li,bdyNodes[1]))
 return true;return false;}else{for(var i=bdyNodes.iterator();i.hasNext();){var node=i.next();var pt=node.getCoordinate();if(li.isIntersection(pt))
 return true;}
 return false;}};})();
-},{}],180:[function(require,module,exports){
+},{}],257:[function(require,module,exports){
 (function (global){
 /*
   javascript.util is a port of selected parts of java.util to JavaScript which
@@ -27617,1166 +35964,10 @@ L.prototype.iterator=L.prototype.f;function N(a){this.l=a}f("$jscomp.scope.Itera
 r,global.javascript.util.Set=x,global.javascript.util.SortedMap=A,global.javascript.util.SortedSet=B,global.javascript.util.Stack=C,global.javascript.util.TreeMap=H,global.javascript.util.TreeSet=L);}).call(this);
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],181:[function(require,module,exports){
+},{}],258:[function(require,module,exports){
 require('./dist/javascript.util-node.min.js');
 
-},{"./dist/javascript.util-node.min.js":180}],182:[function(require,module,exports){
-/**
- * Takes one or more {@link Feature|Features} and creates a {@link FeatureCollection}
- *
- * @module turf/featurecollection
- * @category helper
- * @param {Feature} features input Features
- * @returns {FeatureCollection} a FeatureCollection of input features
- * @example
- * var features = [
- *  turf.point([-75.343, 39.984], {name: 'Location A'}),
- *  turf.point([-75.833, 39.284], {name: 'Location B'}),
- *  turf.point([-75.534, 39.123], {name: 'Location C'})
- * ];
- *
- * var fc = turf.featurecollection(features);
- *
- * //=fc
- */
-module.exports = function(features){
-  return {
-    type: "FeatureCollection",
-    features: features
-  };
-};
-
-},{}],183:[function(require,module,exports){
-/**
- * Combines a {@link FeatureCollection} of {@link Point}, {@link LineString}, or {@link Polygon} features into {@link MultiPoint}, {@link MultiLineString}, or {@link MultiPolygon} features.
- *
- * @module turf/combine
- * @category misc
- * @param {FeatureCollection} fc a FeatureCollection of any type
- * @return {FeatureCollection} a FeatureCollection of corresponding type to input
- * @example
- * var fc = {
- *   "type": "FeatureCollection",
- *   "features": [
- *     {
- *       "type": "Feature",
- *       "properties": {},
- *       "geometry": {
- *         "type": "Point",
- *         "coordinates": [19.026432, 47.49134]
- *       }
- *     }, {
- *       "type": "Feature",
- *       "properties": {},
- *       "geometry": {
- *         "type": "Point",
- *         "coordinates": [19.074497, 47.509548]
- *       }
- *     }
- *   ]
- * };
- *
- * var combined = turf.combine(fc);
- *
- * //=combined
- */
-
-module.exports = function(fc) {
-  var type = fc.features[0].geometry.type;
-  var geometries = fc.features.map(function(f) {
-    return f.geometry;
-  });
-
-  switch (type) {
-    case 'Point':
-      return {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'MultiPoint',
-          coordinates: pluckCoods(geometries)
-        }
-      };
-    case 'LineString':
-      return {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'MultiLineString',
-          coordinates: pluckCoods(geometries)
-        }
-      };
-    case 'Polygon':
-      return {
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'MultiPolygon',
-          coordinates: pluckCoods(geometries)
-        }
-      };
-    default:
-      return fc;
-  }
-};
-
-function pluckCoods(multi){
-  return multi.map(function(geom){
-    return geom.coordinates;
-  });
-}
-
-},{}],184:[function(require,module,exports){
-var featureCollection = require('turf-featurecollection');
-var each = require('turf-meta').coordEach;
-var point = require('turf-point');
-
-/**
- * Takes any {@link GeoJSON} object and return all positions as
- * a {@link FeatureCollection} of {@link Point} features.
- *
- * @module turf/explode
- * @category misc
- * @param {GeoJSON} input input features
- * @return {FeatureCollection} a FeatureCollection of {@link Point} features representing the exploded input features
- * @throws {Error} if it encounters an unknown geometry type
- * @example
- * var poly = {
- *   "type": "Feature",
- *   "properties": {},
- *   "geometry": {
- *     "type": "Polygon",
- *     "coordinates": [[
- *       [177.434692, -17.77517],
- *       [177.402076, -17.779093],
- *       [177.38079, -17.803937],
- *       [177.40242, -17.826164],
- *       [177.438468, -17.824857],
- *       [177.454948, -17.796746],
- *       [177.434692, -17.77517]
- *     ]]
- *   }
- * };
- *
- * var points = turf.explode(poly);
- *
- * //=poly
- *
- * //=points
- */
-module.exports = function(layer) {
-  var points = [];
-  each(layer, function(coord) {
-    points.push(point(coord));
-  });
-  return featureCollection(points);
-};
-
-},{"turf-featurecollection":185,"turf-meta":186,"turf-point":187}],185:[function(require,module,exports){
-arguments[4][182][0].apply(exports,arguments)
-},{"dup":182}],186:[function(require,module,exports){
-/**
- * Lazily iterate over coordinates in any GeoJSON object, similar to
- * Array.forEach.
- *
- * @param {Object} layer any GeoJSON object
- * @param {Function} callback a method that takes (value)
- * @param {boolean=} excludeWrapCoord whether or not to include
- * the final coordinate of LinearRings that wraps the ring in its iteration.
- * @example
- * var point = { type: 'Point', coordinates: [0, 0] };
- * coordEach(point, function(coords) {
- *   // coords is equal to [0, 0]
- * });
- */
-function coordEach(layer, callback, excludeWrapCoord) {
-  var i, j, k, g, geometry, stopG, coords,
-    geometryMaybeCollection,
-    wrapShrink = 0,
-    isGeometryCollection,
-    isFeatureCollection = layer.type === 'FeatureCollection',
-    isFeature = layer.type === 'Feature',
-    stop = isFeatureCollection ? layer.features.length : 1;
-
-  // This logic may look a little weird. The reason why it is that way
-  // is because it's trying to be fast. GeoJSON supports multiple kinds
-  // of objects at its root: FeatureCollection, Features, Geometries.
-  // This function has the responsibility of handling all of them, and that
-  // means that some of the `for` loops you see below actually just don't apply
-  // to certain inputs. For instance, if you give this just a
-  // Point geometry, then both loops are short-circuited and all we do
-  // is gradually rename the input until it's called 'geometry'.
-  //
-  // This also aims to allocate as few resources as possible: just a
-  // few numbers and booleans, rather than any temporary arrays as would
-  // be required with the normalization approach.
-  for (i = 0; i < stop; i++) {
-
-    geometryMaybeCollection = (isFeatureCollection ? layer.features[i].geometry :
-        (isFeature ? layer.geometry : layer));
-    isGeometryCollection = geometryMaybeCollection.type === 'GeometryCollection';
-    stopG = isGeometryCollection ? geometryMaybeCollection.geometries.length : 1;
-
-    for (g = 0; g < stopG; g++) {
-
-      geometry = isGeometryCollection ?
-          geometryMaybeCollection.geometries[g] : geometryMaybeCollection;
-      coords = geometry.coordinates;
-
-      wrapShrink = (excludeWrapCoord &&
-        (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon')) ?
-        1 : 0;
-
-      if (geometry.type === 'Point') {
-        callback(coords);
-      } else if (geometry.type === 'LineString' || geometry.type === 'MultiPoint') {
-        for (j = 0; j < coords.length; j++) callback(coords[j]);
-      } else if (geometry.type === 'Polygon' || geometry.type === 'MultiLineString') {
-        for (j = 0; j < coords.length; j++)
-          for (k = 0; k < coords[j].length - wrapShrink; k++)
-            callback(coords[j][k]);
-      } else if (geometry.type === 'MultiPolygon') {
-        for (j = 0; j < coords.length; j++)
-          for (k = 0; k < coords[j].length; k++)
-            for (l = 0; l < coords[j][k].length - wrapShrink; l++)
-              callback(coords[j][k][l]);
-      } else {
-        throw new Error('Unknown Geometry Type');
-      }
-    }
-  }
-}
-module.exports.coordEach = coordEach;
-
-/**
- * Lazily reduce coordinates in any GeoJSON object into a single value,
- * similar to how Array.reduce works. However, in this case we lazily run
- * the reduction, so an array of all coordinates is unnecessary.
- *
- * @param {Object} layer any GeoJSON object
- * @param {Function} callback a method that takes (memo, value) and returns
- * a new memo
- * @param {boolean=} excludeWrapCoord whether or not to include
- * the final coordinate of LinearRings that wraps the ring in its iteration.
- * @param {*} memo the starting value of memo: can be any type.
- */
-function coordReduce(layer, callback, memo, excludeWrapCoord) {
-  coordEach(layer, function(coord) {
-    memo = callback(memo, coord);
-  }, excludeWrapCoord);
-  return memo;
-}
-module.exports.coordReduce = coordReduce;
-
-/**
- * Lazily iterate over property objects in any GeoJSON object, similar to
- * Array.forEach.
- *
- * @param {Object} layer any GeoJSON object
- * @param {Function} callback a method that takes (value)
- * @example
- * var point = { type: 'Feature', geometry: null, properties: { foo: 1 } };
- * propEach(point, function(props) {
- *   // props is equal to { foo: 1}
- * });
- */
-function propEach(layer, callback) {
-  var i;
-  switch (layer.type) {
-      case 'FeatureCollection':
-        features = layer.features;
-        for (i = 0; i < layer.features.length; i++) {
-            callback(layer.features[i].properties);
-        }
-        break;
-      case 'Feature':
-        callback(layer.properties);
-        break;
-  }
-}
-module.exports.propEach = propEach;
-
-/**
- * Lazily reduce properties in any GeoJSON object into a single value,
- * similar to how Array.reduce works. However, in this case we lazily run
- * the reduction, so an array of all properties is unnecessary.
- *
- * @param {Object} layer any GeoJSON object
- * @param {Function} callback a method that takes (memo, coord) and returns
- * a new memo
- * @param {*} memo the starting value of memo: can be any type.
- */
-function propReduce(layer, callback, memo) {
-  propEach(layer, function(prop) {
-    memo = callback(memo, prop);
-  });
-  return memo;
-}
-module.exports.propReduce = propReduce;
-
-},{}],187:[function(require,module,exports){
-/**
- * Takes coordinates and properties (optional) and returns a new {@link Point} feature.
- *
- * @module turf/point
- * @category helper
- * @param {number} longitude position west to east in decimal degrees
- * @param {number} latitude position south to north in decimal degrees
- * @param {Object} properties an Object that is used as the {@link Feature}'s
- * properties
- * @return {Point} a Point feature
- * @example
- * var pt1 = turf.point([-75.343, 39.984]);
- *
- * //=pt1
- */
-var isArray = Array.isArray || function(arg) {
-  return Object.prototype.toString.call(arg) === '[object Array]';
-};
-module.exports = function(coordinates, properties) {
-  if (!isArray(coordinates)) throw new Error('Coordinates must be an array');
-  if (coordinates.length < 2) throw new Error('Coordinates must be at least 2 numbers long');
-  return {
-    type: "Feature",
-    geometry: {
-      type: "Point",
-      coordinates: coordinates
-    },
-    properties: properties || {}
-  };
-};
-
-},{}],188:[function(require,module,exports){
-/**
- * Takes a {@link GeoJSON} object of any type and flips all of its coordinates
- * from `[x, y]` to `[y, x]`.
- *
- * @module turf/flip
- * @category misc
- * @param {GeoJSON} input input GeoJSON object
- * @returns {GeoJSON} a GeoJSON object of the same type as `input` with flipped coordinates
- * @example
- * var serbia = {
- *   "type": "Feature",
- *   "properties": {},
- *   "geometry": {
- *     "type": "Point",
- *     "coordinates": [20.566406, 43.421008]
- *   }
- * };
- *
- * //=serbia
- *
- * var saudiArabia = turf.flip(serbia);
- *
- * //=saudiArabia
- */
-module.exports = flipAny;
-
-function flipAny(_) {
-    // ensure that we don't modify features in-place and changes to the
-    // output do not change the previous feature, including changes to nested
-    // properties.
-    var input = JSON.parse(JSON.stringify(_));
-    switch (input.type) {
-        case 'FeatureCollection':
-            for (var i = 0; i < input.features.length; i++)
-                flipGeometry(input.features[i].geometry);
-            return input;
-        case 'Feature':
-            flipGeometry(input.geometry);
-            return input;
-        default:
-            flipGeometry(input);
-            return input;
-    }
-}
-
-function flipGeometry(geometry) {
-    var coords = geometry.coordinates;
-    switch(geometry.type) {
-      case 'Point':
-        flip0(coords);
-        break;
-      case 'LineString':
-      case 'MultiPoint':
-        flip1(coords);
-        break;
-      case 'Polygon':
-      case 'MultiLineString':
-        flip2(coords);
-        break;
-      case 'MultiPolygon':
-        flip3(coords);
-        break;
-      case 'GeometryCollection':
-        geometry.geometries.forEach(flipGeometry);
-        break;
-    }
-}
-
-function flip0(coord) {
-    coord.reverse();
-}
-
-function flip1(coords) {
-  for(var i = 0; i < coords.length; i++) coords[i].reverse();
-}
-
-function flip2(coords) {
-  for(var i = 0; i < coords.length; i++)
-    for(var j = 0; j < coords[i].length; j++) coords[i][j].reverse();
-}
-
-function flip3(coords) {
-  for(var i = 0; i < coords.length; i++)
-    for(var j = 0; j < coords[i].length; j++)
-      for(var k = 0; k < coords[i][j].length; k++) coords[i][j][k].reverse();
-}
-
-},{}],189:[function(require,module,exports){
-var point = require('turf-point');
-var polygon = require('turf-polygon');
-var distance = require('turf-distance');
-var featurecollection = require('turf-featurecollection');
-
-/**
- * Takes a bounding box and a cell size in degrees and returns a {@link FeatureCollection} of flat-topped
- * hexagons ({@link Polygon} features) aligned in an "odd-q" vertical grid as
- * described in [Hexagonal Grids](http://www.redblobgames.com/grids/hexagons/)
- *
- * @module turf/hex-grid
- * @category interpolation
- * @param {Array<number>} bbox bounding box in [minX, minY, maxX, maxY] order
- * @param {Number} cellWidth width of cell in specified units
- * @param {String} units used in calculating cellWidth ('miles' or 'kilometers')
- * @return {FeatureCollection} units used in calculating cellWidth ('miles' or 'kilometers')
- * @example
- * var bbox = [-96,31,-84,40];
- * var cellWidth = 50;
- * var units = 'miles';
- *
- * var hexgrid = turf.hexGrid(bbox, cellWidth, units);
- *
- * //=hexgrid
- */
-
-//Precompute cosines and sines of angles used in hexagon creation
-// for performance gain
-var cosines = [];
-var sines = [];
-for (var i = 0; i < 6; i++) {
-  var angle = 2 * Math.PI/6 * i;
-  cosines.push(Math.cos(angle));
-  sines.push(Math.sin(angle));
-}
-
-module.exports = function hexgrid(bbox, cell, units) {
-  var xFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[2], bbox[1]]), units));
-  var cellWidth = xFraction * (bbox[2] - bbox[0]);
-  var yFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[0], bbox[3]]), units));
-  var cellHeight = yFraction * (bbox[3] - bbox[1]);
-  var radius = cellWidth / 2;
-
-  var hex_width = radius * 2;
-  var hex_height = Math.sqrt(3)/2 * hex_width;
-
-  var box_width = bbox[2] - bbox[0];
-  var box_height = bbox[3] - bbox[1];
-
-  var x_interval = 3/4 * hex_width;
-  var y_interval = hex_height;
-
-  var x_span = box_width / (hex_width - radius/2);
-  var x_count = Math.ceil(x_span);
-  if (Math.round(x_span) === x_count) {
-    x_count++;
-  }
-
-  var x_adjust = ((x_count * x_interval - radius/2) - box_width)/2 - radius/2;
-
-  var y_count = Math.ceil(box_height / hex_height);
-
-  var y_adjust = (box_height - y_count * hex_height)/2;
-
-  var hasOffsetY = y_count * hex_height - box_height > hex_height/2;
-  if (hasOffsetY) {
-    y_adjust -= hex_height/4;
-  }
-
-  var fc = featurecollection([]);
-  for (var x = 0; x < x_count; x++) {
-    for (var y = 0; y <= y_count; y++) {
-
-      var isOdd = x % 2 === 1;
-      if (y === 0 && isOdd) {
-        continue;
-      }
-
-      if (y === 0 && hasOffsetY) {
-        continue;
-      }
-
-      var center_x = x * x_interval + bbox[0] - x_adjust;
-      var center_y = y * y_interval + bbox[1] + y_adjust;
-
-      if (isOdd) {
-        center_y -= hex_height/2;
-      }
-      fc.features.push(hexagon([center_x, center_y], radius));
-    }
-  }
-
-  return fc;
-};
-
-//Center should be [x, y]
-function hexagon(center, radius) {
-  var vertices = [];
-  for (var i = 0; i < 6; i++) {
-    var x = center[0] + radius * cosines[i];
-    var y = center[1] + radius * sines[i];
-    vertices.push([x,y]);
-  }
-  //first and last vertex must be the same
-  vertices.push(vertices[0]);
-  return polygon([vertices]);
-}
-},{"turf-distance":190,"turf-featurecollection":192,"turf-point":193,"turf-polygon":194}],190:[function(require,module,exports){
-var invariant = require('turf-invariant');
-//http://en.wikipedia.org/wiki/Haversine_formula
-//http://www.movable-type.co.uk/scripts/latlong.html
-
-/**
- * Takes two {@link Point} features and calculates
- * the distance between them in degress, radians,
- * miles, or kilometers. This uses the
- * [Haversine formula](http://en.wikipedia.org/wiki/Haversine_formula)
- * to account for global curvature.
- *
- * @module turf/distance
- * @category measurement
- * @param {Feature} from origin point
- * @param {Feature} to destination point
- * @param {String} [units=kilometers] can be degrees, radians, miles, or kilometers
- * @return {Number} distance between the two points
- * @example
- * var point1 = {
- *   "type": "Feature",
- *   "properties": {},
- *   "geometry": {
- *     "type": "Point",
- *     "coordinates": [-75.343, 39.984]
- *   }
- * };
- * var point2 = {
- *   "type": "Feature",
- *   "properties": {},
- *   "geometry": {
- *     "type": "Point",
- *     "coordinates": [-75.534, 39.123]
- *   }
- * };
- * var units = "miles";
- *
- * var points = {
- *   "type": "FeatureCollection",
- *   "features": [point1, point2]
- * };
- *
- * //=points
- *
- * var distance = turf.distance(point1, point2, units);
- *
- * //=distance
- */
-module.exports = function(point1, point2, units){
-  invariant.featureOf(point1, 'Point', 'distance');
-  invariant.featureOf(point2, 'Point', 'distance');
-  var coordinates1 = point1.geometry.coordinates;
-  var coordinates2 = point2.geometry.coordinates;
-
-  var dLat = toRad(coordinates2[1] - coordinates1[1]);
-  var dLon = toRad(coordinates2[0] - coordinates1[0]);
-  var lat1 = toRad(coordinates1[1]);
-  var lat2 = toRad(coordinates2[1]);
-  var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-          Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
-  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-  var R;
-  switch(units){
-    case 'miles':
-      R = 3960;
-      break;
-    case 'kilometers':
-      R = 6373;
-      break;
-    case 'degrees':
-      R = 57.2957795;
-      break;
-    case 'radians':
-      R = 1;
-      break;
-    case undefined:
-      R = 6373;
-      break;
-    default:
-      throw new Error('unknown option given to "units"');
-  }
-
-  var distance = R * c;
-  return distance;
-};
-
-function toRad(degree) {
-  return degree * Math.PI / 180;
-}
-
-},{"turf-invariant":191}],191:[function(require,module,exports){
-module.exports.geojsonType = geojsonType;
-module.exports.collectionOf = collectionOf;
-module.exports.featureOf = featureOf;
-
-/**
- * Enforce expectations about types of GeoJSON objects for Turf.
- *
- * @alias geojsonType
- * @param {GeoJSON} value any GeoJSON object
- * @param {string} type expected GeoJSON type
- * @param {String} name name of calling function
- * @throws Error if value is not the expected type.
- */
-function geojsonType(value, type, name) {
-    if (!type || !name) throw new Error('type and name required');
-
-    if (!value || value.type !== type) {
-        throw new Error('Invalid input to ' + name + ': must be a ' + type + ', given ' + value.type);
-    }
-}
-
-/**
- * Enforce expectations about types of {@link Feature} inputs for Turf.
- * Internally this uses {@link geojsonType} to judge geometry types.
- *
- * @alias featureOf
- * @param {Feature} feature a feature with an expected geometry type
- * @param {string} type expected GeoJSON type
- * @param {String} name name of calling function
- * @throws Error if value is not the expected type.
- */
-function featureOf(value, type, name) {
-    if (!name) throw new Error('.featureOf() requires a name');
-    if (!value || value.type !== 'Feature' || !value.geometry) {
-        throw new Error('Invalid input to ' + name + ', Feature with geometry required');
-    }
-    if (!value.geometry || value.geometry.type !== type) {
-        throw new Error('Invalid input to ' + name + ': must be a ' + type + ', given ' + value.geometry.type);
-    }
-}
-
-/**
- * Enforce expectations about types of {@link FeatureCollection} inputs for Turf.
- * Internally this uses {@link geojsonType} to judge geometry types.
- *
- * @alias collectionOf
- * @param {FeatureCollection} featurecollection a featurecollection for which features will be judged
- * @param {string} type expected GeoJSON type
- * @param {String} name name of calling function
- * @throws Error if value is not the expected type.
- */
-function collectionOf(value, type, name) {
-    if (!name) throw new Error('.collectionOf() requires a name');
-    if (!value || value.type !== 'FeatureCollection') {
-        throw new Error('Invalid input to ' + name + ', FeatureCollection required');
-    }
-    for (var i = 0; i < value.features.length; i++) {
-        var feature = value.features[i];
-        if (!feature || feature.type !== 'Feature' || !feature.geometry) {
-            throw new Error('Invalid input to ' + name + ', Feature with geometry required');
-        }
-        if (!feature.geometry || feature.geometry.type !== type) {
-            throw new Error('Invalid input to ' + name + ': must be a ' + type + ', given ' + feature.geometry.type);
-        }
-    }
-}
-
-},{}],192:[function(require,module,exports){
-arguments[4][182][0].apply(exports,arguments)
-},{"dup":182}],193:[function(require,module,exports){
-arguments[4][187][0].apply(exports,arguments)
-},{"dup":187}],194:[function(require,module,exports){
-/**
- * Takes an array of LinearRings and optionally an {@link Object} with properties and returns a GeoJSON {@link Polygon} feature.
- *
- * @module turf/polygon
- * @category helper
- * @param {Array<Array<Number>>} rings an array of LinearRings
- * @param {Object} properties an optional properties object
- * @return {Polygon} a Polygon feature
- * @throws {Error} throw an error if a LinearRing of the polygon has too few positions
- * or if a LinearRing of the Polygon does not have matching Positions at the
- * beginning & end.
- * @example
- * var polygon = turf.polygon([[
- *  [-2.275543, 53.464547],
- *  [-2.275543, 53.489271],
- *  [-2.215118, 53.489271],
- *  [-2.215118, 53.464547],
- *  [-2.275543, 53.464547]
- * ]], { name: 'poly1', population: 400});
- *
- * //=polygon
- */
-module.exports = function(coordinates, properties){
-
-  if (coordinates === null) throw new Error('No coordinates passed');
-
-  for (var i = 0; i < coordinates.length; i++) {
-    var ring = coordinates[i];
-    for (var j = 0; j < ring[ring.length - 1].length; j++) {
-      if (ring.length < 4) {
-        throw new Error('Each LinearRing of a Polygon must have 4 or more Positions.');
-      }
-      if (ring[ring.length - 1][j] !== ring[0][j]) {
-        throw new Error('First and last Position are not equivalent.');
-      }
-    }
-  }
-
-  var polygon = {
-    "type": "Feature",
-    "geometry": {
-      "type": "Polygon",
-      "coordinates": coordinates
-    },
-    "properties": properties
-  };
-
-  if (!polygon.properties) {
-    polygon.properties = {};
-  }
-
-  return polygon;
-};
-
-},{}],195:[function(require,module,exports){
-/**
- * Takes a {@link Polygon} feature and returns a {@link FeatureCollection} of {@link Point} features at all self-intersections.
- *
- * @module turf/kinks
- * @category misc
- * @param {Polygon} polygon a Polygon feature
- * @returns {FeatureCollection} a FeatureCollection of {@link Point} features representing self-intersections
- * @example
- * var poly = {
- *   "type": "Feature",
- *   "properties": {},
- *   "geometry": {
- *     "type": "Polygon",
- *     "coordinates": [[
- *       [-12.034835, 8.901183],
- *       [-12.060413, 8.899826],
- *       [-12.03638, 8.873199],
- *       [-12.059383, 8.871418],
- *       [-12.034835, 8.901183]
- *     ]]
- *   }
- * };
- * 
- * var kinks = turf.kinks(poly);
- *
- * var resultFeatures = kinks.intersections.features.concat(poly);
- * var result = {
- *   "type": "FeatureCollection",
- *   "features": resultFeatures
- * };
- *
- * //=result
- */
-
-var polygon = require('turf-polygon');
-var point = require('turf-point');
-var fc = require('turf-featurecollection');
-
-module.exports = function(polyIn) {
-  var poly;
-  var results = {intersections: fc([]), fixed: null};
-  if (polyIn.type === 'Feature') {
-    poly = polyIn.geometry;
-  } else {
-    poly = polyIn;
-  }
-  var intersectionHash = {};
-  poly.coordinates.forEach(function(ring1){
-    poly.coordinates.forEach(function(ring2){
-      for(var i = 0; i < ring1.length-1; i++) {
-        for(var k = 0; k < ring2.length-1; k++) {
-          var intersection = lineIntersects(ring1[i][0],ring1[i][1],ring1[i+1][0],ring1[i+1][1],
-            ring2[k][0],ring2[k][1],ring2[k+1][0],ring2[k+1][1]);
-          if(intersection) {
-            results.intersections.features.push(point([intersection[0], intersection[1]]));
-          }
-        }
-      }
-    })
-  })
-  return results;
-}
-
-
-// modified from http://jsfiddle.net/justin_c_rounds/Gd2S2/light/
-function lineIntersects(line1StartX, line1StartY, line1EndX, line1EndY, line2StartX, line2StartY, line2EndX, line2EndY) {
-  // if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite) and booleans for whether line segment 1 or line segment 2 contain the point
-  var denominator, a, b, numerator1, numerator2, result = {
-    x: null,
-    y: null,
-    onLine1: false,
-    onLine2: false
-  };
-  denominator = ((line2EndY - line2StartY) * (line1EndX - line1StartX)) - ((line2EndX - line2StartX) * (line1EndY - line1StartY));
-  if (denominator == 0) {
-    if(result.x != null && result.y != null) {
-      return result;
-    } else {
-      return false;
-    }
-  }
-  a = line1StartY - line2StartY;
-  b = line1StartX - line2StartX;
-  numerator1 = ((line2EndX - line2StartX) * a) - ((line2EndY - line2StartY) * b);
-  numerator2 = ((line1EndX - line1StartX) * a) - ((line1EndY - line1StartY) * b);
-  a = numerator1 / denominator;
-  b = numerator2 / denominator;
-
-  // if we cast these lines infinitely in both directions, they intersect here:
-  result.x = line1StartX + (a * (line1EndX - line1StartX));
-  result.y = line1StartY + (a * (line1EndY - line1StartY));
-
-  // if line1 is a segment and line2 is infinite, they intersect if:
-  if (a > 0 && a < 1) {
-    result.onLine1 = true;
-  }
-  // if line2 is a segment and line1 is infinite, they intersect if:
-  if (b > 0 && b < 1) {
-    result.onLine2 = true;
-  }
-  // if line1 and line2 are segments, they intersect if both of the above are true
-  if(result.onLine1 && result.onLine2){
-    return [result.x, result.y];
-  }
-  else {
-    return false;
-  }
-}
-
-},{"turf-featurecollection":196,"turf-point":197,"turf-polygon":198}],196:[function(require,module,exports){
-arguments[4][182][0].apply(exports,arguments)
-},{"dup":182}],197:[function(require,module,exports){
-arguments[4][187][0].apply(exports,arguments)
-},{"dup":187}],198:[function(require,module,exports){
-arguments[4][194][0].apply(exports,arguments)
-},{"dup":194}],199:[function(require,module,exports){
-var clone = require('clone');
-var union = require('turf-union');
-
-/**
- * Takes a {@link FeatureCollection} of {@link Polygon} features and returns a single merged
- * polygon feature. If the input Polygon features are not contiguous, this function returns a {@link MultiPolygon} feature.
- * @module turf/merge
- * @category transformation
- * @param {FeatureCollection} fc a FeatureCollection of {@link Polygon} features
- * @return {Feature} a {@link Polygon} or {@link MultiPolygon} feature
- * @example
- * var polygons = {
- *   "type": "FeatureCollection",
- *   "features": [
- *     {
- *       "type": "Feature",
- *       "properties": {
- *         "fill": "#0f0"
- *       },
- *       "geometry": {
- *         "type": "Polygon",
- *         "coordinates": [[
- *           [9.994812, 53.549487],
- *           [10.046997, 53.598209],
- *           [10.117721, 53.531737],
- *           [9.994812, 53.549487]
- *         ]]
- *       }
- *     }, {
- *       "type": "Feature",
- *       "properties": {
- *         "fill": "#00f"
- *       },
- *       "geometry": {
- *         "type": "Polygon",
- *         "coordinates": [[
- *           [10.000991, 53.50418],
- *           [10.03807, 53.562539],
- *           [9.926834, 53.551731],
- *           [10.000991, 53.50418]
- *         ]]
- *       }
- *     }
- *   ]
- * };
- *
- * var merged = turf.merge(polygons);
- *
- * //=polygons
- *
- * //=merged
- */
-module.exports = function(polygons, done){
-
-  var merged = clone(polygons.features[0]),
-    features = polygons.features;
-
-  for (var i = 0, len = features.length; i < len; i++) {
-    var poly = features[i];
-
-    if(poly.geometry){
-      merged = union(merged, poly);
-    }
-  }
-
-  return merged;
-};
-
-},{"clone":200,"turf-union":201}],200:[function(require,module,exports){
-(function (Buffer){
-'use strict';
-
-function objectToString(o) {
-  return Object.prototype.toString.call(o);
-}
-
-// shim for Node's 'util' package
-// DO NOT REMOVE THIS! It is required for compatibility with EnderJS (http://enderjs.com/).
-var util = {
-  isArray: function (ar) {
-    return Array.isArray(ar) || (typeof ar === 'object' && objectToString(ar) === '[object Array]');
-  },
-  isDate: function (d) {
-    return typeof d === 'object' && objectToString(d) === '[object Date]';
-  },
-  isRegExp: function (re) {
-    return typeof re === 'object' && objectToString(re) === '[object RegExp]';
-  },
-  getRegExpFlags: function (re) {
-    var flags = '';
-    re.global && (flags += 'g');
-    re.ignoreCase && (flags += 'i');
-    re.multiline && (flags += 'm');
-    return flags;
-  }
-};
-
-
-if (typeof module === 'object')
-  module.exports = clone;
-
-/**
- * Clones (copies) an Object using deep copying.
- *
- * This function supports circular references by default, but if you are certain
- * there are no circular references in your object, you can save some CPU time
- * by calling clone(obj, false).
- *
- * Caution: if `circular` is false and `parent` contains circular references,
- * your program may enter an infinite loop and crash.
- *
- * @param `parent` - the object to be cloned
- * @param `circular` - set to true if the object to be cloned may contain
- *    circular references. (optional - true by default)
- * @param `depth` - set to a number if the object is only to be cloned to
- *    a particular depth. (optional - defaults to Infinity)
- * @param `prototype` - sets the prototype to be used when cloning an object.
- *    (optional - defaults to parent prototype).
-*/
-
-function clone(parent, circular, depth, prototype) {
-  // maintain two arrays for circular references, where corresponding parents
-  // and children have the same index
-  var allParents = [];
-  var allChildren = [];
-
-  var useBuffer = typeof Buffer != 'undefined';
-
-  if (typeof circular == 'undefined')
-    circular = true;
-
-  if (typeof depth == 'undefined')
-    depth = Infinity;
-
-  // recurse this function so we don't reset allParents and allChildren
-  function _clone(parent, depth) {
-    // cloning null always returns null
-    if (parent === null)
-      return null;
-
-    if (depth == 0)
-      return parent;
-
-    var child;
-    var proto;
-    if (typeof parent != 'object') {
-      return parent;
-    }
-
-    if (util.isArray(parent)) {
-      child = [];
-    } else if (util.isRegExp(parent)) {
-      child = new RegExp(parent.source, util.getRegExpFlags(parent));
-      if (parent.lastIndex) child.lastIndex = parent.lastIndex;
-    } else if (util.isDate(parent)) {
-      child = new Date(parent.getTime());
-    } else if (useBuffer && Buffer.isBuffer(parent)) {
-      child = new Buffer(parent.length);
-      parent.copy(child);
-      return child;
-    } else {
-      if (typeof prototype == 'undefined') {
-        proto = Object.getPrototypeOf(parent);
-        child = Object.create(proto);
-      }
-      else {
-        child = Object.create(prototype);
-        proto = prototype;
-      }
-    }
-
-    if (circular) {
-      var index = allParents.indexOf(parent);
-
-      if (index != -1) {
-        return allChildren[index];
-      }
-      allParents.push(parent);
-      allChildren.push(child);
-    }
-
-    for (var i in parent) {
-      var attrs;
-      if (proto) {
-        attrs = Object.getOwnPropertyDescriptor(proto, i);
-      }
-      
-      if (attrs && attrs.set == null) {
-        continue;
-      }
-      child[i] = _clone(parent[i], depth - 1);
-    }
-
-    return child;
-  }
-
-  return _clone(parent, depth);
-}
-
-/**
- * Simple flat clone using prototype, accepts only objects, usefull for property
- * override on FLAT configuration object (no nested props).
- *
- * USE WITH CAUTION! This may not behave as you wish if you do not know how this
- * works.
- */
-clone.clonePrototype = function(parent) {
-  if (parent === null)
-    return null;
-
-  var c = function () {};
-  c.prototype = parent;
-  return new c();
-};
-
-}).call(this,require("buffer").Buffer)
-},{"buffer":3}],201:[function(require,module,exports){
-// look here for help http://svn.osgeo.org/grass/grass/branches/releasebranch_6_4/vector/v.overlay/main.c
-//must be array of polygons
-
-// depend on jsts for now https://github.com/bjornharrtell/jsts/blob/master/examples/overlay.html
-
-var jsts = require('jsts');
-
-/**
- * Takes two {@link Polygon|polygons} and returns a combined polygon. If the input polygons are not contiguous, this function returns a {@link MultiPolygon} feature.
- *
- * @module turf/union
- * @category transformation
- * @param {Feature<Polygon>} poly1 input polygon
- * @param {Feature<Polygon>} poly2 another input polygon
- * @return {Feature<(Polygon|MultiPolygon)>} a combined {@link Polygon} or {@link MultiPolygon} feature
- * @example
- * var poly1 = {
- *   "type": "Feature",
- *   "properties": {
- *     "fill": "#0f0"
- *   },
- *   "geometry": {
- *     "type": "Polygon",
- *     "coordinates": [[
- *       [-82.574787, 35.594087],
- *       [-82.574787, 35.615581],
- *       [-82.545261, 35.615581],
- *       [-82.545261, 35.594087],
- *       [-82.574787, 35.594087]
- *     ]]
- *   }
- * };
- * var poly2 = {
- *   "type": "Feature",
- *   "properties": {
- *     "fill": "#00f"
- *   },
- *   "geometry": {
- *     "type": "Polygon",
- *     "coordinates": [[
- *       [-82.560024, 35.585153],
- *       [-82.560024, 35.602602],
- *       [-82.52964, 35.602602],
- *       [-82.52964, 35.585153],
- *       [-82.560024, 35.585153]
- *     ]]
- *   }
- * };
- * var polygons = {
- *   "type": "FeatureCollection",
- *   "features": [poly1, poly2]
- * };
- *
- * var union = turf.union(poly1, poly2);
- *
- * //=polygons
- *
- * //=union
- */
-module.exports = function(poly1, poly2){
-  var reader = new jsts.io.GeoJSONReader();
-  var a = reader.read(JSON.stringify(poly1.geometry));
-  var b = reader.read(JSON.stringify(poly2.geometry));
-  var union = a.union(b);
-  var parser = new jsts.io.GeoJSONParser();
-
-  union = parser.write(union);
-  return {
-    type: 'Feature',
-    geometry: union,
-    properties: poly1.properties
-  };
-}
-
-},{"jsts":202}],202:[function(require,module,exports){
-arguments[4][178][0].apply(exports,arguments)
-},{"./lib/jsts":203,"dup":178,"javascript.util":205}],203:[function(require,module,exports){
-arguments[4][179][0].apply(exports,arguments)
-},{"dup":179}],204:[function(require,module,exports){
-arguments[4][180][0].apply(exports,arguments)
-},{"dup":180}],205:[function(require,module,exports){
-arguments[4][181][0].apply(exports,arguments)
-},{"./dist/javascript.util-node.min.js":204,"dup":181}],206:[function(require,module,exports){
+},{"./dist/javascript.util-node.min.js":257}],259:[function(require,module,exports){
 var ss = require('simple-statistics');
 
 /**
@@ -28858,7 +36049,7 @@ module.exports = function(fc, field, percentiles){
   return quantiles;
 };
 
-},{"simple-statistics":207}],207:[function(require,module,exports){
+},{"simple-statistics":260}],260:[function(require,module,exports){
 /* global module */
 // # simple-statistics
 //
@@ -30429,7 +37620,7 @@ module.exports = function(fc, field, percentiles){
 
 })(this);
 
-},{}],208:[function(require,module,exports){
+},{}],261:[function(require,module,exports){
 var simplify = require('simplify-js');
 
 /**
@@ -30522,7 +37713,7 @@ function simpleFeature (geom, properties) {
   };
 }
 
-},{"simplify-js":209}],209:[function(require,module,exports){
+},{"simplify-js":262}],262:[function(require,module,exports){
 /*
  (c) 2013, Vladimir Agafonkin
  Simplify.js, a high-performance JS polyline simplification library
@@ -30655,10 +37846,7405 @@ else window.simplify = simplify;
 
 })();
 
-},{}],210:[function(require,module,exports){
+},{}],263:[function(require,module,exports){
+/**
+ * Turf is a modular GIS engine written in JavaScript. It performs geospatial
+ * processing tasks with GeoJSON data and can be run on a server or in a browser.
+ *
+ * @module turf
+ * @summary GIS For Web Maps
+ */
+module.exports = {
+  isolines: require('turf-isolines'),
+  merge: require('turf-merge'),
+  convex: require('turf-convex'),
+  within: require('turf-within'),
+  concave: require('turf-concave'),
+  count: require('turf-count'),
+  erase: require('turf-erase'),
+  variance: require('turf-variance'),
+  deviation: require('turf-deviation'),
+  median: require('turf-median'),
+  min: require('turf-min'),
+  max: require('turf-max'),
+  aggregate: require('turf-aggregate'),
+  flip: require('turf-flip'),
+  simplify: require('turf-simplify'),
+  sum: require('turf-sum'),
+  average: require('turf-average'),
+  bezier: require('turf-bezier'),
+  tag: require('turf-tag'),
+  size: require('turf-size'),
+  sample: require('turf-sample'),
+  jenks: require('turf-jenks'),
+  quantile: require('turf-quantile'),
+  envelope: require('turf-envelope'),
+  square: require('turf-square'),
+  midpoint: require('turf-midpoint'),
+  buffer: require('turf-buffer'),
+  center: require('turf-center'),
+  centroid: require('turf-centroid'),
+  combine: require('turf-combine'),
+  distance: require('turf-distance'),
+  explode: require('turf-explode'),
+  extent: require('turf-extent'),
+  bboxPolygon: require('turf-bbox-polygon'),
+  featurecollection: require('turf-featurecollection'),
+  filter: require('turf-filter'),
+  inside: require('turf-inside'),
+  intersect: require('turf-intersect'),
+  linestring: require('turf-linestring'),
+  nearest: require('turf-nearest'),
+  planepoint: require('turf-planepoint'),
+  point: require('turf-point'),
+  polygon: require('turf-polygon'),
+  random: require('turf-random'),
+  reclass: require('turf-reclass'),
+  remove: require('turf-remove'),
+  tin: require('turf-tin'),
+  union: require('turf-union'),
+  bearing: require('turf-bearing'),
+  destination: require('turf-destination'),
+  kinks: require('turf-kinks'),
+  pointOnSurface: require('turf-point-on-surface'),
+  area: require('turf-area'),
+  along: require('turf-along'),
+  lineDistance: require('turf-line-distance'),
+  lineSlice: require('turf-line-slice'),
+  pointOnLine: require('turf-point-on-line'),
+  pointGrid: require('turf-point-grid'),
+  squareGrid: require('turf-square-grid'),
+  triangleGrid: require('turf-triangle-grid'),
+  hexGrid: require('turf-hex-grid')
+};
+
+},{"turf-aggregate":264,"turf-along":265,"turf-area":232,"turf-average":266,"turf-bbox-polygon":267,"turf-bearing":235,"turf-bezier":268,"turf-buffer":270,"turf-center":275,"turf-centroid":276,"turf-combine":236,"turf-concave":278,"turf-convex":279,"turf-count":309,"turf-destination":310,"turf-deviation":311,"turf-distance":313,"turf-envelope":315,"turf-erase":316,"turf-explode":237,"turf-extent":321,"turf-featurecollection":323,"turf-filter":324,"turf-flip":241,"turf-hex-grid":242,"turf-inside":325,"turf-intersect":326,"turf-isolines":332,"turf-jenks":334,"turf-kinks":248,"turf-line-distance":336,"turf-line-slice":337,"turf-linestring":338,"turf-max":339,"turf-median":340,"turf-merge":252,"turf-midpoint":341,"turf-min":342,"turf-nearest":343,"turf-planepoint":344,"turf-point":348,"turf-point-grid":345,"turf-point-on-line":346,"turf-point-on-surface":347,"turf-polygon":349,"turf-quantile":259,"turf-random":350,"turf-reclass":352,"turf-remove":353,"turf-sample":354,"turf-simplify":261,"turf-size":355,"turf-square":357,"turf-square-grid":356,"turf-sum":358,"turf-tag":359,"turf-tin":360,"turf-triangle-grid":361,"turf-union":362,"turf-variance":367,"turf-within":369}],264:[function(require,module,exports){
+var average = require('turf-average');
+var sum = require('turf-sum');
+var median = require('turf-median');
+var min = require('turf-min');
+var max = require('turf-max');
+var deviation = require('turf-deviation');
+var variance = require('turf-variance');
+var count = require('turf-count');
+var operations = {};
+operations.average = average;
+operations.sum = sum;
+operations.median = median;
+operations.min = min;
+operations.max = max;
+operations.deviation = deviation;
+operations.variance = variance;
+operations.count = count;
+
+/**
+* Calculates a series of aggregations for a set of {@link Point} features within a set of {@link Polygon} features. Sum, average, count, min, max, and deviation are supported.
+*
+* @module turf/aggregate
+* @category aggregation
+* @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+* @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+* @param {Array} aggregations an array of aggregation objects
+* @return {FeatureCollection} a FeatureCollection of {@link Polygon} features with properties listed as `outField` values in `aggregations`
+* @example
+* var polygons = {
+*   "type": "FeatureCollection",
+*   "features": [
+*     {
+*       "type": "Feature",
+*       "properties": {},
+*       "geometry": {
+*         "type": "Polygon",
+*         "coordinates": [[
+*           [1.669921, 48.632908],
+*           [1.669921, 49.382372],
+*           [3.636474, 49.382372],
+*           [3.636474, 48.632908],
+*           [1.669921, 48.632908]
+*         ]]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {},
+*       "geometry": {
+*         "type": "Polygon",
+*         "coordinates": [[
+*           [2.230224, 47.85003],
+*           [2.230224, 48.611121],
+*           [4.361572, 48.611121],
+*           [4.361572, 47.85003],
+*           [2.230224, 47.85003]
+*         ]]
+*       }
+*     }
+*   ]
+* };
+* var points = {
+*   "type": "FeatureCollection",
+*   "features": [
+*     {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 200
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [2.054443,49.138596]
+*       }
+*     },
+*     {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 600
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [3.065185,48.850258]
+*       }
+*     },
+*     {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 100
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [2.329101,48.79239]
+*       }
+*     },
+*     {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 200
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [2.614746,48.334343]
+*       }
+*     },
+*     {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 300
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [3.416748,48.056053]
+*       }
+*     }
+*   ]
+* };
+* var aggregations = [
+*   {
+*     aggregation: 'sum',
+*     inField: 'population',
+*     outField: 'pop_sum'
+*   },
+*   {
+*     aggregation: 'average',
+*     inField: 'population',
+*     outField: 'pop_avg'
+*   },
+*   {
+*     aggregation: 'median',
+*     inField: 'population',
+*     outField: 'pop_median'
+*   },
+*   {
+*     aggregation: 'min',
+*     inField: 'population',
+*     outField: 'pop_min'
+*   },
+*   {
+*     aggregation: 'max',
+*     inField: 'population',
+*     outField: 'pop_max'
+*   },
+*   {
+*     aggregation: 'deviation',
+*     inField: 'population',
+*     outField: 'pop_deviation'
+*   },
+*   {
+*     aggregation: 'variance',
+*     inField: 'population',
+*     outField: 'pop_variance'
+*   },
+*   {
+*     aggregation: 'count',
+*     inField: '',
+*     outField: 'point_count'
+*   }
+* ];
+*
+* var aggregated = turf.aggregate(
+*   polygons, points, aggregations);
+*
+* var result = turf.featurecollection(
+*   points.features.concat(aggregated.features));
+*
+* //=result
+*/
+
+module.exports = function(polygons, points, aggregations){
+  for (var i = 0, len = aggregations.length; i < len; i++) {
+    var agg = aggregations[i],
+      operation = agg.aggregation,
+      unrecognizedError;
+
+    if (isAggregationOperation(operation)) {
+      if (operation === 'count') {
+        polygons = operations[operation](polygons, points, agg.outField);
+      } else {
+        polygons = operations[operation](polygons, points, agg.inField, agg.outField);
+      }
+    } else {
+      throw new Error('"'+ operation +'" is not a recognized aggregation operation.');
+    }
+  }
+
+  return polygons;
+};
+
+function isAggregationOperation(operation) {
+  return operation === 'average' ||
+    operation === 'sum' ||
+    operation === 'median' ||
+    operation === 'min' ||
+    operation === 'max' ||
+    operation === 'deviation' ||
+    operation === 'variance' ||
+    operation === 'count';
+}
+
+},{"turf-average":266,"turf-count":309,"turf-deviation":311,"turf-max":339,"turf-median":340,"turf-min":342,"turf-sum":358,"turf-variance":367}],265:[function(require,module,exports){
+var distance = require('turf-distance');
+var point = require('turf-point');
+var bearing = require('turf-bearing');
+var destination = require('turf-destination');
+
+/**
+ * Takes a {@link LineString} feature and returns a {@link Point} feature at a specified distance along a line.
+ *
+ * @module turf/along
+ * @category measurement
+ * @param {LineString} line a LineString feature
+ * @param {Number} distance distance along the line
+ * @param {String} [units=miles] can be degrees, radians, miles, or kilometers
+ * @return {Point} Point along the line at `distance` distance
+ * @example
+ * var line = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "LineString",
+ *     "coordinates": [
+ *       [-77.031669, 38.878605],
+ *       [-77.029609, 38.881946],
+ *       [-77.020339, 38.884084],
+ *       [-77.025661, 38.885821],
+ *       [-77.021884, 38.889563],
+ *       [-77.019824, 38.892368]
+ *     ]
+ *   }
+ * };
+ *
+ * var along = turf.along(line, 1, 'miles');
+ *
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": [line, along]
+ * };
+ *
+ * //=result
+ */
+module.exports = function (line, dist, units) {
+  var coords;
+  if(line.type === 'Feature') coords = line.geometry.coordinates;
+  else if(line.type === 'LineString') coords = line.geometry.coordinates;
+  else throw new Error('input must be a LineString Feature or Geometry');
+
+  var travelled = 0;
+  for(var i = 0; i < coords.length; i++) {
+    if (dist >= travelled && i === coords.length - 1) break;
+    else if(travelled >= dist) {
+      var overshot = dist - travelled;
+      if(!overshot) return point(coords[i]);
+      else {
+        var direction = bearing(point(coords[i]), point(coords[i-1])) - 180;
+        var interpolated = destination(point(coords[i]), overshot, direction, units);
+        return interpolated;
+      }
+    }
+    else {
+      travelled += distance(point(coords[i]), point(coords[i+1]), units);
+    }
+  }
+  return point(coords[coords.length - 1]);
+}
+
+},{"turf-bearing":235,"turf-destination":310,"turf-distance":313,"turf-point":348}],266:[function(require,module,exports){
+var inside = require('turf-inside');
+
+/**
+ * Calculates the average value of a field for a set of {@link Point} features within a set of {@link Polygon} features.
+ *
+ * @module turf/average
+ * @category aggregation
+ * @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {string} field the field in the `points` features from which to pull values to average
+ * @param {string} outputField the field in the `polygons` FeatureCollection to put results of the averages
+ * @return {FeatureCollection} a FeatureCollection of {@link Polygon} features with the value of `outField` set to the calculated average
+ * @example
+* var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [10.666351, 59.890659],
+ *           [10.666351, 59.936784],
+ *           [10.762481, 59.936784],
+ *           [10.762481, 59.890659],
+ *           [10.666351, 59.890659]
+ *         ]]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [10.764541, 59.889281],
+ *           [10.764541, 59.937128],
+ *           [10.866165, 59.937128],
+ *           [10.866165, 59.889281],
+ *           [10.764541, 59.889281]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.724029, 59.926807]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 600
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.715789, 59.904778]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 100
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.746002, 59.908566]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.806427, 59.908910]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 300
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.79544, 59.931624]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var averaged = turf.average(
+ *  polygons, points, 'population', 'pop_avg');
+ *
+ * var resultFeatures = points.features.concat(
+ *   averaged.features);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+module.exports = function(polyFC, ptFC, inField, outField, done){
+  polyFC.features.forEach(function(poly){
+    if(!poly.properties) poly.properties = {};
+    var values = [];
+    ptFC.features.forEach(function(pt){
+      if (inside(pt, poly)) values.push(pt.properties[inField]);
+    });
+    poly.properties[outField] = average(values);
+  });
+
+  return polyFC;
+}
+
+function average(values) {
+  var sum = 0;
+  for (var i = 0; i < values.length; i++) {
+    sum += values[i];
+  }
+  return sum / values.length;
+}
+
+},{"turf-inside":325}],267:[function(require,module,exports){
+var polygon = require('turf-polygon');
+
+/**
+ * Takes a bbox and returns the equivalent {@link Polygon} feature.
+ *
+ * @module turf/bbox-polygon
+ * @category measurement
+ * @param {Array<number>} bbox an Array of bounding box coordinates in the form: ```[xLow, yLow, xHigh, yHigh]```
+ * @return {Polygon} a Polygon representation of the bounding box
+ * @example
+ * var bbox = [0, 0, 10, 10];
+ *
+ * var poly = turf.bboxPolygon(bbox);
+ *
+ * //=poly
+ */
+
+module.exports = function(bbox){
+  var lowLeft = [bbox[0], bbox[1]];
+  var topLeft = [bbox[0], bbox[3]];
+  var topRight = [bbox[2], bbox[3]];
+  var lowRight = [bbox[2], bbox[1]];
+
+  var poly = polygon([[
+    lowLeft,
+    lowRight,
+    topRight,
+    topLeft,
+    lowLeft
+  ]]);
+  return poly;
+}
+
+},{"turf-polygon":349}],268:[function(require,module,exports){
+var linestring = require('turf-linestring');
+var Spline = require('./spline.js');
+
+/**
+ * Takes a {@link LineString} feature and returns a curved version of the line
+ * by applying a [Bezier spline](http://en.wikipedia.org/wiki/B%C3%A9zier_spline)
+ * algorithm.
+ *
+ * The bezier spline implementation is by [Leszek Rybicki](http://leszek.rybicki.cc/).
+ *
+ * @module turf/bezier
+ * @category transformation
+ * @param {LineString} line the input LineString
+ * @param {number} [resolution=10000] time in milliseconds between points
+ * @param {number} [sharpness=0.85] a measure of how curvy the path should be between splines
+ * @returns {LineString} curved line
+ * @example
+ * var line = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "stroke": "#f00"
+ *   },
+ *   "geometry": {
+ *     "type": "LineString",
+ *     "coordinates": [
+ *       [-76.091308, 18.427501],
+ *       [-76.695556, 18.729501],
+ *       [-76.552734, 19.40443],
+ *       [-74.61914, 19.134789],
+ *       [-73.652343, 20.07657],
+ *       [-73.157958, 20.210656]
+ *     ]
+ *   }
+ * };
+ *
+ * var curved = turf.bezier(line);
+ * curved.properties = { stroke: '#0f0' };
+ *
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": [line, curved]
+ * };
+ *
+ * //=result
+ */
+module.exports = function(line, resolution, sharpness){
+  var lineOut = linestring([]);
+
+  lineOut.properties = line.properties;
+  var pts = line.geometry.coordinates.map(function(pt){
+    return {x: pt[0], y: pt[1]};
+  });
+
+  var spline = new Spline({
+    points: pts,
+    duration: resolution,
+    sharpness: sharpness
+  });
+  for (var i=0; i<spline.duration; i+=10) {
+    var pos = spline.pos(i);
+    if (Math.floor(i/100)%2===0) {
+        lineOut.geometry.coordinates.push([pos.x, pos.y]);
+    }
+  }
+
+  return lineOut;
+};
+
+},{"./spline.js":269,"turf-linestring":338}],269:[function(require,module,exports){
+ /**
+   * BezierSpline
+   * http://leszekr.github.com/
+   *
+   * @copyright
+   * Copyright (C) 2012 Leszek Rybicki.
+   *
+   * @license
+   * This file is part of BezierSpline
+   *
+   * BezierSpline is free software: you can redistribute it and/or modify
+   * it under the terms of the GNU Lesser General Public License as published by
+   * the Free Software Foundation, either version 3 of the License, or
+   * (at your option) any later version.
+   *
+   * BezierSpline is distributed in the hope that it will be useful,
+   * but WITHOUT ANY WARRANTY; without even the implied warranty of
+   * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   * GNU General Public License for more details.
+   *
+   * You should have received a copy of the GNU General Public License
+   * along with BezierSpline.  If not, see <http://www.gnu.org/copyleft/lesser.html>.
+   */
+
+  /*
+  Usage:
+
+    var spline = new Spline({
+      points: array_of_control_points,
+      duration: time_in_miliseconds,
+      sharpness: how_curvy,
+      stepLength: distance_between_points_to_cache
+    });
+
+  */
+var Spline = function(options){
+    this.points = options.points || [];
+    this.duration = options.duration || 10000;
+    this.sharpness = options.sharpness || 0.85;
+    this.centers = [];
+    this.controls = [];
+    this.stepLength = options.stepLength || 60;
+    this.length = this.points.length;
+    this.delay = 0;
+    // this is to ensure compatibility with the 2d version
+    for(var i=0; i<this.length; i++) this.points[i].z = this.points[i].z || 0;
+    for(var i=0; i<this.length-1; i++){
+      var p1 = this.points[i];
+      var p2 = this.points[i+1];
+      this.centers.push({x:(p1.x+p2.x)/2, y:(p1.y+p2.y)/2, z:(p1.z+p2.z)/2});
+    }
+    this.controls.push([this.points[0],this.points[0]]);
+    for(var i=0; i<this.centers.length-1; i++){
+      var p1 = this.centers[i];
+      var p2 = this.centers[i+1];
+      var dx = this.points[i+1].x-(this.centers[i].x+this.centers[i+1].x)/2;
+      var dy = this.points[i+1].y-(this.centers[i].y+this.centers[i+1].y)/2;
+      var dz = this.points[i+1].z-(this.centers[i].y+this.centers[i+1].z)/2;
+      this.controls.push([{
+        x:(1.0-this.sharpness)*this.points[i+1].x+this.sharpness*(this.centers[i].x+dx),
+        y:(1.0-this.sharpness)*this.points[i+1].y+this.sharpness*(this.centers[i].y+dy),
+        z:(1.0-this.sharpness)*this.points[i+1].z+this.sharpness*(this.centers[i].z+dz)},
+      {
+        x:(1.0-this.sharpness)*this.points[i+1].x+this.sharpness*(this.centers[i+1].x+dx),
+        y:(1.0-this.sharpness)*this.points[i+1].y+this.sharpness*(this.centers[i+1].y+dy),
+        z:(1.0-this.sharpness)*this.points[i+1].z+this.sharpness*(this.centers[i+1].z+dz)}]);
+    }
+    this.controls.push([this.points[this.length-1],this.points[this.length-1]]);
+    this.steps = this.cacheSteps(this.stepLength);
+    return this;
+  };
+
+  /*
+    Caches an array of equidistant (more or less) points on the curve.
+  */
+  Spline.prototype.cacheSteps = function(mindist){
+    var steps = [];
+    var laststep = this.pos(0);
+    steps.push(0);
+    for(var t=0; t<this.duration; t+=10){
+      var step = this.pos(t);
+      var dist = Math.sqrt((step.x-laststep.x)*(step.x-laststep.x)+(step.y-laststep.y)*(step.y-laststep.y)+(step.z-laststep.z)*(step.z-laststep.z));
+      if(dist>mindist){
+        steps.push(t);
+        laststep = step;
+      }
+    }
+    return steps;
+  };
+
+  /*
+    returns angle and speed in the given point in the curve
+  */
+  Spline.prototype.vector = function(t){
+    var p1 = this.pos(t+10);
+    var p2 = this.pos(t-10);
+    return {
+      angle:180*Math.atan2(p1.y-p2.y, p1.x-p2.x)/3.14,
+      speed:Math.sqrt((p2.x-p1.x)*(p2.x-p1.x)+(p2.y-p1.y)*(p2.y-p1.y)+(p2.z-p1.z)*(p2.z-p1.z))
+    };
+  };
+
+  /*
+    Gets the position of the point, given time.
+
+    WARNING: The speed is not constant. The time it takes between control points is constant.
+
+    For constant speed, use Spline.steps[i];
+  */
+  Spline.prototype.pos = function(time){
+
+    function bezier(t, p1, c1, c2, p2){
+      var B = function(t) {
+        var t2=t*t, t3=t2*t;
+        return [(t3),(3*t2*(1-t)),(3*t*(1-t)*(1-t)),((1-t)*(1-t)*(1-t))]
+      }
+      var b = B(t)
+      var pos = {
+        x : p2.x * b[0] + c2.x * b[1] +c1.x * b[2] + p1.x * b[3],
+        y : p2.y * b[0] + c2.y * b[1] +c1.y * b[2] + p1.y * b[3],
+        z : p2.z * b[0] + c2.z * b[1] +c1.z * b[2] + p1.z * b[3]
+      }
+      return pos;
+    }
+    var t = time-this.delay;
+    if(t<0) t=0;
+    if(t>this.duration) t=this.duration-1;
+    //t = t-this.delay;
+    var t2 = (t)/this.duration;
+    if(t2>=1) return this.points[this.length-1];
+
+    var n = Math.floor((this.points.length-1)*t2);
+    var t1 = (this.length-1)*t2-n;
+    return bezier(t1,this.points[n],this.controls[n][1],this.controls[n+1][0],this.points[n+1]);
+  }
+
+  module.exports = Spline;
+
+},{}],270:[function(require,module,exports){
+// http://stackoverflow.com/questions/839899/how-do-i-calculate-a-point-on-a-circles-circumference
+// radians = degrees * (pi/180)
+// https://github.com/bjornharrtell/jsts/blob/master/examples/buffer.html
+
+var featurecollection = require('turf-featurecollection');
+var polygon = require('turf-polygon');
+var combine = require('turf-combine');
+var jsts = require('jsts');
+
+/**
+* Calculates a buffer for a {@link Point}, {@link LineString}, or {@link Polygon} {@link Feature}/{@link FeatureCollection} for a given radius. Units supported are miles, kilometers, and degrees.
+*
+* @module turf/buffer
+* @category transformation
+* @param {FeatureCollection} feature a Feature or FeatureCollection of any type
+* @param {Number} distance distance to draw the buffer
+* @param {String} unit 'miles' or 'kilometers'
+* @return {FeatureCollection} a FeatureCollection containing {@link Polygon} features representing buffers
+*
+* @example
+* var pt = {
+*   "type": "Feature",
+*   "properties": {},
+*   "geometry": {
+*     "type": "Point",
+*     "coordinates": [-90.548630, 14.616599]
+*   }
+* };
+* var unit = 'miles';
+*
+* var buffered = turf.buffer(pt, 500, unit);
+*
+* var resultFeatures = buffered.features.concat(pt);
+* var result = {
+*   "type": "FeatureCollection",
+*   "features": resultFeatures
+* };
+*
+* //=result
+*/
+
+module.exports = function(feature, radius, units){
+  var buffered;
+
+  switch(units){
+    case 'miles':
+      radius = radius / 69.047;
+      break
+    case 'feet':
+      radius = radius / 364568.0;
+      break
+    case 'kilometers':
+      radius = radius / 111.12;
+      break
+    case 'meters':
+      radius = radius / 111120.0;
+      break
+    case 'degrees':
+      break
+  }
+
+  if(feature.type === 'FeatureCollection'){
+    var multi = combine(feature);
+    multi.properties = {};
+    buffered = bufferOp(multi, radius);
+    return buffered;
+  }
+  else{
+    buffered = bufferOp(feature, radius);
+    return buffered;
+  }
+}
+
+var bufferOp = function(feature, radius){
+  var reader = new jsts.io.GeoJSONReader();
+  var geom = reader.read(JSON.stringify(feature.geometry));
+  var buffered = geom.buffer(radius);
+  var parser = new jsts.io.GeoJSONParser();
+  buffered = parser.write(buffered);
+
+  if(buffered.type === 'MultiPolygon'){
+    buffered = {
+      type: 'Feature',
+      geometry: buffered,
+      properties: {}
+    };
+    buffered = featurecollection([buffered]);
+  }
+  else{
+    buffered = featurecollection([polygon(buffered.coordinates)]);
+  }
+
+  return buffered;
+}
+
+},{"jsts":271,"turf-combine":236,"turf-featurecollection":323,"turf-polygon":349}],271:[function(require,module,exports){
+arguments[4][255][0].apply(exports,arguments)
+},{"./lib/jsts":272,"dup":255,"javascript.util":274}],272:[function(require,module,exports){
+arguments[4][256][0].apply(exports,arguments)
+},{"dup":256}],273:[function(require,module,exports){
+arguments[4][257][0].apply(exports,arguments)
+},{"dup":257}],274:[function(require,module,exports){
+arguments[4][258][0].apply(exports,arguments)
+},{"./dist/javascript.util-node.min.js":273,"dup":258}],275:[function(require,module,exports){
+var extent = require('turf-extent'),
+    point = require('turf-point');
+
+/**
+ * Takes a {@link FeatureCollection} of any type and returns the absolute center point of all features.
+ *
+ * @module turf/center
+ * @category measurement
+ * @param {FeatureCollection} features a FeatureCollection of any type
+ * @return {Point} a Point feature at the
+ * absolute center point of all input features
+ * @example
+ * var features = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.522259, 35.4691]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.502754, 35.463455]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.508269, 35.463245]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.516809, 35.465779]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.515372, 35.467072]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.509363, 35.463053]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.511123, 35.466601]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.518547, 35.469327]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.519706, 35.469659]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.517839, 35.466998]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.508678, 35.464942]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.514914, 35.463453]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var centerPt = turf.center(features);
+ * centerPt.properties['marker-size'] = 'large';
+ * centerPt.properties['marker-color'] = '#000';
+ *
+ * var resultFeatures = features.features.concat(centerPt);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+
+module.exports = function(layer, done){
+  var ext = extent(layer);
+  var x = (ext[0] + ext[2])/2;
+  var y = (ext[1] + ext[3])/2;
+  return point([x, y]);
+};
+
+},{"turf-extent":321,"turf-point":348}],276:[function(require,module,exports){
+var each = require('turf-meta').coordEach;
+var point = require('turf-point');
+
+/**
+ * Takes a {@link Feature} or {@link FeatureCollection} of any type and calculates the centroid using the arithmetic mean of all vertices.
+ * This lessens the effect of small islands and artifacts when calculating
+ * the centroid of a set of polygons.
+ *
+ * @module turf/centroid
+ * @category measurement
+ * @param {GeoJSON} features a {@link Feature} or FeatureCollection of any type
+ * @return {Point} a Point feature at the centroid of the input feature(s)
+ * @example
+ * var poly = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [105.818939,21.004714],
+ *       [105.818939,21.061754],
+ *       [105.890007,21.061754],
+ *       [105.890007,21.004714],
+ *       [105.818939,21.004714]
+ *     ]]
+ *   }
+ * };
+ *
+ * var centroidPt = turf.centroid(poly);
+ *
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": [poly, centroidPt]
+ * };
+ *
+ * //=result
+ */
+module.exports = function(features){
+  var xSum = 0, ySum = 0, len = 0;
+  each(features, function(coord) {
+    xSum += coord[0];
+    ySum += coord[1];
+    len++;
+  }, true);
+  return point([xSum / len, ySum / len]);
+};
+
+},{"turf-meta":277,"turf-point":348}],277:[function(require,module,exports){
+arguments[4][239][0].apply(exports,arguments)
+},{"dup":239}],278:[function(require,module,exports){
+// 1. run tin on points
+// 2. calculate lenth of all edges and area of all triangles
+// 3. remove triangles that fail the max length test
+// 4. buffer the results slightly
+// 5. merge the results
+var t = {};
+t.tin = require('turf-tin');
+t.merge = require('turf-merge');
+t.distance = require('turf-distance');
+t.point = require('turf-point');
+
+/**
+ * Takes a {@link FeatureCollection} of {@link Point} features and
+ * returns a concave hull.
+ *
+ * Internally, this implements
+ * a [Monotone chain algorithm](http://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Convex_hull/Monotone_chain#JavaScript).
+ *
+ * @module turf/concave
+ * @category transformation
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {number} maxEdge the size of an edge necessary for part of the
+ * hull to become concave (in miles)
+ * @param {String} units used for maxEdge distance (miles or kilometers)
+ * @returns {Feature} a {@link Polygon} feature
+ * @throws {Error} if maxEdge parameter is missing
+ * @example
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-63.601226, 44.642643]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-63.591442, 44.651436]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-63.580799, 44.648749]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-63.573589, 44.641788]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-63.587665, 44.64533]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-63.595218, 44.64765]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var hull = turf.concave(points, 1, 'miles');
+ *
+ * var resultFeatures = points.features.concat(hull);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+
+
+module.exports = function(points, maxEdge, units) {
+  if (typeof maxEdge !== 'number') throw new Error('maxEdge parameter is required');
+  if (typeof units !== 'string') throw new Error('units parameter is required');
+
+  var tinPolys = t.tin(points);
+  var filteredPolys = tinPolys.features.filter(filterTriangles);
+  tinPolys.features = filteredPolys;
+
+  function filterTriangles(triangle) {
+    var pt1 = t.point(triangle.geometry.coordinates[0][0]);
+    var pt2 = t.point(triangle.geometry.coordinates[0][1]);
+    var pt3 = t.point(triangle.geometry.coordinates[0][2]);
+    var dist1 = t.distance(pt1, pt2, units);
+    var dist2 = t.distance(pt2, pt3, units);
+    var dist3 = t.distance(pt1, pt3, units);
+    return (dist1 <= maxEdge && dist2 <= maxEdge && dist3 <= maxEdge);
+  }
+
+  return t.merge(tinPolys);
+};
+
+},{"turf-distance":313,"turf-merge":252,"turf-point":348,"turf-tin":360}],279:[function(require,module,exports){
+var each = require('turf-meta').coordEach,
+    convexHull = require('convex-hull'),
+    polygon = require('turf-polygon');
+
+/**
+ * Takes any {@link GeoJSON} object and returns a
+ * [convex hull](http://en.wikipedia.org/wiki/Convex_hull) polygon.
+ *
+ * Internally this uses
+ * the [convex-hull](https://github.com/mikolalysenko/convex-hull) module that
+ * implements a [monotone chain hull](http://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Convex_hull/Monotone_chain).
+ *
+ * @module turf/convex
+ * @category transformation
+ * @param {GeoJSON} input any GeoJSON object
+ * @returns {Feature} a {@link Polygon} feature
+ * @example
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.195312, 43.755225]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.404052, 43.8424511]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.579833, 43.659924]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.360107, 43.516688]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.14038, 43.588348]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [10.195312, 43.755225]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var hull = turf.convex(points);
+ *
+ * var resultFeatures = points.features.concat(hull);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+module.exports = function(fc) {
+  var points = [];
+  each(fc, function(coord) { points.push(coord); });
+  var hull = convexHull(points);
+  var ring = [];
+  for (var i = 0; i < hull.length; i++) {
+      ring.push(points[hull[i][0]]);
+  }
+  ring.push(points[hull[hull.length - 1][1]]);
+  return polygon([ring]);
+};
+
+},{"convex-hull":280,"turf-meta":308,"turf-polygon":349}],280:[function(require,module,exports){
+"use strict"
+
+var convexHull1d = require('./lib/ch1d')
+var convexHull2d = require('./lib/ch2d')
+var convexHullnd = require('./lib/chnd')
+
+module.exports = convexHull
+
+function convexHull(points) {
+  var n = points.length
+  if(n === 0) {
+    return []
+  } else if(n === 1) {
+    return [[0]]
+  }
+  var d = points[0].length
+  if(d === 0) {
+    return []
+  } else if(d === 1) {
+    return convexHull1d(points)
+  } else if(d === 2) {
+    return convexHull2d(points)
+  }
+  return convexHullnd(points, d)
+}
+},{"./lib/ch1d":281,"./lib/ch2d":282,"./lib/chnd":283}],281:[function(require,module,exports){
+"use strict"
+
+module.exports = convexHull1d
+
+function convexHull1d(points) {
+  var lo = 0
+  var hi = 0
+  for(var i=1; i<points.length; ++i) {
+    if(points[i][0] < points[lo][0]) {
+      lo = i
+    }
+    if(points[i][0] > points[hi][0]) {
+      hi = i
+    }
+  }
+  if(lo < hi) {
+    return [[lo], [hi]]
+  } else if(lo > hi) {
+    return [[hi], [lo]]
+  } else {
+    return [[lo]]
+  }
+}
+},{}],282:[function(require,module,exports){
+'use strict'
+
+module.exports = convexHull2D
+
+var monotoneHull = require('monotone-convex-hull-2d')
+
+function convexHull2D(points) {
+  var hull = monotoneHull(points)
+  var h = hull.length
+  if(h <= 2) {
+    return []
+  }
+  var edges = new Array(h)
+  var a = hull[h-1]
+  for(var i=0; i<h; ++i) {
+    var b = hull[i]
+    edges[i] = [a,b]
+    a = b
+  }
+  return edges
+}
+
+},{"monotone-convex-hull-2d":301}],283:[function(require,module,exports){
+'use strict'
+
+module.exports = convexHullnD
+
+var ich = require('incremental-convex-hull')
+var aff = require('affine-hull')
+
+function permute(points, front) {
+  var n = points.length
+  var npoints = new Array(n)
+  for(var i=0; i<front.length; ++i) {
+    npoints[i] = points[front[i]]
+  }
+  var ptr = front.length
+  for(var i=0; i<n; ++i) {
+    if(front.indexOf(i) < 0) {
+      npoints[ptr++] = points[i]
+    }
+  }
+  return npoints
+}
+
+function invPermute(cells, front) {
+  var nc = cells.length
+  var nf = front.length
+  for(var i=0; i<nc; ++i) {
+    var c = cells[i]
+    for(var j=0; j<c.length; ++j) {
+      var x = c[j]
+      if(x < nf) {
+        c[j] = front[x]
+      } else {
+        x = x - nf
+        for(var k=0; k<nf; ++k) {
+          if(x >= front[k]) {
+            x += 1
+          }
+        }
+        c[j] = x
+      }
+    }
+  }
+  return cells
+}
+
+function convexHullnD(points, d) {
+  try {
+    return ich(points, true)
+  } catch(e) {
+    //If point set is degenerate, try to find a basis and rerun it
+    var ah = aff(points)
+    if(ah.length <= d) {
+      //No basis, no try
+      return []
+    }
+    var npoints = permute(points, ah)
+    var nhull   = ich(npoints, true)
+    return invPermute(nhull, ah)
+  }
+}
+},{"affine-hull":284,"incremental-convex-hull":291}],284:[function(require,module,exports){
+'use strict'
+
+module.exports = affineHull
+
+var orient = require('robust-orientation')
+
+function linearlyIndependent(points, d) {
+  var nhull = new Array(d+1)
+  for(var i=0; i<points.length; ++i) {
+    nhull[i] = points[i]
+  }
+  for(var i=0; i<=points.length; ++i) {
+    for(var j=points.length; j<=d; ++j) {
+      var x = new Array(d)
+      for(var k=0; k<d; ++k) {
+        x[k] = Math.pow(j+1-i, k)
+      }
+      nhull[j] = x
+    }
+    var o = orient.apply(void 0, nhull)
+    if(o) {
+      return true
+    }
+  }
+  return false
+}
+
+function affineHull(points) {
+  var n = points.length
+  if(n === 0) {
+    return []
+  }
+  if(n === 1) {
+    return [0]
+  }
+  var d = points[0].length
+  var frame = [ points[0] ]
+  var index = [ 0 ]
+  for(var i=1; i<n; ++i) {
+    frame.push(points[i])
+    if(!linearlyIndependent(frame, d)) {
+      frame.pop()
+      continue
+    }
+    index.push(i)
+    if(index.length === d+1) {
+      return index
+    }
+  }
+  return index
+}
+},{"robust-orientation":290}],285:[function(require,module,exports){
+"use strict"
+
+module.exports = fastTwoSum
+
+function fastTwoSum(a, b, result) {
+	var x = a + b
+	var bv = x - a
+	var av = x - bv
+	var br = b - bv
+	var ar = a - av
+	if(result) {
+		result[0] = ar + br
+		result[1] = x
+		return result
+	}
+	return [ar+br, x]
+}
+},{}],286:[function(require,module,exports){
+"use strict"
+
+var twoProduct = require("two-product")
+var twoSum = require("two-sum")
+
+module.exports = scaleLinearExpansion
+
+function scaleLinearExpansion(e, scale) {
+  var n = e.length
+  if(n === 1) {
+    var ts = twoProduct(e[0], scale)
+    if(ts[0]) {
+      return ts
+    }
+    return [ ts[1] ]
+  }
+  var g = new Array(2 * n)
+  var q = [0.1, 0.1]
+  var t = [0.1, 0.1]
+  var count = 0
+  twoProduct(e[0], scale, q)
+  if(q[0]) {
+    g[count++] = q[0]
+  }
+  for(var i=1; i<n; ++i) {
+    twoProduct(e[i], scale, t)
+    var pq = q[1]
+    twoSum(pq, t[0], q)
+    if(q[0]) {
+      g[count++] = q[0]
+    }
+    var a = t[1]
+    var b = q[1]
+    var x = a + b
+    var bv = x - a
+    var y = b - bv
+    q[1] = x
+    if(y) {
+      g[count++] = y
+    }
+  }
+  if(q[1]) {
+    g[count++] = q[1]
+  }
+  if(count === 0) {
+    g[count++] = 0.0
+  }
+  g.length = count
+  return g
+}
+},{"two-product":289,"two-sum":285}],287:[function(require,module,exports){
+"use strict"
+
+module.exports = robustSubtract
+
+//Easy case: Add two scalars
+function scalarScalar(a, b) {
+  var x = a + b
+  var bv = x - a
+  var av = x - bv
+  var br = b - bv
+  var ar = a - av
+  var y = ar + br
+  if(y) {
+    return [y, x]
+  }
+  return [x]
+}
+
+function robustSubtract(e, f) {
+  var ne = e.length|0
+  var nf = f.length|0
+  if(ne === 1 && nf === 1) {
+    return scalarScalar(e[0], -f[0])
+  }
+  var n = ne + nf
+  var g = new Array(n)
+  var count = 0
+  var eptr = 0
+  var fptr = 0
+  var abs = Math.abs
+  var ei = e[eptr]
+  var ea = abs(ei)
+  var fi = -f[fptr]
+  var fa = abs(fi)
+  var a, b
+  if(ea < fa) {
+    b = ei
+    eptr += 1
+    if(eptr < ne) {
+      ei = e[eptr]
+      ea = abs(ei)
+    }
+  } else {
+    b = fi
+    fptr += 1
+    if(fptr < nf) {
+      fi = -f[fptr]
+      fa = abs(fi)
+    }
+  }
+  if((eptr < ne && ea < fa) || (fptr >= nf)) {
+    a = ei
+    eptr += 1
+    if(eptr < ne) {
+      ei = e[eptr]
+      ea = abs(ei)
+    }
+  } else {
+    a = fi
+    fptr += 1
+    if(fptr < nf) {
+      fi = -f[fptr]
+      fa = abs(fi)
+    }
+  }
+  var x = a + b
+  var bv = x - a
+  var y = b - bv
+  var q0 = y
+  var q1 = x
+  var _x, _bv, _av, _br, _ar
+  while(eptr < ne && fptr < nf) {
+    if(ea < fa) {
+      a = ei
+      eptr += 1
+      if(eptr < ne) {
+        ei = e[eptr]
+        ea = abs(ei)
+      }
+    } else {
+      a = fi
+      fptr += 1
+      if(fptr < nf) {
+        fi = -f[fptr]
+        fa = abs(fi)
+      }
+    }
+    b = q0
+    x = a + b
+    bv = x - a
+    y = b - bv
+    if(y) {
+      g[count++] = y
+    }
+    _x = q1 + x
+    _bv = _x - q1
+    _av = _x - _bv
+    _br = x - _bv
+    _ar = q1 - _av
+    q0 = _ar + _br
+    q1 = _x
+  }
+  while(eptr < ne) {
+    a = ei
+    b = q0
+    x = a + b
+    bv = x - a
+    y = b - bv
+    if(y) {
+      g[count++] = y
+    }
+    _x = q1 + x
+    _bv = _x - q1
+    _av = _x - _bv
+    _br = x - _bv
+    _ar = q1 - _av
+    q0 = _ar + _br
+    q1 = _x
+    eptr += 1
+    if(eptr < ne) {
+      ei = e[eptr]
+    }
+  }
+  while(fptr < nf) {
+    a = fi
+    b = q0
+    x = a + b
+    bv = x - a
+    y = b - bv
+    if(y) {
+      g[count++] = y
+    } 
+    _x = q1 + x
+    _bv = _x - q1
+    _av = _x - _bv
+    _br = x - _bv
+    _ar = q1 - _av
+    q0 = _ar + _br
+    q1 = _x
+    fptr += 1
+    if(fptr < nf) {
+      fi = -f[fptr]
+    }
+  }
+  if(q0) {
+    g[count++] = q0
+  }
+  if(q1) {
+    g[count++] = q1
+  }
+  if(!count) {
+    g[count++] = 0.0  
+  }
+  g.length = count
+  return g
+}
+},{}],288:[function(require,module,exports){
+"use strict"
+
+module.exports = linearExpansionSum
+
+//Easy case: Add two scalars
+function scalarScalar(a, b) {
+  var x = a + b
+  var bv = x - a
+  var av = x - bv
+  var br = b - bv
+  var ar = a - av
+  var y = ar + br
+  if(y) {
+    return [y, x]
+  }
+  return [x]
+}
+
+function linearExpansionSum(e, f) {
+  var ne = e.length|0
+  var nf = f.length|0
+  if(ne === 1 && nf === 1) {
+    return scalarScalar(e[0], f[0])
+  }
+  var n = ne + nf
+  var g = new Array(n)
+  var count = 0
+  var eptr = 0
+  var fptr = 0
+  var abs = Math.abs
+  var ei = e[eptr]
+  var ea = abs(ei)
+  var fi = f[fptr]
+  var fa = abs(fi)
+  var a, b
+  if(ea < fa) {
+    b = ei
+    eptr += 1
+    if(eptr < ne) {
+      ei = e[eptr]
+      ea = abs(ei)
+    }
+  } else {
+    b = fi
+    fptr += 1
+    if(fptr < nf) {
+      fi = f[fptr]
+      fa = abs(fi)
+    }
+  }
+  if((eptr < ne && ea < fa) || (fptr >= nf)) {
+    a = ei
+    eptr += 1
+    if(eptr < ne) {
+      ei = e[eptr]
+      ea = abs(ei)
+    }
+  } else {
+    a = fi
+    fptr += 1
+    if(fptr < nf) {
+      fi = f[fptr]
+      fa = abs(fi)
+    }
+  }
+  var x = a + b
+  var bv = x - a
+  var y = b - bv
+  var q0 = y
+  var q1 = x
+  var _x, _bv, _av, _br, _ar
+  while(eptr < ne && fptr < nf) {
+    if(ea < fa) {
+      a = ei
+      eptr += 1
+      if(eptr < ne) {
+        ei = e[eptr]
+        ea = abs(ei)
+      }
+    } else {
+      a = fi
+      fptr += 1
+      if(fptr < nf) {
+        fi = f[fptr]
+        fa = abs(fi)
+      }
+    }
+    b = q0
+    x = a + b
+    bv = x - a
+    y = b - bv
+    if(y) {
+      g[count++] = y
+    }
+    _x = q1 + x
+    _bv = _x - q1
+    _av = _x - _bv
+    _br = x - _bv
+    _ar = q1 - _av
+    q0 = _ar + _br
+    q1 = _x
+  }
+  while(eptr < ne) {
+    a = ei
+    b = q0
+    x = a + b
+    bv = x - a
+    y = b - bv
+    if(y) {
+      g[count++] = y
+    }
+    _x = q1 + x
+    _bv = _x - q1
+    _av = _x - _bv
+    _br = x - _bv
+    _ar = q1 - _av
+    q0 = _ar + _br
+    q1 = _x
+    eptr += 1
+    if(eptr < ne) {
+      ei = e[eptr]
+    }
+  }
+  while(fptr < nf) {
+    a = fi
+    b = q0
+    x = a + b
+    bv = x - a
+    y = b - bv
+    if(y) {
+      g[count++] = y
+    } 
+    _x = q1 + x
+    _bv = _x - q1
+    _av = _x - _bv
+    _br = x - _bv
+    _ar = q1 - _av
+    q0 = _ar + _br
+    q1 = _x
+    fptr += 1
+    if(fptr < nf) {
+      fi = f[fptr]
+    }
+  }
+  if(q0) {
+    g[count++] = q0
+  }
+  if(q1) {
+    g[count++] = q1
+  }
+  if(!count) {
+    g[count++] = 0.0  
+  }
+  g.length = count
+  return g
+}
+},{}],289:[function(require,module,exports){
+"use strict"
+
+module.exports = twoProduct
+
+var SPLITTER = +(Math.pow(2, 27) + 1.0)
+
+function twoProduct(a, b, result) {
+  var x = a * b
+
+  var c = SPLITTER * a
+  var abig = c - a
+  var ahi = c - abig
+  var alo = a - ahi
+
+  var d = SPLITTER * b
+  var bbig = d - b
+  var bhi = d - bbig
+  var blo = b - bhi
+
+  var err1 = x - (ahi * bhi)
+  var err2 = err1 - (alo * bhi)
+  var err3 = err2 - (ahi * blo)
+
+  var y = alo * blo - err3
+
+  if(result) {
+    result[0] = y
+    result[1] = x
+    return result
+  }
+
+  return [ y, x ]
+}
+},{}],290:[function(require,module,exports){
+"use strict"
+
+var twoProduct = require("two-product")
+var robustSum = require("robust-sum")
+var robustScale = require("robust-scale")
+var robustSubtract = require("robust-subtract")
+
+var NUM_EXPAND = 5
+
+var EPSILON     = 1.1102230246251565e-16
+var ERRBOUND3   = (3.0 + 16.0 * EPSILON) * EPSILON
+var ERRBOUND4   = (7.0 + 56.0 * EPSILON) * EPSILON
+
+function cofactor(m, c) {
+  var result = new Array(m.length-1)
+  for(var i=1; i<m.length; ++i) {
+    var r = result[i-1] = new Array(m.length-1)
+    for(var j=0,k=0; j<m.length; ++j) {
+      if(j === c) {
+        continue
+      }
+      r[k++] = m[i][j]
+    }
+  }
+  return result
+}
+
+function matrix(n) {
+  var result = new Array(n)
+  for(var i=0; i<n; ++i) {
+    result[i] = new Array(n)
+    for(var j=0; j<n; ++j) {
+      result[i][j] = ["m", j, "[", (n-i-1), "]"].join("")
+    }
+  }
+  return result
+}
+
+function sign(n) {
+  if(n & 1) {
+    return "-"
+  }
+  return ""
+}
+
+function generateSum(expr) {
+  if(expr.length === 1) {
+    return expr[0]
+  } else if(expr.length === 2) {
+    return ["sum(", expr[0], ",", expr[1], ")"].join("")
+  } else {
+    var m = expr.length>>1
+    return ["sum(", generateSum(expr.slice(0, m)), ",", generateSum(expr.slice(m)), ")"].join("")
+  }
+}
+
+function determinant(m) {
+  if(m.length === 2) {
+    return [["sum(prod(", m[0][0], ",", m[1][1], "),prod(-", m[0][1], ",", m[1][0], "))"].join("")]
+  } else {
+    var expr = []
+    for(var i=0; i<m.length; ++i) {
+      expr.push(["scale(", generateSum(determinant(cofactor(m, i))), ",", sign(i), m[0][i], ")"].join(""))
+    }
+    return expr
+  }
+}
+
+function orientation(n) {
+  var pos = []
+  var neg = []
+  var m = matrix(n)
+  var args = []
+  for(var i=0; i<n; ++i) {
+    if((i&1)===0) {
+      pos.push.apply(pos, determinant(cofactor(m, i)))
+    } else {
+      neg.push.apply(neg, determinant(cofactor(m, i)))
+    }
+    args.push("m" + i)
+  }
+  var posExpr = generateSum(pos)
+  var negExpr = generateSum(neg)
+  var funcName = "orientation" + n + "Exact"
+  var code = ["function ", funcName, "(", args.join(), "){var p=", posExpr, ",n=", negExpr, ",d=sub(p,n);\
+return d[d.length-1];};return ", funcName].join("")
+  var proc = new Function("sum", "prod", "scale", "sub", code)
+  return proc(robustSum, twoProduct, robustScale, robustSubtract)
+}
+
+var orientation3Exact = orientation(3)
+var orientation4Exact = orientation(4)
+
+var CACHED = [
+  function orientation0() { return 0 },
+  function orientation1() { return 0 },
+  function orientation2(a, b) { 
+    return b[0] - a[0]
+  },
+  function orientation3(a, b, c) {
+    var l = (a[1] - c[1]) * (b[0] - c[0])
+    var r = (a[0] - c[0]) * (b[1] - c[1])
+    var det = l - r
+    var s
+    if(l > 0) {
+      if(r <= 0) {
+        return det
+      } else {
+        s = l + r
+      }
+    } else if(l < 0) {
+      if(r >= 0) {
+        return det
+      } else {
+        s = -(l + r)
+      }
+    } else {
+      return det
+    }
+    var tol = ERRBOUND3 * s
+    if(det >= tol || det <= -tol) {
+      return det
+    }
+    return orientation3Exact(a, b, c)
+  },
+  function orientation4(a,b,c,d) {
+    var adx = a[0] - d[0]
+    var bdx = b[0] - d[0]
+    var cdx = c[0] - d[0]
+    var ady = a[1] - d[1]
+    var bdy = b[1] - d[1]
+    var cdy = c[1] - d[1]
+    var adz = a[2] - d[2]
+    var bdz = b[2] - d[2]
+    var cdz = c[2] - d[2]
+    var bdxcdy = bdx * cdy
+    var cdxbdy = cdx * bdy
+    var cdxady = cdx * ady
+    var adxcdy = adx * cdy
+    var adxbdy = adx * bdy
+    var bdxady = bdx * ady
+    var det = adz * (bdxcdy - cdxbdy) 
+            + bdz * (cdxady - adxcdy)
+            + cdz * (adxbdy - bdxady)
+    var permanent = (Math.abs(bdxcdy) + Math.abs(cdxbdy)) * Math.abs(adz)
+                  + (Math.abs(cdxady) + Math.abs(adxcdy)) * Math.abs(bdz)
+                  + (Math.abs(adxbdy) + Math.abs(bdxady)) * Math.abs(cdz)
+    var tol = ERRBOUND4 * permanent
+    if ((det > tol) || (-det > tol)) {
+      return det
+    }
+    return orientation4Exact(a,b,c,d)
+  }
+]
+
+function slowOrient(args) {
+  var proc = CACHED[args.length]
+  if(!proc) {
+    proc = CACHED[args.length] = orientation(args.length)
+  }
+  return proc.apply(undefined, args)
+}
+
+function generateOrientationProc() {
+  while(CACHED.length <= NUM_EXPAND) {
+    CACHED.push(orientation(CACHED.length))
+  }
+  var args = []
+  var procArgs = ["slow"]
+  for(var i=0; i<=NUM_EXPAND; ++i) {
+    args.push("a" + i)
+    procArgs.push("o" + i)
+  }
+  var code = [
+    "function getOrientation(", args.join(), "){switch(arguments.length){case 0:case 1:return 0;"
+  ]
+  for(var i=2; i<=NUM_EXPAND; ++i) {
+    code.push("case ", i, ":return o", i, "(", args.slice(0, i).join(), ");")
+  }
+  code.push("}var s=new Array(arguments.length);for(var i=0;i<arguments.length;++i){s[i]=arguments[i]};return slow(s);}return getOrientation")
+  procArgs.push(code.join(""))
+
+  var proc = Function.apply(undefined, procArgs)
+  module.exports = proc.apply(undefined, [slowOrient].concat(CACHED))
+  for(var i=0; i<=NUM_EXPAND; ++i) {
+    module.exports[i] = CACHED[i]
+  }
+}
+
+generateOrientationProc()
+},{"robust-scale":286,"robust-subtract":287,"robust-sum":288,"two-product":289}],291:[function(require,module,exports){
+"use strict"
+
+//High level idea:
+// 1. Use Clarkson's incremental construction to find convex hull
+// 2. Point location in triangulation by jump and walk
+
+module.exports = incrementalConvexHull
+
+var orient = require("robust-orientation")
+var compareCell = require("simplicial-complex").compareCells
+
+function compareInt(a, b) {
+  return a - b
+}
+
+function Simplex(vertices, adjacent, boundary) {
+  this.vertices = vertices
+  this.adjacent = adjacent
+  this.boundary = boundary
+  this.lastVisited = -1
+}
+
+Simplex.prototype.flip = function() {
+  var t = this.vertices[0]
+  this.vertices[0] = this.vertices[1]
+  this.vertices[1] = t
+  var u = this.adjacent[0]
+  this.adjacent[0] = this.adjacent[1]
+  this.adjacent[1] = u
+}
+
+function GlueFacet(vertices, cell, index) {
+  this.vertices = vertices
+  this.cell = cell
+  this.index = index
+}
+
+function compareGlue(a, b) {
+  return compareCell(a.vertices, b.vertices)
+}
+
+function bakeOrient(d) {
+  var code = ["function orient(){var tuple=this.tuple;return test("]
+  for(var i=0; i<=d; ++i) {
+    if(i > 0) {
+      code.push(",")
+    }
+    code.push("tuple[", i, "]")
+  }
+  code.push(")}return orient")
+  var proc = new Function("test", code.join(""))
+  var test = orient[d+1]
+  if(!test) {
+    test = orient
+  }
+  return proc(test)
+}
+
+var BAKED = []
+
+function Triangulation(dimension, vertices, simplices) {
+  this.dimension = dimension
+  this.vertices = vertices
+  this.simplices = simplices
+  this.interior = simplices.filter(function(c) {
+    return !c.boundary
+  })
+
+  this.tuple = new Array(dimension+1)
+  for(var i=0; i<=dimension; ++i) {
+    this.tuple[i] = this.vertices[i]
+  }
+
+  var o = BAKED[dimension]
+  if(!o) {
+    o = BAKED[dimension] = bakeOrient(dimension)
+  }
+  this.orient = o
+}
+
+var proto = Triangulation.prototype
+
+//Degenerate situation where we are on boundary, but coplanar to face
+proto.handleBoundaryDegeneracy = function(cell, point) {
+  var d = this.dimension
+  var n = this.vertices.length - 1
+  var tuple = this.tuple
+  var verts = this.vertices
+
+  //Dumb solution: Just do dfs from boundary cell until we find any peak, or terminate
+  var toVisit = [ cell ]
+  cell.lastVisited = -n
+  while(toVisit.length > 0) {
+    cell = toVisit.pop()
+    var cellVerts = cell.vertices
+    var cellAdj = cell.adjacent
+    for(var i=0; i<=d; ++i) {
+      var neighbor = cellAdj[i]
+      if(!neighbor.boundary || neighbor.lastVisited <= -n) {
+        continue
+      }
+      var nv = neighbor.vertices
+      for(var j=0; j<=d; ++j) {
+        var vv = nv[j]
+        if(vv < 0) {
+          tuple[j] = point
+        } else {
+          tuple[j] = verts[vv]
+        }
+      }
+      var o = this.orient()
+      if(o > 0) {
+        return neighbor
+      }
+      neighbor.lastVisited = -n
+      if(o === 0) {
+        toVisit.push(neighbor)
+      }
+    }
+  }
+  return null
+}
+
+proto.walk = function(point, random) {
+  //Alias local properties
+  var n = this.vertices.length - 1
+  var d = this.dimension
+  var verts = this.vertices
+  var tuple = this.tuple
+
+  //Compute initial jump cell
+  var initIndex = random ? (this.interior.length * Math.random())|0 : (this.interior.length-1)
+  var cell = this.interior[ initIndex ]
+
+  //Start walking
+outerLoop:
+  while(!cell.boundary) {
+    var cellVerts = cell.vertices
+    var cellAdj = cell.adjacent
+
+    for(var i=0; i<=d; ++i) {
+      tuple[i] = verts[cellVerts[i]]
+    }
+    cell.lastVisited = n
+
+    //Find farthest adjacent cell
+    for(var i=0; i<=d; ++i) {
+      var neighbor = cellAdj[i]
+      if(neighbor.lastVisited >= n) {
+        continue
+      }
+      var prev = tuple[i]
+      tuple[i] = point
+      var o = this.orient()
+      tuple[i] = prev
+      if(o < 0) {
+        cell = neighbor
+        continue outerLoop
+      } else {
+        if(!neighbor.boundary) {
+          neighbor.lastVisited = n
+        } else {
+          neighbor.lastVisited = -n
+        }
+      }
+    }
+    return
+  }
+
+  return cell
+}
+
+proto.addPeaks = function(point, cell) {
+  var n = this.vertices.length - 1
+  var d = this.dimension
+  var verts = this.vertices
+  var tuple = this.tuple
+  var interior = this.interior
+  var simplices = this.simplices
+
+  //Walking finished at boundary, time to add peaks
+  var tovisit = [ cell ]
+
+  //Stretch initial boundary cell into a peak
+  cell.lastVisited = n
+  cell.vertices[cell.vertices.indexOf(-1)] = n
+  cell.boundary = false
+  interior.push(cell)
+
+  //Record a list of all new boundaries created by added peaks so we can glue them together when we are all done
+  var glueFacets = []
+
+  //Do a traversal of the boundary walking outward from starting peak
+  while(tovisit.length > 0) {
+    //Pop off peak and walk over adjacent cells
+    var cell = tovisit.pop()
+    var cellVerts = cell.vertices
+    var cellAdj = cell.adjacent
+    var indexOfN = cellVerts.indexOf(n)
+    if(indexOfN < 0) {
+      continue
+    }
+
+    for(var i=0; i<=d; ++i) {
+      if(i === indexOfN) {
+        continue
+      }
+
+      //For each boundary neighbor of the cell
+      var neighbor = cellAdj[i]
+      if(!neighbor.boundary || neighbor.lastVisited >= n) {
+        continue
+      }
+
+      var nv = neighbor.vertices
+
+      //Test if neighbor is a peak
+      if(neighbor.lastVisited !== -n) {      
+        //Compute orientation of p relative to each boundary peak
+        var indexOfNeg1 = 0
+        for(var j=0; j<=d; ++j) {
+          if(nv[j] < 0) {
+            indexOfNeg1 = j
+            tuple[j] = point
+          } else {
+            tuple[j] = verts[nv[j]]
+          }
+        }
+        var o = this.orient()
+
+        //Test if neighbor cell is also a peak
+        if(o > 0) {
+          nv[indexOfNeg1] = n
+          neighbor.boundary = false
+          interior.push(neighbor)
+          tovisit.push(neighbor)
+          neighbor.lastVisited = n
+          continue
+        } else {
+          neighbor.lastVisited = -n
+        }
+      }
+
+      var na = neighbor.adjacent
+
+      //Otherwise, replace neighbor with new face
+      var vverts = cellVerts.slice()
+      var vadj = cellAdj.slice()
+      var ncell = new Simplex(vverts, vadj, true)
+      simplices.push(ncell)
+
+      //Connect to neighbor
+      var opposite = na.indexOf(cell)
+      if(opposite < 0) {
+        continue
+      }
+      na[opposite] = ncell
+      vadj[indexOfN] = neighbor
+
+      //Connect to cell
+      vverts[i] = -1
+      vadj[i] = cell
+      cellAdj[i] = ncell
+
+      //Flip facet
+      ncell.flip()
+
+      //Add to glue list
+      for(var j=0; j<=d; ++j) {
+        var uu = vverts[j]
+        if(uu < 0 || uu === n) {
+          continue
+        }
+        var nface = new Array(d-1)
+        var nptr = 0
+        for(var k=0; k<=d; ++k) {
+          var vv = vverts[k]
+          if(vv < 0 || k === j) {
+            continue
+          }
+          nface[nptr++] = vv
+        }
+        glueFacets.push(new GlueFacet(nface, ncell, j))
+      }
+    }
+  }
+
+  //Glue boundary facets together
+  glueFacets.sort(compareGlue)
+
+  for(var i=0; i+1<glueFacets.length; i+=2) {
+    var a = glueFacets[i]
+    var b = glueFacets[i+1]
+    var ai = a.index
+    var bi = b.index
+    if(ai < 0 || bi < 0) {
+      continue
+    }
+    a.cell.adjacent[a.index] = b.cell
+    b.cell.adjacent[b.index] = a.cell
+  }
+}
+
+proto.insert = function(point, random) {
+  //Add point
+  var verts = this.vertices
+  verts.push(point)
+
+  var cell = this.walk(point, random)
+  if(!cell) {
+    return
+  }
+
+  //Alias local properties
+  var d = this.dimension
+  var tuple = this.tuple
+
+  //Degenerate case: If point is coplanar to cell, then walk until we find a non-degenerate boundary
+  for(var i=0; i<=d; ++i) {
+    var vv = cell.vertices[i]
+    if(vv < 0) {
+      tuple[i] = point
+    } else {
+      tuple[i] = verts[vv]
+    }
+  }
+  var o = this.orient(tuple)
+  if(o < 0) {
+    return
+  } else if(o === 0) {
+    cell = this.handleBoundaryDegeneracy(cell, point)
+    if(!cell) {
+      return
+    }
+  }
+
+  //Add peaks
+  this.addPeaks(point, cell)
+}
+
+//Extract all boundary cells
+proto.boundary = function() {
+  var d = this.dimension
+  var boundary = []
+  var cells = this.simplices
+  var nc = cells.length
+  for(var i=0; i<nc; ++i) {
+    var c = cells[i]
+    if(c.boundary) {
+      var bcell = new Array(d)
+      var cv = c.vertices
+      var ptr = 0
+      var parity = 0
+      for(var j=0; j<=d; ++j) {
+        if(cv[j] >= 0) {
+          bcell[ptr++] = cv[j]
+        } else {
+          parity = j&1
+        }
+      }
+      if(parity === (d&1)) {
+        var t = bcell[0]
+        bcell[0] = bcell[1]
+        bcell[1] = t
+      }
+      boundary.push(bcell)
+    }
+  }
+  return boundary
+}
+
+function incrementalConvexHull(points, randomSearch) {
+  var n = points.length
+  if(n === 0) {
+    throw new Error("Must have at least d+1 points")
+  }
+  var d = points[0].length
+  if(n <= d) {
+    throw new Error("Must input at least d+1 points")
+  }
+
+  //FIXME: This could be degenerate, but need to select d+1 non-coplanar points to bootstrap process
+  var initialSimplex = points.slice(0, d+1)
+
+  //Make sure initial simplex is positively oriented
+  var o = orient.apply(void 0, initialSimplex)
+  if(o === 0) {
+    throw new Error("Input not in general position")
+  }
+  var initialCoords = new Array(d+1)
+  for(var i=0; i<=d; ++i) {
+    initialCoords[i] = i
+  }
+  if(o < 0) {
+    initialCoords[0] = 1
+    initialCoords[1] = 0
+  }
+
+  //Create initial topological index, glue pointers together (kind of messy)
+  var initialCell = new Simplex(initialCoords, new Array(d+1), false)
+  var boundary = initialCell.adjacent
+  var list = new Array(d+2)
+  for(var i=0; i<=d; ++i) {
+    var verts = initialCoords.slice()
+    for(var j=0; j<=d; ++j) {
+      if(j === i) {
+        verts[j] = -1
+      }
+    }
+    var t = verts[0]
+    verts[0] = verts[1]
+    verts[1] = t
+    var cell = new Simplex(verts, new Array(d+1), true)
+    boundary[i] = cell
+    list[i] = cell
+  }
+  list[d+1] = initialCell
+  for(var i=0; i<=d; ++i) {
+    var verts = boundary[i].vertices
+    var adj = boundary[i].adjacent
+    for(var j=0; j<=d; ++j) {
+      var v = verts[j]
+      if(v < 0) {
+        adj[j] = initialCell
+        continue
+      }
+      for(var k=0; k<=d; ++k) {
+        if(boundary[k].vertices.indexOf(v) < 0) {
+          adj[j] = boundary[k]
+        }
+      }
+    }
+  }
+
+  //Initialize triangles
+  var triangles = new Triangulation(d, initialSimplex, list)
+
+  //Insert remaining points
+  var useRandom = !!randomSearch
+  for(var i=d+1; i<n; ++i) {
+    triangles.insert(points[i], useRandom)
+  }
+  
+  //Extract boundary cells
+  return triangles.boundary()
+}
+},{"robust-orientation":297,"simplicial-complex":300}],292:[function(require,module,exports){
+arguments[4][285][0].apply(exports,arguments)
+},{"dup":285}],293:[function(require,module,exports){
+arguments[4][286][0].apply(exports,arguments)
+},{"dup":286,"two-product":296,"two-sum":292}],294:[function(require,module,exports){
+arguments[4][287][0].apply(exports,arguments)
+},{"dup":287}],295:[function(require,module,exports){
+arguments[4][288][0].apply(exports,arguments)
+},{"dup":288}],296:[function(require,module,exports){
+arguments[4][289][0].apply(exports,arguments)
+},{"dup":289}],297:[function(require,module,exports){
+arguments[4][290][0].apply(exports,arguments)
+},{"dup":290,"robust-scale":293,"robust-subtract":294,"robust-sum":295,"two-product":296}],298:[function(require,module,exports){
+/**
+ * Bit twiddling hacks for JavaScript.
+ *
+ * Author: Mikola Lysenko
+ *
+ * Ported from Stanford bit twiddling hack library:
+ *    http://graphics.stanford.edu/~seander/bithacks.html
+ */
+
+"use strict"; "use restrict";
+
+//Number of bits in an integer
+var INT_BITS = 32;
+
+//Constants
+exports.INT_BITS  = INT_BITS;
+exports.INT_MAX   =  0x7fffffff;
+exports.INT_MIN   = -1<<(INT_BITS-1);
+
+//Returns -1, 0, +1 depending on sign of x
+exports.sign = function(v) {
+  return (v > 0) - (v < 0);
+}
+
+//Computes absolute value of integer
+exports.abs = function(v) {
+  var mask = v >> (INT_BITS-1);
+  return (v ^ mask) - mask;
+}
+
+//Computes minimum of integers x and y
+exports.min = function(x, y) {
+  return y ^ ((x ^ y) & -(x < y));
+}
+
+//Computes maximum of integers x and y
+exports.max = function(x, y) {
+  return x ^ ((x ^ y) & -(x < y));
+}
+
+//Checks if a number is a power of two
+exports.isPow2 = function(v) {
+  return !(v & (v-1)) && (!!v);
+}
+
+//Computes log base 2 of v
+exports.log2 = function(v) {
+  var r, shift;
+  r =     (v > 0xFFFF) << 4; v >>>= r;
+  shift = (v > 0xFF  ) << 3; v >>>= shift; r |= shift;
+  shift = (v > 0xF   ) << 2; v >>>= shift; r |= shift;
+  shift = (v > 0x3   ) << 1; v >>>= shift; r |= shift;
+  return r | (v >> 1);
+}
+
+//Computes log base 10 of v
+exports.log10 = function(v) {
+  return  (v >= 1000000000) ? 9 : (v >= 100000000) ? 8 : (v >= 10000000) ? 7 :
+          (v >= 1000000) ? 6 : (v >= 100000) ? 5 : (v >= 10000) ? 4 :
+          (v >= 1000) ? 3 : (v >= 100) ? 2 : (v >= 10) ? 1 : 0;
+}
+
+//Counts number of bits
+exports.popCount = function(v) {
+  v = v - ((v >>> 1) & 0x55555555);
+  v = (v & 0x33333333) + ((v >>> 2) & 0x33333333);
+  return ((v + (v >>> 4) & 0xF0F0F0F) * 0x1010101) >>> 24;
+}
+
+//Counts number of trailing zeros
+function countTrailingZeros(v) {
+  var c = 32;
+  v &= -v;
+  if (v) c--;
+  if (v & 0x0000FFFF) c -= 16;
+  if (v & 0x00FF00FF) c -= 8;
+  if (v & 0x0F0F0F0F) c -= 4;
+  if (v & 0x33333333) c -= 2;
+  if (v & 0x55555555) c -= 1;
+  return c;
+}
+exports.countTrailingZeros = countTrailingZeros;
+
+//Rounds to next power of 2
+exports.nextPow2 = function(v) {
+  v += v === 0;
+  --v;
+  v |= v >>> 1;
+  v |= v >>> 2;
+  v |= v >>> 4;
+  v |= v >>> 8;
+  v |= v >>> 16;
+  return v + 1;
+}
+
+//Rounds down to previous power of 2
+exports.prevPow2 = function(v) {
+  v |= v >>> 1;
+  v |= v >>> 2;
+  v |= v >>> 4;
+  v |= v >>> 8;
+  v |= v >>> 16;
+  return v - (v>>>1);
+}
+
+//Computes parity of word
+exports.parity = function(v) {
+  v ^= v >>> 16;
+  v ^= v >>> 8;
+  v ^= v >>> 4;
+  v &= 0xf;
+  return (0x6996 >>> v) & 1;
+}
+
+var REVERSE_TABLE = new Array(256);
+
+(function(tab) {
+  for(var i=0; i<256; ++i) {
+    var v = i, r = i, s = 7;
+    for (v >>>= 1; v; v >>>= 1) {
+      r <<= 1;
+      r |= v & 1;
+      --s;
+    }
+    tab[i] = (r << s) & 0xff;
+  }
+})(REVERSE_TABLE);
+
+//Reverse bits in a 32 bit word
+exports.reverse = function(v) {
+  return  (REVERSE_TABLE[ v         & 0xff] << 24) |
+          (REVERSE_TABLE[(v >>> 8)  & 0xff] << 16) |
+          (REVERSE_TABLE[(v >>> 16) & 0xff] << 8)  |
+           REVERSE_TABLE[(v >>> 24) & 0xff];
+}
+
+//Interleave bits of 2 coordinates with 16 bits.  Useful for fast quadtree codes
+exports.interleave2 = function(x, y) {
+  x &= 0xFFFF;
+  x = (x | (x << 8)) & 0x00FF00FF;
+  x = (x | (x << 4)) & 0x0F0F0F0F;
+  x = (x | (x << 2)) & 0x33333333;
+  x = (x | (x << 1)) & 0x55555555;
+
+  y &= 0xFFFF;
+  y = (y | (y << 8)) & 0x00FF00FF;
+  y = (y | (y << 4)) & 0x0F0F0F0F;
+  y = (y | (y << 2)) & 0x33333333;
+  y = (y | (y << 1)) & 0x55555555;
+
+  return x | (y << 1);
+}
+
+//Extracts the nth interleaved component
+exports.deinterleave2 = function(v, n) {
+  v = (v >>> n) & 0x55555555;
+  v = (v | (v >>> 1))  & 0x33333333;
+  v = (v | (v >>> 2))  & 0x0F0F0F0F;
+  v = (v | (v >>> 4))  & 0x00FF00FF;
+  v = (v | (v >>> 16)) & 0x000FFFF;
+  return (v << 16) >> 16;
+}
+
+
+//Interleave bits of 3 coordinates, each with 10 bits.  Useful for fast octree codes
+exports.interleave3 = function(x, y, z) {
+  x &= 0x3FF;
+  x  = (x | (x<<16)) & 4278190335;
+  x  = (x | (x<<8))  & 251719695;
+  x  = (x | (x<<4))  & 3272356035;
+  x  = (x | (x<<2))  & 1227133513;
+
+  y &= 0x3FF;
+  y  = (y | (y<<16)) & 4278190335;
+  y  = (y | (y<<8))  & 251719695;
+  y  = (y | (y<<4))  & 3272356035;
+  y  = (y | (y<<2))  & 1227133513;
+  x |= (y << 1);
+  
+  z &= 0x3FF;
+  z  = (z | (z<<16)) & 4278190335;
+  z  = (z | (z<<8))  & 251719695;
+  z  = (z | (z<<4))  & 3272356035;
+  z  = (z | (z<<2))  & 1227133513;
+  
+  return x | (z << 2);
+}
+
+//Extracts nth interleaved component of a 3-tuple
+exports.deinterleave3 = function(v, n) {
+  v = (v >>> n)       & 1227133513;
+  v = (v | (v>>>2))   & 3272356035;
+  v = (v | (v>>>4))   & 251719695;
+  v = (v | (v>>>8))   & 4278190335;
+  v = (v | (v>>>16))  & 0x3FF;
+  return (v<<22)>>22;
+}
+
+//Computes next combination in colexicographic order (this is mistakenly called nextPermutation on the bit twiddling hacks page)
+exports.nextCombination = function(v) {
+  var t = v | (v - 1);
+  return (t + 1) | (((~t & -~t) - 1) >>> (countTrailingZeros(v) + 1));
+}
+
+
+},{}],299:[function(require,module,exports){
+"use strict"; "use restrict";
+
+module.exports = UnionFind;
+
+function UnionFind(count) {
+  this.roots = new Array(count);
+  this.ranks = new Array(count);
+  
+  for(var i=0; i<count; ++i) {
+    this.roots[i] = i;
+    this.ranks[i] = 0;
+  }
+}
+
+var proto = UnionFind.prototype
+
+Object.defineProperty(proto, "length", {
+  "get": function() {
+    return this.roots.length
+  }
+})
+
+proto.makeSet = function() {
+  var n = this.roots.length;
+  this.roots.push(n);
+  this.ranks.push(0);
+  return n;
+}
+
+proto.find = function(x) {
+  var x0 = x
+  var roots = this.roots;
+  while(roots[x] !== x) {
+    x = roots[x]
+  }
+  while(roots[x0] !== x) {
+    var y = roots[x0]
+    roots[x0] = x
+    x0 = y
+  }
+  return x;
+}
+
+proto.link = function(x, y) {
+  var xr = this.find(x)
+    , yr = this.find(y);
+  if(xr === yr) {
+    return;
+  }
+  var ranks = this.ranks
+    , roots = this.roots
+    , xd    = ranks[xr]
+    , yd    = ranks[yr];
+  if(xd < yd) {
+    roots[xr] = yr;
+  } else if(yd < xd) {
+    roots[yr] = xr;
+  } else {
+    roots[yr] = xr;
+    ++ranks[xr];
+  }
+}
+},{}],300:[function(require,module,exports){
+"use strict"; "use restrict";
+
+var bits      = require("bit-twiddle")
+  , UnionFind = require("union-find")
+
+//Returns the dimension of a cell complex
+function dimension(cells) {
+  var d = 0
+    , max = Math.max
+  for(var i=0, il=cells.length; i<il; ++i) {
+    d = max(d, cells[i].length)
+  }
+  return d-1
+}
+exports.dimension = dimension
+
+//Counts the number of vertices in faces
+function countVertices(cells) {
+  var vc = -1
+    , max = Math.max
+  for(var i=0, il=cells.length; i<il; ++i) {
+    var c = cells[i]
+    for(var j=0, jl=c.length; j<jl; ++j) {
+      vc = max(vc, c[j])
+    }
+  }
+  return vc+1
+}
+exports.countVertices = countVertices
+
+//Returns a deep copy of cells
+function cloneCells(cells) {
+  var ncells = new Array(cells.length)
+  for(var i=0, il=cells.length; i<il; ++i) {
+    ncells[i] = cells[i].slice(0)
+  }
+  return ncells
+}
+exports.cloneCells = cloneCells
+
+//Ranks a pair of cells up to permutation
+function compareCells(a, b) {
+  var n = a.length
+    , t = a.length - b.length
+    , min = Math.min
+  if(t) {
+    return t
+  }
+  switch(n) {
+    case 0:
+      return 0;
+    case 1:
+      return a[0] - b[0];
+    case 2:
+      var d = a[0]+a[1]-b[0]-b[1]
+      if(d) {
+        return d
+      }
+      return min(a[0],a[1]) - min(b[0],b[1])
+    case 3:
+      var l1 = a[0]+a[1]
+        , m1 = b[0]+b[1]
+      d = l1+a[2] - (m1+b[2])
+      if(d) {
+        return d
+      }
+      var l0 = min(a[0], a[1])
+        , m0 = min(b[0], b[1])
+        , d  = min(l0, a[2]) - min(m0, b[2])
+      if(d) {
+        return d
+      }
+      return min(l0+a[2], l1) - min(m0+b[2], m1)
+    
+    //TODO: Maybe optimize n=4 as well?
+    
+    default:
+      var as = a.slice(0)
+      as.sort()
+      var bs = b.slice(0)
+      bs.sort()
+      for(var i=0; i<n; ++i) {
+        t = as[i] - bs[i]
+        if(t) {
+          return t
+        }
+      }
+      return 0
+  }
+}
+exports.compareCells = compareCells
+
+function compareZipped(a, b) {
+  return compareCells(a[0], b[0])
+}
+
+//Puts a cell complex into normal order for the purposes of findCell queries
+function normalize(cells, attr) {
+  if(attr) {
+    var len = cells.length
+    var zipped = new Array(len)
+    for(var i=0; i<len; ++i) {
+      zipped[i] = [cells[i], attr[i]]
+    }
+    zipped.sort(compareZipped)
+    for(var i=0; i<len; ++i) {
+      cells[i] = zipped[i][0]
+      attr[i] = zipped[i][1]
+    }
+    return cells
+  } else {
+    cells.sort(compareCells)
+    return cells
+  }
+}
+exports.normalize = normalize
+
+//Removes all duplicate cells in the complex
+function unique(cells) {
+  if(cells.length === 0) {
+    return []
+  }
+  var ptr = 1
+    , len = cells.length
+  for(var i=1; i<len; ++i) {
+    var a = cells[i]
+    if(compareCells(a, cells[i-1])) {
+      if(i === ptr) {
+        ptr++
+        continue
+      }
+      cells[ptr++] = a
+    }
+  }
+  cells.length = ptr
+  return cells
+}
+exports.unique = unique;
+
+//Finds a cell in a normalized cell complex
+function findCell(cells, c) {
+  var lo = 0
+    , hi = cells.length-1
+    , r  = -1
+  while (lo <= hi) {
+    var mid = (lo + hi) >> 1
+      , s   = compareCells(cells[mid], c)
+    if(s <= 0) {
+      if(s === 0) {
+        r = mid
+      }
+      lo = mid + 1
+    } else if(s > 0) {
+      hi = mid - 1
+    }
+  }
+  return r
+}
+exports.findCell = findCell;
+
+//Builds an index for an n-cell.  This is more general than dual, but less efficient
+function incidence(from_cells, to_cells) {
+  var index = new Array(from_cells.length)
+  for(var i=0, il=index.length; i<il; ++i) {
+    index[i] = []
+  }
+  var b = []
+  for(var i=0, n=to_cells.length; i<n; ++i) {
+    var c = to_cells[i]
+    var cl = c.length
+    for(var k=1, kn=(1<<cl); k<kn; ++k) {
+      b.length = bits.popCount(k)
+      var l = 0
+      for(var j=0; j<cl; ++j) {
+        if(k & (1<<j)) {
+          b[l++] = c[j]
+        }
+      }
+      var idx=findCell(from_cells, b)
+      if(idx < 0) {
+        continue
+      }
+      while(true) {
+        index[idx++].push(i)
+        if(idx >= from_cells.length || compareCells(from_cells[idx], b) !== 0) {
+          break
+        }
+      }
+    }
+  }
+  return index
+}
+exports.incidence = incidence
+
+//Computes the dual of the mesh.  This is basically an optimized version of buildIndex for the situation where from_cells is just the list of vertices
+function dual(cells, vertex_count) {
+  if(!vertex_count) {
+    return incidence(unique(skeleton(cells, 0)), cells, 0)
+  }
+  var res = new Array(vertex_count)
+  for(var i=0; i<vertex_count; ++i) {
+    res[i] = []
+  }
+  for(var i=0, len=cells.length; i<len; ++i) {
+    var c = cells[i]
+    for(var j=0, cl=c.length; j<cl; ++j) {
+      res[c[j]].push(i)
+    }
+  }
+  return res
+}
+exports.dual = dual
+
+//Enumerates all cells in the complex
+function explode(cells) {
+  var result = []
+  for(var i=0, il=cells.length; i<il; ++i) {
+    var c = cells[i]
+      , cl = c.length|0
+    for(var j=1, jl=(1<<cl); j<jl; ++j) {
+      var b = []
+      for(var k=0; k<cl; ++k) {
+        if((j >>> k) & 1) {
+          b.push(c[k])
+        }
+      }
+      result.push(b)
+    }
+  }
+  return normalize(result)
+}
+exports.explode = explode
+
+//Enumerates all of the n-cells of a cell complex
+function skeleton(cells, n) {
+  if(n < 0) {
+    return []
+  }
+  var result = []
+    , k0     = (1<<(n+1))-1
+  for(var i=0; i<cells.length; ++i) {
+    var c = cells[i]
+    for(var k=k0; k<(1<<c.length); k=bits.nextCombination(k)) {
+      var b = new Array(n+1)
+        , l = 0
+      for(var j=0; j<c.length; ++j) {
+        if(k & (1<<j)) {
+          b[l++] = c[j]
+        }
+      }
+      result.push(b)
+    }
+  }
+  return normalize(result)
+}
+exports.skeleton = skeleton;
+
+//Computes the boundary of all cells, does not remove duplicates
+function boundary(cells) {
+  var res = []
+  for(var i=0,il=cells.length; i<il; ++i) {
+    var c = cells[i]
+    for(var j=0,cl=c.length; j<cl; ++j) {
+      var b = new Array(c.length-1)
+      for(var k=0, l=0; k<cl; ++k) {
+        if(k !== j) {
+          b[l++] = c[k]
+        }
+      }
+      res.push(b)
+    }
+  }
+  return normalize(res)
+}
+exports.boundary = boundary;
+
+//Computes connected components for a dense cell complex
+function connectedComponents_dense(cells, vertex_count) {
+  var labels = new UnionFind(vertex_count)
+  for(var i=0; i<cells.length; ++i) {
+    var c = cells[i]
+    for(var j=0; j<c.length; ++j) {
+      for(var k=j+1; k<c.length; ++k) {
+        labels.link(c[j], c[k])
+      }
+    }
+  }
+  var components = []
+    , component_labels = labels.ranks
+  for(var i=0; i<component_labels.length; ++i) {
+    component_labels[i] = -1
+  }
+  for(var i=0; i<cells.length; ++i) {
+    var l = labels.find(cells[i][0])
+    if(component_labels[l] < 0) {
+      component_labels[l] = components.length
+      components.push([cells[i].slice(0)])
+    } else {
+      components[component_labels[l]].push(cells[i].slice(0))
+    }
+  }
+  return components
+}
+
+//Computes connected components for a sparse graph
+function connectedComponents_sparse(cells) {
+  var vertices  = unique(normalize(skeleton(cells, 0)))
+    , labels    = new UnionFind(vertices.length)
+  for(var i=0; i<cells.length; ++i) {
+    var c = cells[i]
+    for(var j=0; j<c.length; ++j) {
+      var vj = findCell(vertices, [c[j]])
+      for(var k=j+1; k<c.length; ++k) {
+        labels.link(vj, findCell(vertices, [c[k]]))
+      }
+    }
+  }
+  var components        = []
+    , component_labels  = labels.ranks
+  for(var i=0; i<component_labels.length; ++i) {
+    component_labels[i] = -1
+  }
+  for(var i=0; i<cells.length; ++i) {
+    var l = labels.find(findCell(vertices, [cells[i][0]]));
+    if(component_labels[l] < 0) {
+      component_labels[l] = components.length
+      components.push([cells[i].slice(0)])
+    } else {
+      components[component_labels[l]].push(cells[i].slice(0))
+    }
+  }
+  return components
+}
+
+//Computes connected components for a cell complex
+function connectedComponents(cells, vertex_count) {
+  if(vertex_count) {
+    return connectedComponents_dense(cells, vertex_count)
+  }
+  return connectedComponents_sparse(cells)
+}
+exports.connectedComponents = connectedComponents
+
+},{"bit-twiddle":298,"union-find":299}],301:[function(require,module,exports){
+'use strict'
+
+module.exports = monotoneConvexHull2D
+
+var orient = require('robust-orientation')[3]
+
+function monotoneConvexHull2D(points) {
+  var n = points.length
+
+  if(n < 3) {
+    var result = new Array(n)
+    for(var i=0; i<n; ++i) {
+      result[i] = i
+    }
+
+    if(n === 2 &&
+       points[0][0] === points[1][0] &&
+       points[0][1] === points[1][1]) {
+      return [0]
+    }
+
+    return result
+  }
+
+  //Sort point indices along x-axis
+  var sorted = new Array(n)
+  for(var i=0; i<n; ++i) {
+    sorted[i] = i
+  }
+  sorted.sort(function(a,b) {
+    var d = points[a][0]-points[b][0]
+    if(d) {
+      return d
+    }
+    return points[a][1] - points[b][1]
+  })
+
+  //Construct upper and lower hulls
+  var lower = [sorted[0], sorted[1]]
+  var upper = [sorted[0], sorted[1]]
+
+  for(var i=2; i<n; ++i) {
+    var idx = sorted[i]
+    var p   = points[idx]
+
+    //Insert into lower list
+    var m = lower.length
+    while(m > 1 && orient(
+        points[lower[m-2]], 
+        points[lower[m-1]], 
+        p) <= 0) {
+      m -= 1
+      lower.pop()
+    }
+    lower.push(idx)
+
+    //Insert into upper list
+    m = upper.length
+    while(m > 1 && orient(
+        points[upper[m-2]], 
+        points[upper[m-1]], 
+        p) >= 0) {
+      m -= 1
+      upper.pop()
+    }
+    upper.push(idx)
+  }
+
+  //Merge lists together
+  var result = new Array(upper.length + lower.length - 2)
+  var ptr    = 0
+  for(var i=0, nl=lower.length; i<nl; ++i) {
+    result[ptr++] = lower[i]
+  }
+  for(var j=upper.length-2; j>0; --j) {
+    result[ptr++] = upper[j]
+  }
+
+  //Return result
+  return result
+}
+},{"robust-orientation":307}],302:[function(require,module,exports){
+arguments[4][285][0].apply(exports,arguments)
+},{"dup":285}],303:[function(require,module,exports){
+arguments[4][286][0].apply(exports,arguments)
+},{"dup":286,"two-product":306,"two-sum":302}],304:[function(require,module,exports){
+arguments[4][287][0].apply(exports,arguments)
+},{"dup":287}],305:[function(require,module,exports){
+arguments[4][288][0].apply(exports,arguments)
+},{"dup":288}],306:[function(require,module,exports){
+arguments[4][289][0].apply(exports,arguments)
+},{"dup":289}],307:[function(require,module,exports){
+arguments[4][290][0].apply(exports,arguments)
+},{"dup":290,"robust-scale":303,"robust-subtract":304,"robust-sum":305,"two-product":306}],308:[function(require,module,exports){
+arguments[4][239][0].apply(exports,arguments)
+},{"dup":239}],309:[function(require,module,exports){
+var inside = require('turf-inside');
+
+/**
+ * Takes a {@link FeatureCollection} of {@link Point} features and a {@link FeatureCollection} of {@link Polygon} features and calculates the number of points that fall within the set of polygons.
+ *
+ * @module turf/count
+ * @category aggregation
+ * @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {String} countField a field to append to the attributes of the Polygon features representing Point counts
+ * @return {FeatureCollection} a FeatureCollection of Polygon features with `countField` appended
+ * @example
+* var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-112.072391,46.586591],
+ *           [-112.072391,46.61761],
+ *           [-112.028102,46.61761],
+ *           [-112.028102,46.586591],
+ *           [-112.072391,46.586591]
+ *         ]]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-112.023983,46.570426],
+ *           [-112.023983,46.615016],
+ *           [-111.966133,46.615016],
+ *           [-111.966133,46.570426],
+ *           [-112.023983,46.570426]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-112.0372, 46.608058]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 600
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-112.045955, 46.596264]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var counted = turf.count(polygons, points, 'pt_count');
+ *
+ * var resultFeatures = points.features.concat(counted.features);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+
+module.exports = function(polyFC, ptFC, outField, done){
+  for (var i = 0; i < polyFC.features.length; i++) {
+    var poly = polyFC.features[i];
+    if(!poly.properties) poly.properties = {};
+    var values = 0;
+    for (var j = 0; j < ptFC.features.length; j++) {
+      var pt = ptFC.features[j];
+      if (inside(pt, poly)) {
+        values++;
+      }
+    }
+    poly.properties[outField] = values;
+  }
+
+  return polyFC;
+};
+
+},{"turf-inside":325}],310:[function(require,module,exports){
+//http://en.wikipedia.org/wiki/Haversine_formula
+//http://www.movable-type.co.uk/scripts/latlong.html
+var point = require('turf-point');
+
+/**
+ * Takes a {@link Point} feature and calculates the location of a destination point given a distance in degrees, radians, miles, or kilometers; and bearing in degrees. This uses the [Haversine formula](http://en.wikipedia.org/wiki/Haversine_formula) to account for global curvature.
+ *
+ * @module turf/destination
+ * @category measurement
+ * @param {Point} start a Point feature at the starting point
+ * @param {Number} distance distance from the starting point
+ * @param {Number} bearing ranging from -180 to 180
+ * @param {String} units miles, kilometers, degrees, or radians
+ * @returns {Point} a Point feature at the destination
+ * @example
+ * var point = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "marker-color": "#0f0"
+ *   },
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-75.343, 39.984]
+ *   }
+ * };
+ * var distance = 50;
+ * var bearing = 90;
+ * var units = 'miles';
+ *
+ * var destination = turf.destination(point, distance, bearing, units);
+ * destination.properties['marker-color'] = '#f00';
+ *
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": [point, destination]
+ * };
+ *
+ * //=result
+ */
+module.exports = function (point1, distance, bearing, units) {
+    var coordinates1 = point1.geometry.coordinates;
+    var longitude1 = toRad(coordinates1[0]);
+    var latitude1 = toRad(coordinates1[1]);
+    var bearing_rad = toRad(bearing);
+
+    var R = 0;
+    switch (units) {
+    case 'miles':
+        R = 3960;
+        break
+    case 'kilometers':
+        R = 6373;
+        break
+    case 'degrees':
+        R = 57.2957795;
+        break
+    case 'radians':
+        R = 1;
+        break
+    }
+
+    var latitude2 = Math.asin(Math.sin(latitude1) * Math.cos(distance / R) +
+        Math.cos(latitude1) * Math.sin(distance / R) * Math.cos(bearing_rad));
+    var longitude2 = longitude1 + Math.atan2(Math.sin(bearing_rad) * Math.sin(distance / R) * Math.cos(latitude1),
+        Math.cos(distance / R) - Math.sin(latitude1) * Math.sin(latitude2));
+
+    return point([toDeg(longitude2), toDeg(latitude2)]);
+};
+
+function toRad(degree) {
+    return degree * Math.PI / 180;
+}
+
+function toDeg(rad) {
+    return rad * 180 / Math.PI;
+}
+
+},{"turf-point":348}],311:[function(require,module,exports){
+var ss = require('simple-statistics');
+var inside = require('turf-inside');
+
+/**
+ * Calculates the standard deviation value of a field for points within a set of polygons.
+ *
+ * @module turf/deviation
+ * @category aggregation
+ * @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {String} inField the field in `points` from which to aggregate
+ * @param {String} outField the field to append to `polygons` representing deviation
+ * @return {FeatureCollection} a FeatureCollection of Polygon features with appended field representing deviation
+ * @example
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-97.807159, 30.270335],
+ *           [-97.807159, 30.369913],
+ *           [-97.612838, 30.369913],
+ *           [-97.612838, 30.270335],
+ *           [-97.807159, 30.270335]
+ *         ]]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-97.825698, 30.175405],
+ *           [-97.825698, 30.264404],
+ *           [-97.630691, 30.264404],
+ *           [-97.630691, 30.175405],
+ *           [-97.825698, 30.175405]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 500
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.709655, 30.311245]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 400
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.766647, 30.345028]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 600
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.765274, 30.294646]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 500
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.753601, 30.216355]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.667083, 30.208047]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var inField = "population";
+ * var outField = "pop_deviation";
+ *
+ * var deviated = turf.deviation(
+ *   polygons, points, inField, outField);
+ *
+ * var resultFeatures = points.features.concat(
+ *   deviated.features);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+
+module.exports = function(polyFC, ptFC, inField, outField, done){
+  polyFC.features.forEach(function(poly){
+    if(!poly.properties){
+      poly.properties = {};
+    }
+    var values = [];
+    ptFC.features.forEach(function(pt){
+      if (inside(pt, poly)) {
+        values.push(pt.properties[inField]);
+      }
+    });
+    poly.properties[outField] = ss.standard_deviation(values);
+  })
+
+  return polyFC;
+}
+
+},{"simple-statistics":312,"turf-inside":325}],312:[function(require,module,exports){
+arguments[4][260][0].apply(exports,arguments)
+},{"dup":260}],313:[function(require,module,exports){
+arguments[4][243][0].apply(exports,arguments)
+},{"dup":243,"turf-invariant":314}],314:[function(require,module,exports){
+arguments[4][244][0].apply(exports,arguments)
+},{"dup":244}],315:[function(require,module,exports){
+var extent = require('turf-extent');
+var bboxPolygon = require('turf-bbox-polygon');
+
+/**
+ * Takes a {@link Feature} or {@link FeatureCollection} and returns a rectangular {@link Polygon} feature that encompasses all vertices.
+ *
+ * @module turf/envelope
+ * @category measurement
+ * @param {FeatureCollection} fc a FeatureCollection of any type
+ * @return {Polygon} a rectangular Polygon feature that encompasses all vertices
+ * @example
+ * var fc = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "name": "Location A"
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-75.343, 39.984]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "name": "Location B"
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-75.833, 39.284]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "name": "Location C"
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-75.534, 39.123]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var enveloped = turf.envelope(fc);
+ *
+ * var resultFeatures = fc.features.concat(enveloped);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+
+module.exports = function(features, done){
+  var bbox = extent(features);
+  var poly = bboxPolygon(bbox);
+  return poly;
+}
+
+},{"turf-bbox-polygon":267,"turf-extent":321}],316:[function(require,module,exports){
+// depend on jsts for now https://github.com/bjornharrtell/jsts/blob/master/examples/overlay.html
+var jsts = require('jsts');
+
+/**
+ * Finds the difference between two polygons by clipping the second
+ * polygon from the first.
+ *
+ * @module turf/erase
+ * @category transformation
+ * @param {Polygon} poly1 input Polygon feaure
+ * @param {Polygon} poly2 Polygon feature to erase from `poly1`
+ * @return {Polygon} a Polygon feature showing the area of `poly1` excluding the area of `poly2`
+ * @example
+ * var poly1 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "fill": "#0f0"
+ *   },
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-46.738586, -23.596711],
+ *       [-46.738586, -23.458207],
+ *       [-46.560058, -23.458207],
+ *       [-46.560058, -23.596711],
+ *       [-46.738586, -23.596711]
+ *     ]]
+ *   }
+ * };
+ * var poly2 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "fill": "#00f"
+ *   },
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-46.650009, -23.631314],
+ *       [-46.650009, -23.5237],
+ *       [-46.509246, -23.5237],
+ *       [-46.509246, -23.631314],
+ *       [-46.650009, -23.631314]
+ *     ]]
+ *   }
+ * };
+ *
+ * var erased = turf.erase(poly1, poly2);
+ * erased.properties.fill = '#f00';
+ *
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [poly1, poly2]
+ * };
+ *
+ * //=polygons
+ *
+ * //=erased
+ */
+
+module.exports = function(p1, p2, done){
+  var poly1 = JSON.parse(JSON.stringify(p1));
+  var poly2 = JSON.parse(JSON.stringify(p2));
+  if(poly1.type !== 'Feature') {
+    poly1 = {
+      type: 'Feature',
+      properties: {},
+      geometry: poly1
+    };
+  }
+  if(poly2.type !== 'Feature') {
+    poly2 = {
+      type: 'Feature',
+      properties: {},
+      geometry: poly2
+    };
+  }
+
+  var reader = new jsts.io.GeoJSONReader();
+  var a = reader.read(JSON.stringify(poly1.geometry));
+  var b = reader.read(JSON.stringify(poly2.geometry));
+  var erased = a.difference(b);
+  var parser = new jsts.io.GeoJSONParser();
+  erased = parser.write(erased);
+
+  poly1.geometry = erased;
+
+  if (poly1.geometry.type === 'GeometryCollection' && poly1.geometry.geometries.length === 0) {
+    return;
+  } else {
+    return {
+      type: 'Feature',
+      properties: poly1.properties,
+      geometry: erased
+    };
+  }
+};
+
+},{"jsts":317}],317:[function(require,module,exports){
+arguments[4][255][0].apply(exports,arguments)
+},{"./lib/jsts":318,"dup":255,"javascript.util":320}],318:[function(require,module,exports){
+arguments[4][256][0].apply(exports,arguments)
+},{"dup":256}],319:[function(require,module,exports){
+arguments[4][257][0].apply(exports,arguments)
+},{"dup":257}],320:[function(require,module,exports){
+arguments[4][258][0].apply(exports,arguments)
+},{"./dist/javascript.util-node.min.js":319,"dup":258}],321:[function(require,module,exports){
+var each = require('turf-meta').coordEach;
+
+/**
+ * Takes any {@link GeoJSON} object, calculates the extent of all input features, and returns a bounding box.
+ *
+ * @module turf/extent
+ * @category measurement
+ * @param {GeoJSON} input any valid GeoJSON Object
+ * @return {Array<number>} the bounding box of `input` given
+ * as an array in WSEN order (west, south, east, north)
+ * @example
+ * var input = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [114.175329, 22.2524]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [114.170007, 22.267969]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [114.200649, 22.274641]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [114.186744, 22.265745]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var bbox = turf.extent(input);
+ *
+ * var bboxPolygon = turf.bboxPolygon(bbox);
+ *
+ * var resultFeatures = input.features.concat(bboxPolygon);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+module.exports = function(layer) {
+    var extent = [Infinity, Infinity, -Infinity, -Infinity];
+    each(layer, function(coord) {
+      if (extent[0] > coord[0]) extent[0] = coord[0];
+      if (extent[1] > coord[1]) extent[1] = coord[1];
+      if (extent[2] < coord[0]) extent[2] = coord[0];
+      if (extent[3] < coord[1]) extent[3] = coord[1];
+    });
+    return extent;
+};
+
+},{"turf-meta":322}],322:[function(require,module,exports){
+arguments[4][239][0].apply(exports,arguments)
+},{"dup":239}],323:[function(require,module,exports){
+arguments[4][238][0].apply(exports,arguments)
+},{"dup":238}],324:[function(require,module,exports){
+var featureCollection = require('turf-featurecollection');
+
+/**
+ * Takes a {@link FeatureCollection} and filters it by a given property and value
+ *
+ * @module turf/filter
+ * @category data
+ * @param {FeatureCollection} features input FeatureCollection of any type
+ * @param {String} key the property on which to filter
+ * @param {String} value the value of that property on which to filter
+ * @return {FeatureCollection} a filtered collection with only features that match input `key` and `value`
+ * @example
+ * var features = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "species": "oak"
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-72.581777, 44.260875]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "species": "birch"
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-72.570018, 44.260691]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "species": "oak"
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-72.576284, 44.257925]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "species": "redwood"
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-72.56916, 44.254605]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "species": "maple"
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-72.581691, 44.24858]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "species": "oak"
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-72.583837, 44.255773]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var key = "species";
+ * var value = "oak";
+ *
+ * var filtered = turf.filter(features, key, value);
+ *
+ * //=features
+ *
+ * //=filtered
+ */
+module.exports = function(collection, key, val) {
+  var newFC = featureCollection([]);
+  for(var i = 0; i < collection.features.length; i++) {
+    if(collection.features[i].properties[key] === val) {
+      newFC.features.push(collection.features[i]);
+    }
+  }
+  return newFC;
+};
+
+},{"turf-featurecollection":323}],325:[function(require,module,exports){
+// http://en.wikipedia.org/wiki/Even%E2%80%93odd_rule
+// modified from: https://github.com/substack/point-in-polygon/blob/master/index.js
+// which was modified from http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html
+
+/**
+ * Takes a {@link Point} feature and a {@link Polygon} feature and determines if the Point resides inside the Polygon. The Polygon can
+ * be convex or concave. The function accepts any valid Polygon or {@link MultiPolygon}
+ * and accounts for holes.
+ *
+ * @module turf/inside
+ * @category joins
+ * @param {Point} point a Point feature
+ * @param {Polygon} polygon a Polygon feature
+ * @return {Boolean} `true` if the Point is inside the Polygon; `false` if the Point is not inside the Polygon
+ * @example
+ * var pt1 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "marker-color": "#f00"
+ *   },
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-111.467285, 40.75766]
+ *   }
+ * };
+ * var pt2 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "marker-color": "#0f0"
+ *   },
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-111.873779, 40.647303]
+ *   }
+ * };
+ * var poly = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-112.074279, 40.52215],
+ *       [-112.074279, 40.853293],
+ *       [-111.610107, 40.853293],
+ *       [-111.610107, 40.52215],
+ *       [-112.074279, 40.52215]
+ *     ]]
+ *   }
+ * };
+ *
+ * var features = {
+ *   "type": "FeatureCollection",
+ *   "features": [pt1, pt2, poly]
+ * };
+ *
+ * //=features
+ *
+ * var isInside1 = turf.inside(pt1, poly);
+ * //=isInside1
+ *
+ * var isInside2 = turf.inside(pt2, poly);
+ * //=isInside2
+ */
+module.exports = function(point, polygon) {
+  var polys = polygon.geometry.coordinates;
+  var pt = [point.geometry.coordinates[0], point.geometry.coordinates[1]];
+  // normalize to multipolygon
+  if(polygon.geometry.type === 'Polygon') polys = [polys];
+
+  var insidePoly = false;
+  var i = 0;
+  while (i < polys.length && !insidePoly) {
+    // check if it is in the outer ring first
+    if(inRing(pt, polys[i][0])) {
+      var inHole = false;
+      var k = 1;
+      // check for the point in any of the holes
+      while(k < polys[i].length && !inHole) {
+        if(inRing(pt, polys[i][k])) {
+          inHole = true;
+        }
+        k++;
+      }
+      if(!inHole) insidePoly = true;
+    }
+    i++;
+  }
+  return insidePoly;
+}
+
+// pt is [x,y] and ring is [[x,y], [x,y],..]
+function inRing (pt, ring) {
+  var isInside = false;
+  for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    var xi = ring[i][0], yi = ring[i][1];
+    var xj = ring[j][0], yj = ring[j][1];
+    
+    var intersect = ((yi > pt[1]) != (yj > pt[1]))
+        && (pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi);
+    if (intersect) isInside = !isInside;
+  }
+  return isInside;
+}
+
+
+},{}],326:[function(require,module,exports){
+// depend on jsts for now https://github.com/bjornharrtell/jsts/blob/master/examples/overlay.html
+var jsts = require('jsts');
+var featurecollection = require('turf-featurecollection');
+
+/**
+ * Takes two {@link Polygon} features and finds their intersection.
+ *
+ * @module turf/intersect
+ * @category transformation
+ * @param {Polygon} poly1 the first Polygon
+ * @param {Polygon} poly2 the second Polygon
+ * @return {Polygon} a Polygon feature representing the area where `poly1` and `poly2` overlap
+ * @example
+ * var poly1 = turf.polygon([[
+ *  [-122.801742, 45.48565],
+ *  [-122.801742, 45.60491],
+ *  [-122.584762, 45.60491],
+ *  [-122.584762, 45.48565],
+ *  [-122.801742, 45.48565]
+ * ]]);
+ * poly1.properties.fill = '#0f0';
+ * var poly2 = turf.polygon([[
+ *  [-122.520217, 45.535693],
+ *  [-122.64038, 45.553967],
+ *  [-122.720031, 45.526554],
+ *  [-122.669906, 45.507309],
+ *  [-122.723464, 45.446643],
+ *  [-122.532577, 45.408574],
+ *  [-122.487258, 45.477466],
+ *  [-122.520217, 45.535693]
+ * ]]);
+ * poly2.properties.fill = '#00f';
+ * var polygons = turf.featurecollection([poly1, poly2]);
+ *
+ * var intersection = turf.intersect(poly1, poly2);
+ *
+ * //=polygons
+ *
+ * //=intersection
+ */
+module.exports = function(poly1, poly2){
+  var geom1;
+  if(poly1.type === 'Feature') geom1 = poly1.geometry;
+  else geom1 = poly1;
+  if(poly2.type === 'Feature') geom2 = poly2.geometry;
+  else geom2 = poly2;
+  var reader = new jsts.io.GeoJSONReader();
+  var a = reader.read(JSON.stringify(geom1));
+  var b = reader.read(JSON.stringify(geom2));
+  var intersection = a.intersection(b);
+  var parser = new jsts.io.GeoJSONParser();
+
+  intersection = parser.write(intersection);
+  if(intersection.type === 'GeometryCollection' && intersection.geometries.length === 0) {
+    return;
+  } else {
+    return {
+      type: 'Feature',
+      properties: {},
+      geometry: intersection
+    };
+  }
+};
+
+},{"jsts":327,"turf-featurecollection":323}],327:[function(require,module,exports){
+arguments[4][255][0].apply(exports,arguments)
+},{"./lib/jsts":328,"dup":255,"javascript.util":330}],328:[function(require,module,exports){
+arguments[4][256][0].apply(exports,arguments)
+},{"dup":256}],329:[function(require,module,exports){
+arguments[4][257][0].apply(exports,arguments)
+},{"dup":257}],330:[function(require,module,exports){
+arguments[4][258][0].apply(exports,arguments)
+},{"./dist/javascript.util-node.min.js":329,"dup":258}],331:[function(require,module,exports){
+/**
+ * Copyright (c) 2010, Jason Davies.
+ *
+ * All rights reserved.  This code is based on Bradley White's Java version,
+ * which is in turn based on Nicholas Yue's C++ version, which in turn is based
+ * on Paul D. Bourke's original Fortran version.  See below for the respective
+ * copyright notices.
+ *
+ * See http://local.wasp.uwa.edu.au/~pbourke/papers/conrec/ for the original
+ * paper by Paul D. Bourke.
+ *
+ * The vector conversion code is based on http://apptree.net/conrec.htm by
+ * Graham Cox.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ *     * Redistributions of source code must retain the above copyright
+ *       notice, this list of conditions and the following disclaimer.
+ *     * Redistributions in binary form must reproduce the above copyright
+ *       notice, this list of conditions and the following disclaimer in the
+ *       documentation and/or other materials provided with the distribution.
+ *     * Neither the name of the <organization> nor the
+ *       names of its contributors may be used to endorse or promote products
+ *       derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ * ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * Copyright (c) 1996-1997 Nicholas Yue
+ *
+ * This software is copyrighted by Nicholas Yue. This code is based on Paul D.
+ * Bourke's CONREC.F routine.
+ *
+ * The authors hereby grant permission to use, copy, and distribute this
+ * software and its documentation for any purpose, provided that existing
+ * copyright notices are retained in all copies and that this notice is
+ * included verbatim in any distributions. Additionally, the authors grant
+ * permission to modify this software and its documentation for any purpose,
+ * provided that such modifications are not distributed without the explicit
+ * consent of the authors and that existing copyright notices are retained in
+ * all copies. Some of the algorithms implemented by this software are
+ * patented, observe all applicable patent law.
+ *
+ * IN NO EVENT SHALL THE AUTHORS OR DISTRIBUTORS BE LIABLE TO ANY PARTY FOR
+ * DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT
+ * OF THE USE OF THIS SOFTWARE, ITS DOCUMENTATION, OR ANY DERIVATIVES THEREOF,
+ * EVEN IF THE AUTHORS HAVE BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * THE AUTHORS AND DISTRIBUTORS SPECIFICALLY DISCLAIM ANY WARRANTIES,
+ * INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.  THIS SOFTWARE IS
+ * PROVIDED ON AN "AS IS" BASIS, AND THE AUTHORS AND DISTRIBUTORS HAVE NO
+ * OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR
+ * MODIFICATIONS.
+ */
+
+
+  module.exports = Conrec;
+
+  var EPSILON = 1e-10;
+
+  function pointsEqual(a, b) {
+    var x = a.x - b.x, y = a.y - b.y;
+    return x * x + y * y < EPSILON;
+  }
+
+  function reverseList(list) {
+    var pp = list.head;
+
+    while (pp) {
+      // swap prev/next pointers
+      var temp = pp.next;
+      pp.next = pp.prev;
+      pp.prev = temp;
+
+      // continue through the list
+      pp = temp;
+    }
+
+    // swap head/tail pointers
+    var temp = list.head;
+    list.head = list.tail;
+    list.tail = temp;
+  }
+
+  function ContourBuilder(level) {
+    this.level = level;
+    this.s = null;
+    this.count = 0;
+  }
+  ContourBuilder.prototype.remove_seq = function(list) {
+    // if list is the first item, static ptr s is updated
+    if (list.prev) {
+      list.prev.next = list.next;
+    } else {
+      this.s = list.next;
+    }
+
+    if (list.next) {
+      list.next.prev = list.prev;
+    }
+    --this.count;
+  }
+  ContourBuilder.prototype.addSegment = function(a, b) {
+    var ss = this.s;
+    var ma = null;
+    var mb = null;
+    var prependA = false;
+    var prependB = false;
+
+    while (ss) {
+      if (ma == null) {
+        // no match for a yet
+        if (pointsEqual(a, ss.head.p)) {
+          ma = ss;
+          prependA = true;
+        } else if (pointsEqual(a, ss.tail.p)) {
+          ma = ss;
+        }
+      }
+      if (mb == null) {
+        // no match for b yet
+        if (pointsEqual(b, ss.head.p)) {
+          mb = ss;
+          prependB = true;
+        } else if (pointsEqual(b, ss.tail.p)) {
+          mb = ss;
+        }
+      }
+      // if we matched both no need to continue searching
+      if (mb != null && ma != null) {
+        break;
+      } else {
+        ss = ss.next;
+      }
+    }
+
+    // c is the case selector based on which of ma and/or mb are set
+    var c = ((ma != null) ? 1 : 0) | ((mb != null) ? 2 : 0);
+
+    switch(c) {
+      case 0:   // both unmatched, add as new sequence
+        var aa = {p: a, prev: null};
+        var bb = {p: b, next: null};
+        aa.next = bb;
+        bb.prev = aa;
+
+        // create sequence element and push onto head of main list. The order
+        // of items in this list is unimportant
+        ma = {head: aa, tail: bb, next: this.s, prev: null, closed: false};
+        if (this.s) {
+          this.s.prev = ma;
+        }
+        this.s = ma;
+
+        ++this.count;    // not essential - tracks number of unmerged sequences
+      break;
+
+      case 1:   // a matched, b did not - thus b extends sequence ma
+        var pp = {p: b};
+
+        if (prependA) {
+          pp.next = ma.head;
+          pp.prev = null;
+          ma.head.prev = pp;
+          ma.head = pp;
+        } else {
+          pp.next = null;
+          pp.prev = ma.tail;
+          ma.tail.next = pp;
+          ma.tail = pp;
+        }
+      break;
+
+      case 2:   // b matched, a did not - thus a extends sequence mb
+        var pp = {p: a};
+
+        if (prependB) {
+          pp.next = mb.head;
+          pp.prev = null;
+          mb.head.prev = pp;
+          mb.head = pp;
+        } else {
+          pp.next = null;
+          pp.prev = mb.tail;
+          mb.tail.next = pp;
+          mb.tail = pp;
+        }
+      break;
+
+      case 3:   // both matched, can merge sequences
+        // if the sequences are the same, do nothing, as we are simply closing this path (could set a flag)
+
+        if (ma === mb) {
+          var pp = {p: ma.tail.p, next: ma.head, prev: null};
+          ma.head.prev = pp;
+          ma.head = pp;
+          ma.closed = true;
+          break;
+        }
+
+        // there are 4 ways the sequence pair can be joined. The current setting of prependA and
+        // prependB will tell us which type of join is needed. For head/head and tail/tail joins
+        // one sequence needs to be reversed
+        switch((prependA ? 1 : 0) | (prependB ? 2 : 0)) {
+          case 0:   // tail-tail
+            // reverse ma and append to mb
+            reverseList(ma);
+            // fall through to head/tail case
+          case 1:   // head-tail
+            // ma is appended to mb and ma discarded
+            mb.tail.next = ma.head;
+            ma.head.prev = mb.tail;
+            mb.tail = ma.tail;
+
+            //discard ma sequence record
+            this.remove_seq(ma);
+          break;
+
+          case 3:   // head-head
+            // reverse ma and append mb to it
+            reverseList(ma);
+            // fall through to tail/head case
+          case 2:   // tail-head
+            // mb is appended to ma and mb is discarded
+            ma.tail.next = mb.head;
+            mb.head.prev = ma.tail;
+            ma.tail = mb.tail;
+
+            //discard mb sequence record
+            this.remove_seq(mb);
+        break;
+      }
+    }
+  }
+
+  /**
+   * Implements CONREC.
+   *
+   * @param {function} drawContour function for drawing contour.  Defaults to a
+   *                               custom "contour builder", which populates the
+   *                               contours property.
+   */
+  function Conrec(drawContour) {
+    if (!drawContour) {
+      var c = this;
+      c.contours = {};
+      /**
+       * drawContour - interface for implementing the user supplied method to
+       * render the countours.
+       *
+       * Draws a line between the start and end coordinates.
+       *
+       * @param startX    - start coordinate for X
+       * @param startY    - start coordinate for Y
+       * @param endX      - end coordinate for X
+       * @param endY      - end coordinate for Y
+       * @param contourLevel - Contour level for line.
+       */
+      this.drawContour = function(startX, startY, endX, endY, contourLevel, k) {
+        var cb = c.contours[k];
+        if (!cb) {
+          cb = c.contours[k] = new ContourBuilder(contourLevel);
+        }
+        cb.addSegment({x: startX, y: startY}, {x: endX, y: endY});
+      }
+      this.contourList = function() {
+        var l = [];
+        var a = c.contours;
+        for (var k in a) {
+          var s = a[k].s;
+          var level = a[k].level;
+          while (s) {
+            var h = s.head;
+            var l2 = [];
+            l2.level = level;
+            l2.k = k;
+            while (h && h.p) {
+              l2.push(h.p);
+              h = h.next;
+            }
+            l.push(l2);
+            s = s.next;
+          }
+        }
+        l.sort(function(a, b) { return a.k - b.k });
+        return l;
+      }
+    } else {
+      this.drawContour = drawContour;
+    }
+    this.h  = new Array(5);
+    this.sh = new Array(5);
+    this.xh = new Array(5);
+    this.yh = new Array(5);
+  }
+
+  /**
+   * contour is a contouring subroutine for rectangularily spaced data
+   *
+   * It emits calls to a line drawing subroutine supplied by the user which
+   * draws a contour map corresponding to real*4data on a randomly spaced
+   * rectangular grid. The coordinates emitted are in the same units given in
+   * the x() and y() arrays.
+   *
+   * Any number of contour levels may be specified but they must be in order of
+   * increasing value.
+   *
+   *
+   * @param {number[][]} d - matrix of data to contour
+   * @param {number} ilb,iub,jlb,jub - index bounds of data matrix
+   *
+   *             The following two, one dimensional arrays (x and y) contain
+   *             the horizontal and vertical coordinates of each sample points.
+   * @param {number[]} x  - data matrix column coordinates
+   * @param {number[]} y  - data matrix row coordinates
+   * @param {number} nc   - number of contour levels
+   * @param {number[]} z  - contour levels in increasing order.
+   */
+  Conrec.prototype.contour = function(d, ilb, iub, jlb, jub, x, y, nc, z) {
+    var h = this.h, sh = this.sh, xh = this.xh, yh = this.yh;
+    var drawContour = this.drawContour;
+    this.contours = {};
+
+    /** private */
+    var xsect = function(p1, p2){
+      return (h[p2]*xh[p1]-h[p1]*xh[p2])/(h[p2]-h[p1]);
+    }
+
+    var ysect = function(p1, p2){
+      return (h[p2]*yh[p1]-h[p1]*yh[p2])/(h[p2]-h[p1]);
+    }
+    var m1;
+    var m2;
+    var m3;
+    var case_value;
+    var dmin;
+    var dmax;
+    var x1 = 0.0;
+    var x2 = 0.0;
+    var y1 = 0.0;
+    var y2 = 0.0;
+
+    // The indexing of im and jm should be noted as it has to start from zero
+    // unlike the fortran counter part
+    var im = [0, 1, 1, 0];
+    var jm = [0, 0, 1, 1];
+
+    // Note that castab is arranged differently from the FORTRAN code because
+    // Fortran and C/C++ arrays are transposed of each other, in this case
+    // it is more tricky as castab is in 3 dimensions
+    var castab = [
+      [
+        [0, 0, 8], [0, 2, 5], [7, 6, 9]
+      ],
+      [
+        [0, 3, 4], [1, 3, 1], [4, 3, 0]
+      ],
+      [
+        [9, 6, 7], [5, 2, 0], [8, 0, 0]
+      ]
+    ];
+
+    for (var j=(jub-1);j>=jlb;j--) {
+      for (var i=ilb;i<=iub-1;i++) {
+        var temp1, temp2;
+        temp1 = Math.min(d[i][j],d[i][j+1]);
+        temp2 = Math.min(d[i+1][j],d[i+1][j+1]);
+        dmin  = Math.min(temp1,temp2);
+        temp1 = Math.max(d[i][j],d[i][j+1]);
+        temp2 = Math.max(d[i+1][j],d[i+1][j+1]);
+        dmax  = Math.max(temp1,temp2);
+
+        if (dmax>=z[0]&&dmin<=z[nc-1]) {
+          for (var k=0;k<nc;k++) {
+            if (z[k]>=dmin&&z[k]<=dmax) {
+              for (var m=4;m>=0;m--) {
+                if (m>0) {
+                  // The indexing of im and jm should be noted as it has to
+                  // start from zero
+                  h[m] = d[i+im[m-1]][j+jm[m-1]]-z[k];
+                  xh[m] = x[i+im[m-1]];
+                  yh[m] = y[j+jm[m-1]];
+                } else {
+                  h[0] = 0.25*(h[1]+h[2]+h[3]+h[4]);
+                  xh[0]=0.5*(x[i]+x[i+1]);
+                  yh[0]=0.5*(y[j]+y[j+1]);
+                }
+                if (h[m]>EPSILON) {
+                  sh[m] = 1;
+                } else if (h[m]<-EPSILON) {
+                  sh[m] = -1;
+                } else
+                  sh[m] = 0;
+              }
+              //
+              // Note: at this stage the relative heights of the corners and the
+              // centre are in the h array, and the corresponding coordinates are
+              // in the xh and yh arrays. The centre of the box is indexed by 0
+              // and the 4 corners by 1 to 4 as shown below.
+              // Each triangle is then indexed by the parameter m, and the 3
+              // vertices of each triangle are indexed by parameters m1,m2,and
+              // m3.
+              // It is assumed that the centre of the box is always vertex 2
+              // though this isimportant only when all 3 vertices lie exactly on
+              // the same contour level, in which case only the side of the box
+              // is drawn.
+              //
+              //
+              //      vertex 4 +-------------------+ vertex 3
+              //               | \               / |
+              //               |   \    m-3    /   |
+              //               |     \       /     |
+              //               |       \   /       |
+              //               |  m=2    X   m=2   |       the centre is vertex 0
+              //               |       /   \       |
+              //               |     /       \     |
+              //               |   /    m=1    \   |
+              //               | /               \ |
+              //      vertex 1 +-------------------+ vertex 2
+              //
+              //
+              //
+              //               Scan each triangle in the box
+              //
+              for (m=1;m<=4;m++) {
+                m1 = m;
+                m2 = 0;
+                if (m!=4) {
+                    m3 = m+1;
+                } else {
+                    m3 = 1;
+                }
+                case_value = castab[sh[m1]+1][sh[m2]+1][sh[m3]+1];
+                if (case_value!=0) {
+                  switch (case_value) {
+                    case 1: // Line between vertices 1 and 2
+                      x1=xh[m1];
+                      y1=yh[m1];
+                      x2=xh[m2];
+                      y2=yh[m2];
+                      break;
+                    case 2: // Line between vertices 2 and 3
+                      x1=xh[m2];
+                      y1=yh[m2];
+                      x2=xh[m3];
+                      y2=yh[m3];
+                      break;
+                    case 3: // Line between vertices 3 and 1
+                      x1=xh[m3];
+                      y1=yh[m3];
+                      x2=xh[m1];
+                      y2=yh[m1];
+                      break;
+                    case 4: // Line between vertex 1 and side 2-3
+                      x1=xh[m1];
+                      y1=yh[m1];
+                      x2=xsect(m2,m3);
+                      y2=ysect(m2,m3);
+                      break;
+                    case 5: // Line between vertex 2 and side 3-1
+                      x1=xh[m2];
+                      y1=yh[m2];
+                      x2=xsect(m3,m1);
+                      y2=ysect(m3,m1);
+                      break;
+                    case 6: //  Line between vertex 3 and side 1-2
+                      x1=xh[m3];
+                      y1=yh[m3];
+                      x2=xsect(m1,m2);
+                      y2=ysect(m1,m2);
+                      break;
+                    case 7: // Line between sides 1-2 and 2-3
+                      x1=xsect(m1,m2);
+                      y1=ysect(m1,m2);
+                      x2=xsect(m2,m3);
+                      y2=ysect(m2,m3);
+                      break;
+                    case 8: // Line between sides 2-3 and 3-1
+                      x1=xsect(m2,m3);
+                      y1=ysect(m2,m3);
+                      x2=xsect(m3,m1);
+                      y2=ysect(m3,m1);
+                      break;
+                    case 9: // Line between sides 3-1 and 1-2
+                      x1=xsect(m3,m1);
+                      y1=ysect(m3,m1);
+                      x2=xsect(m1,m2);
+                      y2=ysect(m1,m2);
+                      break;
+                    default:
+                      break;
+                  }
+                  // Put your processing code here and comment out the printf
+                  //printf("%f %f %f %f %f\n",x1,y1,x2,y2,z[k]);
+                  drawContour(x1,y1,x2,y2,z[k],k);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+},{}],332:[function(require,module,exports){
+//https://github.com/jasondavies/conrec.js
+//http://stackoverflow.com/questions/263305/drawing-a-topographical-map
+var tin = require('turf-tin');
+var inside = require('turf-inside');
+var grid = require('turf-grid');
+var extent = require('turf-extent');
+var planepoint = require('turf-planepoint');
+var featurecollection = require('turf-featurecollection');
+var linestring = require('turf-linestring');
+var square = require('turf-square');
+var Conrec = require('./conrec');
+
+/**
+ * Takes a {@link FeatureCollection} of {@link Point} features with z-values and an array of
+ * value breaks and generates [isolines](http://en.wikipedia.org/wiki/Isoline).
+ *
+ * @module turf/isolines
+ * @category interpolation
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {string} z the property name in `points` from which z-values will be pulled
+ * @param {number} resolution resolution of the underlying grid
+ * @param {number[]} breaks where to draw contours
+ * @returns {FeatureCollection} a FeatureCollection of {@link LineString} features representing isolines
+ * @example
+ * // create random points with random
+ * // z-values in their properties
+ * var points = turf.random('point', 100, {
+ *   bbox: [0, 30, 20, 50]
+ * });
+ * for (var i = 0; i < points.features.length; i++) {
+ *   points.features[i].properties.z = Math.random() * 10;
+ * }
+ * var breaks = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+ * var isolined = turf.isolines(points, 'z', 15, breaks);
+ * //=isolined
+ */
+module.exports = function(points, z, resolution, breaks, done){
+  var tinResult = tin(points, z);
+  var extentBBox = extent(points);
+  var squareBBox = square(extentBBox);
+  var gridResult = grid(squareBBox, resolution);
+  var data = [];
+
+  for (var i = 0; i < gridResult.features.length; i++) {
+    var pt = gridResult.features[i];
+    for (var j = 0; j < tinResult.features.length; j++) {
+      var triangle = tinResult.features[j];
+      if (inside(pt, triangle)) {
+        pt.properties = {};
+        pt.properties[z] = planepoint(pt, triangle);
+      }
+    }
+  }
+
+  var depth = Math.sqrt(gridResult.features.length);
+  for (var x=0; x<depth; x++){
+    var xGroup = gridResult.features.slice(x * depth, (x + 1) * depth);
+    var xFlat = [];
+    xGroup.forEach(function(verticalPoint){
+      if(verticalPoint.properties){
+        xFlat.push(verticalPoint.properties[z]);
+      } else{
+        xFlat.push(0);
+      }
+    });
+    data.push(xFlat);
+  }
+  var interval = (squareBBox[2] - squareBBox[0]) / depth;
+  var xCoordinates = [];
+  var yCoordinates = [];
+  for (var x = 0; x < depth; x++) {
+    xCoordinates.push(x * interval + squareBBox[0]);
+    yCoordinates.push(x * interval + squareBBox[1]);
+  }
+
+  var c = new Conrec();
+  c.contour(data, 0, resolution, 0, resolution, xCoordinates, yCoordinates, breaks.length, breaks);
+  var contourList = c.contourList();
+
+  var fc = featurecollection([]);
+  contourList.forEach(function(c){
+    if(c.length > 2){
+      var polyCoordinates = [];
+      c.forEach(function(coord){
+        polyCoordinates.push([coord.x, coord.y]);
+      });
+      var poly = linestring(polyCoordinates);
+      poly.properties = {};
+      poly.properties[z] = c.level;
+
+      fc.features.push(poly);
+    }
+  });
+
+  return fc;
+}
+
+
+
+
+},{"./conrec":331,"turf-extent":321,"turf-featurecollection":323,"turf-grid":333,"turf-inside":325,"turf-linestring":338,"turf-planepoint":344,"turf-square":357,"turf-tin":360}],333:[function(require,module,exports){
+var point = require('turf-point');
+
+/**
+ * Takes a bounding box and a cell depth and returns a {@link FeatureCollection} of {@link Point} features in a grid.
+ *
+ * @module turf/grid
+ * @category interpolation
+ * @param {Array<number>} extent extent in [minX, minY, maxX, maxY] order
+ * @param {Number} depth how many cells to output
+ * @return {FeatureCollection} grid as FeatureCollection with {@link Point} features
+ * @example
+ * var extent = [-70.823364, -33.553984, -70.473175, -33.302986];
+ * var depth = 10;
+ *
+ * var grid = turf.grid(extent, depth);
+ *
+ * //=grid
+ */
+module.exports = function(extents, depth) {
+  var xmin = extents[0];
+  var ymin = extents[1];
+  var xmax = extents[2];
+  var ymax = extents[3];
+  var interval = (xmax - xmin) / depth;
+  var coords = [];
+  var fc = {
+    type: 'FeatureCollection',
+    features: []
+  };
+
+  for (var x=0; x<=depth; x++){
+    for (var y=0;y<=depth; y++){
+      fc.features.push(point([(x * interval) + xmin, (y * interval) + ymin]));
+    }
+  }
+  return fc;
+}
+
+},{"turf-point":348}],334:[function(require,module,exports){
+var ss = require('simple-statistics');
+
+/**
+* Takes a {@FeatureCollection} of any type and returns an array of the [Jenks Natural breaks](http://en.wikipedia.org/wiki/Jenks_natural_breaks_optimization)
+* for a given property
+* @module turf/jenks
+* @param {FeatureCollection} input a FeatureCollection of any type
+* @param {string} field the property in `input` on which to calculate Jenks natural breaks
+* @param {number} numberOfBreaks number of classes in which to group the data
+* @return {Array<number>} the break number for each class plus the minimum and maximum values
+* @example
+* var points = {
+*   "type": "FeatureCollection",
+*   "features": [
+*     {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 200
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [49.859733, 40.400424]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 600
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [49.83879, 40.401209]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 100
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [49.817848, 40.376889]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 200
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [49.840507, 40.386043]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 300
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [49.854583, 40.37532]
+*       }
+*     }
+*   ]
+* };
+*
+* var breaks = turf.jenks(points, 'population', 3);
+*
+* //=breaks
+*/
+module.exports = function(fc, field, num){
+  var vals = [];
+  var breaks = [];
+
+  fc.features.forEach(function(feature){
+    if(feature.properties[field]!==undefined){
+      vals.push(feature.properties[field]);
+    }
+  });
+  breaks = ss.jenks(vals, num);
+
+  return breaks;
+};
+
+},{"simple-statistics":335}],335:[function(require,module,exports){
+arguments[4][260][0].apply(exports,arguments)
+},{"dup":260}],336:[function(require,module,exports){
+var distance = require('turf-distance');
+var point = require('turf-point');
+
+/**
+ * Takes a {@link LineString} feature and measures its length in the specified units.
+ *
+ * @module turf/line-distance
+ * @category measurement
+ * @param {LineString} Line to measure
+ * @param {String} [units=miles] can be degrees, radians, miles, or kilometers
+ * @return {Number} length of the LineString
+ * @example
+ * var line = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "LineString",
+ *     "coordinates": [
+ *       [-77.031669, 38.878605],
+ *       [-77.029609, 38.881946],
+ *       [-77.020339, 38.884084],
+ *       [-77.025661, 38.885821],
+ *       [-77.021884, 38.889563],
+ *       [-77.019824, 38.892368]
+ *     ]
+ *   }
+ * };
+ *
+ * var length = turf.lineDistance(line, 'miles');
+ *
+ * //=line
+ *
+ * //=length
+ */
+
+module.exports = function (line, units) {
+  var coords;
+  if(line.type === 'Feature') coords = line.geometry.coordinates;
+  else if(line.type === 'LineString') coords = line.geometry.coordinates;
+  else throw new Error('input must be a LineString Feature or Geometry');
+
+  var travelled = 0;
+  for(var i = 0; i < coords.length - 1; i++) {
+    travelled += distance(point(coords[i]), point(coords[i+1]), units);
+  }
+  return travelled;
+}
+
+},{"turf-distance":313,"turf-point":348}],337:[function(require,module,exports){
+var distance = require('turf-distance');
+var point = require('turf-point');
+var linestring = require('turf-linestring');
+var bearing = require('turf-bearing');
+var destination = require('turf-destination');
+
+/**
+ * Slices a LineString at start and stop Points
+ *
+ * @module turf/line-slice
+ *
+ * @param {Point} Point to start the slice
+ * @param {Point} Point to stop the slice
+ * @param {LineString} Line to slice
+ * @return {LineString} Sliced LineString
+ * @example
+ * var line = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "LineString",
+ *     "coordinates": [
+ *       [-77.031669, 38.878605],
+ *       [-77.029609, 38.881946],
+ *       [-77.020339, 38.884084],
+ *       [-77.025661, 38.885821],
+ *       [-77.021884, 38.889563],
+ *       [-77.019824, 38.892368]
+ *     ]
+ *   }
+ * };
+ * var start = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-77.029609, 38.881946]
+ *   }
+ * };
+ * var stop = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-77.021884, 38.889563]
+ *   }
+ * };
+ * 
+ * var sliced = turf.lineSlice(start, stop, line);
+ *
+ * //=line
+ *
+ * //=sliced
+ */
+
+module.exports = function (startPt, stopPt, line) {  
+  var coords;
+  if(line.type === 'Feature') coords = line.geometry.coordinates;
+  else if(line.type === 'LineString') coords = line.geometry.coordinates;
+  else throw new Error('input must be a LineString Feature or Geometry');
+
+  var startVertex = pointOnLine(startPt, coords);
+  var stopVertex = pointOnLine(stopPt, coords);
+  var ends;
+  if(startVertex.properties.index <= stopVertex.properties.index) {
+    ends = [startVertex, stopVertex];
+  } else {
+    ends = [stopVertex, startVertex];
+  }
+  var clipLine = linestring([ends[0].geometry.coordinates], {});
+  for(var i = ends[0].properties.index+1; i < ends[1].properties.index+1; i++) {
+    clipLine.geometry.coordinates.push(coords[i]);
+  }
+  clipLine.geometry.coordinates.push(ends[1].geometry.coordinates);
+  return clipLine;
+}
+
+function pointOnLine (pt, coords) {
+  var units = 'miles'
+  var closestPt = point([Infinity, Infinity], {dist: Infinity});
+  for(var i = 0; i < coords.length - 1; i++) {
+    var start = point(coords[i])
+    var stop = point(coords[i+1])
+    //start
+    start.properties.dist = distance(pt, start, units);
+    //stop
+    stop.properties.dist = distance(pt, stop, units);
+    //perpendicular
+    var direction = bearing(start, stop)
+    var perpendicularPt = destination(pt, 1000 , direction + 90, units) // 1000 = gross
+    var intersect = lineIntersects(
+      pt.geometry.coordinates[0],
+      pt.geometry.coordinates[1],
+      perpendicularPt.geometry.coordinates[0],
+      perpendicularPt.geometry.coordinates[1],
+      start.geometry.coordinates[0],
+      start.geometry.coordinates[1],
+      stop.geometry.coordinates[0],
+      stop.geometry.coordinates[1]
+      );
+    if(!intersect) {
+      perpendicularPt = destination(pt, 1000 , direction - 90, units) // 1000 = gross
+      intersect = lineIntersects(
+        pt.geometry.coordinates[0],
+        pt.geometry.coordinates[1],
+        perpendicularPt.geometry.coordinates[0],
+        perpendicularPt.geometry.coordinates[1],
+        start.geometry.coordinates[0],
+        start.geometry.coordinates[1],
+        stop.geometry.coordinates[0],
+        stop.geometry.coordinates[1]
+        );
+    }
+    perpendicularPt.properties.dist = Infinity;
+    var intersectPt;
+    if(intersect) {
+      var intersectPt = point(intersect);
+      intersectPt.properties.dist = distance(pt, intersectPt, units);
+    }
+    
+    if(start.properties.dist < closestPt.properties.dist) {
+      closestPt = start;
+      closestPt.properties.index = i;
+    }
+    if(stop.properties.dist < closestPt.properties.dist) {
+     closestPt = stop;
+     closestPt.properties.index = i;
+    }
+    if(intersectPt && intersectPt.properties.dist < closestPt.properties.dist){ 
+      closestPt = intersectPt;
+      closestPt.properties.index = i;
+    }
+  }
+  
+  return closestPt;
+}
+
+// modified from http://jsfiddle.net/justin_c_rounds/Gd2S2/light/
+function lineIntersects(line1StartX, line1StartY, line1EndX, line1EndY, line2StartX, line2StartY, line2EndX, line2EndY) {
+  // if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite) and booleans for whether line segment 1 or line segment 2 contain the point
+  var denominator, a, b, numerator1, numerator2, result = {
+    x: null,
+    y: null,
+    onLine1: false,
+    onLine2: false
+  };
+  denominator = ((line2EndY - line2StartY) * (line1EndX - line1StartX)) - ((line2EndX - line2StartX) * (line1EndY - line1StartY));
+  if (denominator == 0) {
+    if(result.x != null && result.y != null) {
+      return result;
+    } else {
+      return false;
+    }
+  }
+  a = line1StartY - line2StartY;
+  b = line1StartX - line2StartX;
+  numerator1 = ((line2EndX - line2StartX) * a) - ((line2EndY - line2StartY) * b);
+  numerator2 = ((line1EndX - line1StartX) * a) - ((line1EndY - line1StartY) * b);
+  a = numerator1 / denominator;
+  b = numerator2 / denominator;
+
+  // if we cast these lines infinitely in both directions, they intersect here:
+  result.x = line1StartX + (a * (line1EndX - line1StartX));
+  result.y = line1StartY + (a * (line1EndY - line1StartY));
+
+  // if line1 is a segment and line2 is infinite, they intersect if:
+  if (a > 0 && a < 1) {
+    result.onLine1 = true;
+  }
+  // if line2 is a segment and line1 is infinite, they intersect if:
+  if (b > 0 && b < 1) {
+    result.onLine2 = true;
+  }
+  // if line1 and line2 are segments, they intersect if both of the above are true
+  if(result.onLine1 && result.onLine2){
+    return [result.x, result.y];
+  }
+  else {
+    return false;
+  }
+}
+
+},{"turf-bearing":235,"turf-destination":310,"turf-distance":313,"turf-linestring":338,"turf-point":348}],338:[function(require,module,exports){
+/**
+ * Creates a {@link LineString} {@link Feature} based on a
+ * coordinate array. Properties can be added optionally.
+ *
+ * @module turf/linestring
+ * @category helper
+ * @param {Array<Array<Number>>} coordinates an array of Positions
+ * @param {Object} properties an Object of key-value pairs to add as properties
+ * @return {LineString} a LineString feature
+ * @throws {Error} if no coordinates are passed
+ * @example
+ * var linestring1 = turf.linestring([
+ *	[-21.964416, 64.148203],
+ *	[-21.956176, 64.141316],
+ *	[-21.93901, 64.135924],
+ *	[-21.927337, 64.136673]
+ * ]);
+ * var linestring2 = turf.linestring([
+ *	[-21.929054, 64.127985],
+ *	[-21.912918, 64.134726],
+ *	[-21.916007, 64.141016],
+ * 	[-21.930084, 64.14446]
+ * ], {name: 'line 1', distance: 145});
+ *
+ * //=linestring1
+ *
+ * //=linestring2
+ */
+module.exports = function(coordinates, properties){
+  if (!coordinates) {
+      throw new Error('No coordinates passed');
+  }
+  return {
+    "type": "Feature",
+    "geometry": {
+      "type": "LineString",
+      "coordinates": coordinates
+    },
+    "properties": properties || {}
+  };
+};
+
+},{}],339:[function(require,module,exports){
+var inside = require('turf-inside');
+
+/**
+ * Calculates the maximum value of a field for a set of {@link Point} features within a set of {@link Polygon} features.
+ *
+ * @module turf/max
+ * @category aggregation
+ * @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {string} inField the field in input data to analyze
+ * @param {string} outField the field in which to store results
+ * @return {FeatureCollection} a FeatureCollection of {@link Polygon} features
+ * with properties listed as `outField` values
+ * @example
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [101.551437, 3.150114],
+ *           [101.551437, 3.250208],
+ *           [101.742324, 3.250208],
+ *           [101.742324, 3.150114],
+ *           [101.551437, 3.150114]
+ *         ]]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [101.659927, 3.011612],
+ *           [101.659927, 3.143944],
+ *           [101.913986, 3.143944],
+ *           [101.913986, 3.011612],
+ *           [101.659927, 3.011612]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [101.56105, 3.213874]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 600
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [101.709365, 3.211817]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 100
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [101.645507, 3.169311]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [101.708679, 3.071266]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 300
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [101.826782, 3.081551]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var aggregated = turf.max(
+ *   polygons, points, 'population', 'max');
+ *
+ * var resultFeatures = points.features.concat(
+ *   aggregated.features);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+module.exports = function(polyFC, ptFC, inField, outField){
+  polyFC.features.forEach(function(poly){
+    if(!poly.properties){
+      poly.properties = {};
+    }
+    var values = [];
+    ptFC.features.forEach(function(pt){
+      if (inside(pt, poly)) {
+        values.push(pt.properties[inField]);
+      }
+    });
+    poly.properties[outField] = max(values);
+  });
+
+  return polyFC;
+}
+
+function max(x) {
+    var value;
+    for (var i = 0; i < x.length; i++) {
+        // On the first iteration of this loop, max is
+        // undefined and is thus made the maximum element in the array
+        if (x[i] > value || value === undefined) value = x[i];
+    }
+    return value;
+}
+
+},{"turf-inside":325}],340:[function(require,module,exports){
+var inside = require('turf-inside');
+
+/**
+ * Calculates the median value of a field for a set of {@link Point} features within a set of {@link Polygon} features.
+ *
+ * @module turf/median
+ * @category aggregation
+ * @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {string} inField the field in input data to analyze
+ * @param {string} outField the field in which to store results
+ * @return {FeatureCollection} a FeatureCollection of {@link Polygon} features
+ * with properties listed as `outField` values
+ * @example
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [18.400039, -33.970697],
+ *           [18.400039, -33.818518],
+ *           [18.665771, -33.818518],
+ *           [18.665771, -33.970697],
+ *           [18.400039, -33.970697]
+ *         ]]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [18.538742, -34.050383],
+ *           [18.538742, -33.98721],
+ *           [18.703536, -33.98721],
+ *           [18.703536, -34.050383],
+ *           [18.538742, -34.050383]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [18.514022, -33.860152]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 600
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [18.48999, -33.926269]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 100
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [18.583374, -33.905755]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [18.591613, -34.024778]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 300
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [18.653411, -34.017949]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var medians = turf.median(
+ *  polygons, points, 'population', 'median');
+ *
+ * var resultFeatures = points.features.concat(
+ *   medians.features);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+module.exports = function(polyFC, ptFC, inField, outField){
+  polyFC.features.forEach(function(poly){
+    if(!poly.properties){
+      poly.properties = {};
+    }
+    var values = [];
+    ptFC.features.forEach(function(pt){
+      if (inside(pt, poly)) {
+        values.push(pt.properties[inField]);
+      }
+    });
+    poly.properties[outField] = median(values);
+  });
+
+  return polyFC;
+};
+
+function median(x) {
+    // The median of an empty list is null
+    if (x.length === 0) return null;
+
+    // Sorting the array makes it easy to find the center, but
+    // use `.slice()` to ensure the original array `x` is not modified
+    var sorted = x.slice().sort(function (a, b) { return a - b; });
+
+    // If the length of the list is odd, it's the central number
+    if (sorted.length % 2 === 1) {
+        return sorted[(sorted.length - 1) / 2];
+    // Otherwise, the median is the average of the two numbers
+    // at the center of the list
+    } else {
+        var a = sorted[(sorted.length / 2) - 1];
+        var b = sorted[(sorted.length / 2)];
+        return (a + b) / 2;
+    }
+}
+
+},{"turf-inside":325}],341:[function(require,module,exports){
+// http://cs.selu.edu/~rbyrd/math/midpoint/
+// ((x1+x2)/2), ((y1+y2)/2)
+var point = require('turf-point');
+
+/**
+ * Takes two {@link Point} features and returns a Point midway between the two.
+ *
+ * @module turf/midpoint
+ * @category measurement
+ * @param {Point} pt1 first point
+ * @param {Point} pt2 second point
+ * @return {Point} a point between the two
+ * @example
+ * var pt1 = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [144.834823, -37.771257]
+ *   }
+ * };
+ * var pt2 = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [145.14244, -37.830937]
+ *   }
+ * };
+ *
+ * var midpointed = turf.midpoint(pt1, pt2);
+ * midpointed.properties['marker-color'] = '#f00';
+ *
+ *
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": [pt1, pt2, midpointed]
+ * };
+ *
+ * //=result
+ */
+module.exports = function(point1, point2) {
+  if (point1 === null || point2 === null){
+    throw new Error('Less than two points passed.');
+  }
+
+  var x1 = point1.geometry.coordinates[0];
+  var x2 = point2.geometry.coordinates[0];
+  var y1 = point1.geometry.coordinates[1];
+  var y2 = point2.geometry.coordinates[1];
+
+  var x3 = x1 + x2;
+  var midX = x3/2;
+  var y3 = y1 + y2;
+  var midY = y3/2;
+
+  return point([midX, midY]);
+};
+
+},{"turf-point":348}],342:[function(require,module,exports){
+var inside = require('turf-inside');
+
+/**
+* Calculates the minimum value of a field for {@link Point} features within a set of {@link Polygon} features.
+*
+* @module turf/min
+* @category aggregation
+* @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+* @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+* @param {string} inField the field in input data to analyze
+* @param {string} outField the field in which to store results
+* @return {FeatureCollection} a FeatureCollection of {@link Polygon} features
+* with properties listed as `outField` values
+* @example
+* var polygons = {
+*   "type": "FeatureCollection",
+*   "features": [
+*     {
+*       "type": "Feature",
+*       "properties": {},
+*       "geometry": {
+*         "type": "Polygon",
+*         "coordinates": [[
+*           [72.809658, 18.961818],
+*           [72.809658, 18.974805],
+*           [72.827167, 18.974805],
+*           [72.827167, 18.961818],
+*           [72.809658, 18.961818]
+*         ]]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {},
+*       "geometry": {
+*         "type": "Polygon",
+*         "coordinates": [[
+*           [72.820987, 18.947043],
+*           [72.820987, 18.95922],
+*           [72.841243, 18.95922],
+*           [72.841243, 18.947043],
+*           [72.820987, 18.947043]
+*         ]]
+*       }
+*     }
+*   ]
+* };
+* var points = {
+*   "type": "FeatureCollection",
+*   "features": [
+*     {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 200
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [72.814464, 18.971396]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 600
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [72.820043, 18.969772]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 100
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [72.817296, 18.964253]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 200
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [72.83575, 18.954837]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 300
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [72.828197, 18.95094]
+*       }
+*     }
+*   ]
+* };
+*
+* var minimums = turf.min(
+*   polygons, points, 'population', 'min');
+*
+* var resultFeatures = points.features.concat(
+*   minimums.features);
+* var result = {
+*   "type": "FeatureCollection",
+*   "features": resultFeatures
+* };
+*
+* //=result
+*/
+module.exports = function(polyFC, ptFC, inField, outField){
+  polyFC.features.forEach(function(poly){
+    if(!poly.properties){
+      poly.properties = {};
+    }
+    var values = [];
+    ptFC.features.forEach(function(pt){
+      if (inside(pt, poly)) {
+        values.push(pt.properties[inField]);
+      }
+    });
+    poly.properties[outField] = min(values);
+  });
+
+  return polyFC;
+};
+
+function min(x) {
+    var value;
+    for (var i = 0; i < x.length; i++) {
+        // On the first iteration of this loop, min is
+        // undefined and is thus made the minimum element in the array
+        if (x[i] < value || value === undefined) value = x[i];
+    }
+    return value;
+}
+
+},{"turf-inside":325}],343:[function(require,module,exports){
+var distance = require('turf-distance');
+
+/**
+ * Takes a {@link Point} feature and a {@link FeatureCollection} of Point features and returns the Point feature from the FeatureCollection closest to the input point.
+ *
+ * @module turf/nearest
+ * @category classification
+ * @param {Point} point the reference point
+ * @param {FeatureCollection} against a FeatureCollection of Point features
+ * @return {Feature} the closest Point feature in `against` to `point`
+ * @example
+ * var point = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "marker-color": "#0f0"
+ *   },
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [28.965797, 41.010086]
+ *   }
+ * };
+ * var against = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [28.973865, 41.011122]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [28.948459, 41.024204]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [28.938674, 41.013324]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var nearest = turf.nearest(point, against);
+ * nearest.properties['marker-color'] = '#f00';
+ *
+ * var resultFeatures = against.features.concat(point);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+module.exports = function(targetPoint, points){
+  var nearestPoint;
+  var count = 0;
+  var dist = Infinity;
+  points.features.forEach(function(pt){
+    if(!nearestPoint){
+      nearestPoint = pt;
+      var dist = distance(targetPoint, pt, 'miles');
+      nearestPoint.properties.distance = dist;
+    }
+    else{
+      var dist = distance(targetPoint, pt, 'miles');
+      if(dist < nearestPoint.properties.distance){
+        nearestPoint = pt;
+        nearestPoint.properties.distance = dist;
+      }
+    }
+  });
+  delete nearestPoint.properties.distance;
+  return nearestPoint;
+}
+
+},{"turf-distance":313}],344:[function(require,module,exports){
+/**
+ * Takes a triangular plane as a {@link Polygon} feature
+ * and a {@link Point} feature within that triangle and returns the z-value
+ * at that point. The Polygon needs to have properties `a`, `b`, and `c`
+ * that define the values at its three corners.
+ *
+ * @module turf/planepoint
+ * @category interpolation
+ * @param {Point} interpolatedPoint the Point for which a z-value will be calculated
+ * @param {Polygon} triangle a Polygon feature with three vertices
+ * @return {number} the z-value for `interpolatedPoint`
+ * @example
+ * var point = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-75.3221, 39.529]
+ *   }
+ * };
+ * var point = turf.point([-75.3221, 39.529]);
+ * // triangle is a polygon with "a", "b",
+ * // and "c" values representing
+ * // the values of the coordinates in order.
+ * var triangle = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "a": 11,
+ *     "b": 122,
+ *     "c": 44
+ *   },
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-75.1221, 39.57],
+ *       [-75.58, 39.18],
+ *       [-75.97, 39.86],
+ *       [-75.1221, 39.57]
+ *     ]]
+ *   }
+ * };
+ *
+ * var features = {
+ *   "type": "FeatureCollection",
+ *   "features": [triangle, point]
+ * };
+ *
+ * var zValue = turf.planepoint(point, triangle);
+ *
+ * //=features
+ *
+ * //=zValue
+ */
+module.exports = function(point, triangle){
+  var x = point.geometry.coordinates[0],
+      y = point.geometry.coordinates[1],
+      x1 = triangle.geometry.coordinates[0][0][0],
+      y1 = triangle.geometry.coordinates[0][0][1],
+      z1 = triangle.properties.a,
+      x2 = triangle.geometry.coordinates[0][1][0],
+      y2 = triangle.geometry.coordinates[0][1][1],
+      z2 = triangle.properties.b,
+      x3 = triangle.geometry.coordinates[0][2][0],
+      y3 = triangle.geometry.coordinates[0][2][1],
+      z3 = triangle.properties.c;
+
+  var z = (z3 * (x-x1) * (y-y2) + z1 * (x-x2) * (y-y3) + z2 * (x-x3) * (y-y1) -
+      z2 * (x-x1) * (y-y3) - z3 * (x-x2) * (y-y1) - z1 * (x-x3) * (y-y2)) /
+      ((x-x1) * (y-y2) + (x-x2) * (y-y3) +(x-x3) * (y-y1) -
+       (x-x1) * (y-y3) - (x-x2) * (y-y1) - (x-x3) * (y-y2));
+
+  return z;
+};
+
+},{}],345:[function(require,module,exports){
+var point = require('turf-point');
+var featurecollection = require('turf-featurecollection');
+var distance = require('turf-distance');
+/**
+ * Takes a bounding box and a cell depth and returns a {@link FeatureCollection} of {@link Point} features in a grid.
+ *
+ * @module turf/point-grid
+ * @category interpolation
+ * @param {Array<number>} extent extent in [minX, minY, maxX, maxY] order
+ * @param {Number} depth how many cells to output
+ * @return {FeatureCollection} grid as FeatureCollection with {@link Point} features
+ * @example
+ * var extent = [-70.823364, -33.553984, -70.473175, -33.302986];
+ * var depth = 10;
+ *
+ * var grid = turf.pointGrid(extent, depth);
+ *
+ * //=grid
+ */
+module.exports = function (bbox, cell, units) {
+  var fc = featurecollection([]);
+  var xFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[2], bbox[1]]), units));
+  var cellWidth = xFraction * (bbox[2] - bbox[0]);
+  var yFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[0], bbox[3]]), units));
+  var cellHeight = yFraction * (bbox[3] - bbox[1]);
+
+  var currentX = bbox[0];
+  while (currentX <= bbox[2]) {
+    var currentY = bbox[1];
+    while (currentY <= bbox[3]) {
+      fc.features.push(point([currentX, currentY]));
+
+      currentY += cellHeight;
+    }
+    currentX += cellWidth;
+  }
+  
+  return fc;
+}
+},{"turf-distance":313,"turf-featurecollection":323,"turf-point":348}],346:[function(require,module,exports){
+var distance = require('turf-distance');
+var point = require('turf-point');
+var linestring = require('turf-linestring');
+var bearing = require('turf-bearing');
+var destination = require('turf-destination');
+
+/**
+ * Takes a Point and a LineString and calculates the closest Point on the LineString
+ *
+ * @module turf/point-on-line
+ *
+ * @param {LineString} Line to snap to
+ * @param {Point} Point to snap from
+ * @return {Point} Closest Point on the Line
+ * @example
+ * var line = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "LineString",
+ *     "coordinates": [
+ *       [-77.031669, 38.878605],
+ *       [-77.029609, 38.881946],
+ *       [-77.020339, 38.884084],
+ *       [-77.025661, 38.885821],
+ *       [-77.021884, 38.889563],
+ *       [-77.019824, 38.892368]
+ *     ]
+ *   }
+ * };
+ * var pt = {
+ *   "type": "Feature",
+ *   "properties": {},
+ *   "geometry": {
+ *     "type": "Point",
+ *     "coordinates": [-77.037076, 38.884017]
+ *   }
+ * };
+ * 
+ * var snapped = turf.pointOnLine(line, pt);
+ * snapped.properties['marker-color'] = '#00f'
+ *
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": [line, pt, snapped]
+ * };
+ *
+ * //=result
+ */
+
+module.exports = function (line, pt) {  
+  var coords;
+  if(line.type === 'Feature') coords = line.geometry.coordinates;
+  else if(line.type === 'LineString') coords = line.geometry.coordinates;
+  else throw new Error('input must be a LineString Feature or Geometry');
+
+  return pointOnLine(pt, coords);
+}
+
+function pointOnLine (pt, coords) {
+  var units = 'miles'
+  var closestPt = point([Infinity, Infinity], {dist: Infinity});
+  for(var i = 0; i < coords.length - 1; i++) {
+    var start = point(coords[i])
+    var stop = point(coords[i+1])
+    //start
+    start.properties.dist = distance(pt, start, units);
+    //stop
+    stop.properties.dist = distance(pt, stop, units);
+    //perpendicular
+    var direction = bearing(start, stop)
+    var perpendicularPt = destination(pt, 1000 , direction + 90, units) // 1000 = gross
+    var intersect = lineIntersects(
+      pt.geometry.coordinates[0],
+      pt.geometry.coordinates[1],
+      perpendicularPt.geometry.coordinates[0],
+      perpendicularPt.geometry.coordinates[1],
+      start.geometry.coordinates[0],
+      start.geometry.coordinates[1],
+      stop.geometry.coordinates[0],
+      stop.geometry.coordinates[1]
+      );
+    if(!intersect) {
+      perpendicularPt = destination(pt, 1000 , direction - 90, units) // 1000 = gross
+      intersect = lineIntersects(
+        pt.geometry.coordinates[0],
+        pt.geometry.coordinates[1],
+        perpendicularPt.geometry.coordinates[0],
+        perpendicularPt.geometry.coordinates[1],
+        start.geometry.coordinates[0],
+        start.geometry.coordinates[1],
+        stop.geometry.coordinates[0],
+        stop.geometry.coordinates[1]
+        );
+    }
+    perpendicularPt.properties.dist = Infinity;
+    var intersectPt;
+    if(intersect) {
+      var intersectPt = point(intersect);
+      intersectPt.properties.dist = distance(pt, intersectPt, units);
+    }
+    
+    if(start.properties.dist < closestPt.properties.dist) {
+      closestPt = start;
+      closestPt.properties.index = i;
+    }
+    if(stop.properties.dist < closestPt.properties.dist) {
+     closestPt = stop;
+     closestPt.properties.index = i;
+    }
+    if(intersectPt && intersectPt.properties.dist < closestPt.properties.dist){ 
+      closestPt = intersectPt;
+      closestPt.properties.index = i;
+    }
+  }
+  
+  return closestPt;
+}
+
+// modified from http://jsfiddle.net/justin_c_rounds/Gd2S2/light/
+function lineIntersects(line1StartX, line1StartY, line1EndX, line1EndY, line2StartX, line2StartY, line2EndX, line2EndY) {
+  // if the lines intersect, the result contains the x and y of the intersection (treating the lines as infinite) and booleans for whether line segment 1 or line segment 2 contain the point
+  var denominator, a, b, numerator1, numerator2, result = {
+    x: null,
+    y: null,
+    onLine1: false,
+    onLine2: false
+  };
+  denominator = ((line2EndY - line2StartY) * (line1EndX - line1StartX)) - ((line2EndX - line2StartX) * (line1EndY - line1StartY));
+  if (denominator == 0) {
+    if(result.x != null && result.y != null) {
+      return result;
+    } else {
+      return false;
+    }
+  }
+  a = line1StartY - line2StartY;
+  b = line1StartX - line2StartX;
+  numerator1 = ((line2EndX - line2StartX) * a) - ((line2EndY - line2StartY) * b);
+  numerator2 = ((line1EndX - line1StartX) * a) - ((line1EndY - line1StartY) * b);
+  a = numerator1 / denominator;
+  b = numerator2 / denominator;
+
+  // if we cast these lines infinitely in both directions, they intersect here:
+  result.x = line1StartX + (a * (line1EndX - line1StartX));
+  result.y = line1StartY + (a * (line1EndY - line1StartY));
+
+  // if line1 is a segment and line2 is infinite, they intersect if:
+  if (a > 0 && a < 1) {
+    result.onLine1 = true;
+  }
+  // if line2 is a segment and line1 is infinite, they intersect if:
+  if (b > 0 && b < 1) {
+    result.onLine2 = true;
+  }
+  // if line1 and line2 are segments, they intersect if both of the above are true
+  if(result.onLine1 && result.onLine2){
+    return [result.x, result.y];
+  }
+  else {
+    return false;
+  }
+}
+
+},{"turf-bearing":235,"turf-destination":310,"turf-distance":313,"turf-linestring":338,"turf-point":348}],347:[function(require,module,exports){
+var featureCollection = require('turf-featurecollection');
+var centroid = require('turf-center');
+var distance = require('turf-distance');
+var inside = require('turf-inside');
+var explode = require('turf-explode');
+
+/**
+ * Finds a {@link Point} guaranteed to be on the surface of
+ * {@link GeoJSON} object.
+ *
+ * * Given a {@link Polygon}, the point will be in the area of the polygon
+ * * Given a {@link LineString}, the point will be along the string
+ * * Given a {@link Point}, the point will the same as the input
+ *
+ * @module turf/point-on-surface
+ * @category measurement
+ * @param {GeoJSON} input any GeoJSON object
+ * @returns {Feature} a point on the surface of `input`
+ * @example
+ * // create a random polygon
+ * var polygon = turf.random('polygon');
+ *
+ * //=polygon
+ *
+ * var pointOnPolygon = turf.pointOnSurface(polygon);
+ *
+* var resultFeatures = polygon.features.concat(pointOnPolygon);
+* var result = {
+*   "type": "FeatureCollection",
+*   "features": resultFeatures
+* };
+ *
+ * //=result
+ */
+module.exports = function(fc) {
+  // normalize
+  if(fc.type != 'FeatureCollection') {
+    if(fc.type != 'Feature') {
+      fc = {
+        type: 'Feature',
+        geometry: fc,
+        properties: {}
+      };
+    }
+    fc = featureCollection([fc]);
+  }
+
+  //get centroid
+  var cent = centroid(fc);
+
+  // check to see if centroid is on surface
+  var onSurface = false;
+  var i = 0;
+  while(!onSurface && i < fc.features.length) {
+    var geom = fc.features[i].geometry;
+    if (geom.type === 'Point') {
+      if (cent.geometry.coordinates[0] === geom.coordinates[0] &&
+        cent.geometry.coordinates[1] === geom.coordinates[1]) {
+        onSurface = true;
+      }
+    } else if(geom.type === 'MultiPoint') {
+      var onMultiPoint = false;
+      var k = 0;
+      while(!onMultiPoint && k < geom.coordinates.length) {
+        if (cent.geometry.coordinates[0] === geom.coordinates[k][0] &&
+          cent.geometry.coordinates[1] === geom.coordinates[k][1]) {
+          onSurface = true;
+          onMultiPoint = true;
+        }
+        k++;
+      }
+    } else if(geom.type === 'LineString') {
+      var onLine = false;
+      var k = 0;
+      while(!onLine && k < geom.coordinates.length - 1) {
+        var x = cent.geometry.coordinates[0];
+        var y = cent.geometry.coordinates[1];
+        var x1 = geom.coordinates[k][0];
+        var y1 = geom.coordinates[k][1];
+        var x2 = geom.coordinates[k+1][0];
+        var y2 = geom.coordinates[k+1][1];
+        if(pointOnSegment(x, y, x1, y1, x2, y2)) {
+          onLine = true;
+          onSurface = true;
+        }
+        k++;
+      }
+    } else if(geom.type === 'MultiLineString') {
+      var onMultiLine = false;
+      var j = 0;
+      while(!onMultiLine && j < geom.coordinates.length) {
+        var onLine = false;
+        var k = 0;
+        var line = geom.coordinates[j];
+        while(!onLine && k < line.length - 1) {
+          var x = cent.geometry.coordinates[0];
+          var y = cent.geometry.coordinates[1];
+          var x1 = line[k][0];
+          var y1 = line[k][1];
+          var x2 = line[k+1][0];
+          var y2 = line[k+1][1];
+          if(pointOnSegment(x, y, x1, y1, x2, y2)) {
+            onLine = true;
+            onSurface = true;
+          }
+          k++;
+        }
+        j++;
+      }
+    } else if(geom.type === 'Polygon' || geom.type === 'MultiPolygon') {
+      var f = {
+        type: 'Feature',
+        geometry: geom,
+        properties: {}
+      };
+      if(inside(cent, f)) {
+        onSurface = true;
+      }
+    }
+    i++;
+  }
+  if(onSurface) {
+    return cent;
+  } else {
+    var vertices = featureCollection([]);
+    for(var i = 0; i < fc.features.length; i++) {
+      vertices.features = vertices.features.concat(explode(fc.features[i]).features);
+    }
+    var closestVertex;
+    var closestDistance = Infinity;
+    for(var i = 0; i < vertices.features.length; i++) {
+      var dist = distance(cent, vertices.features[i], 'miles');
+      if(dist < closestDistance) {
+        closestDistance = dist;
+        closestVertex = vertices.features[i];
+      }
+    }
+    return closestVertex;
+  }
+};
+
+function pointOnSegment (x, y, x1, y1, x2, y2) {
+  var ab = Math.sqrt((x2-x1)*(x2-x1)+(y2-y1)*(y2-y1));
+  var ap = Math.sqrt((x-x1)*(x-x1)+(y-y1)*(y-y1));
+  var pb = Math.sqrt((x2-x)*(x2-x)+(y2-y)*(y2-y));
+  if(ab === ap + pb) {
+    return true;
+  }
+}
+
+},{"turf-center":275,"turf-distance":313,"turf-explode":237,"turf-featurecollection":323,"turf-inside":325}],348:[function(require,module,exports){
+arguments[4][240][0].apply(exports,arguments)
+},{"dup":240}],349:[function(require,module,exports){
+arguments[4][247][0].apply(exports,arguments)
+},{"dup":247}],350:[function(require,module,exports){
+var random = require('geojson-random');
+
+/**
+ * Generates random {@link GeoJSON} data, including {@link Point|Points} and {@link Polygon|Polygons}, for testing
+ * and experimentation.
+ *
+ * @module turf/random
+ * @category data
+ * @param {String} [type='point'] type of features desired: 'points' or 'polygons'
+ * @param {Number} [count=1] how many geometries should be generated.
+ * @param {Object} options options relevant to the feature desired. Can include:
+ * @param {Array<number>} options.bbox a bounding box inside of which geometries
+ * are placed. In the case of {@link Point} features, they are guaranteed to be within this bounds,
+ * while {@link Polygon} features have their centroid within the bounds.
+ * @param {Number} [options.num_vertices=10] options.vertices the number of vertices added
+ * to polygon features.
+ * @param {Number} [options.max_radial_length=10] the total number of decimal
+ * degrees longitude or latitude that a polygon can extent outwards to
+ * from its center.
+ * @return {FeatureCollection} generated random features
+ * @example
+ * var points = turf.random('points', 100, {
+ *   bbox: [-70, 40, -60, 60]
+ * });
+ *
+ * //=points
+ *
+ * var polygons = turf.random('polygons', 4, {
+ *   bbox: [-70, 40, -60, 60]
+ * });
+ *
+ * //=polygons
+ */
+module.exports = function(type, count, options) {
+    options = options || {};
+    count = count || 1;
+    switch (type) {
+        case 'point':
+        case 'points':
+        case undefined:
+            return random.point(count, options.bbox);
+        case 'polygon':
+        case 'polygons':
+            return random.polygon(
+                count,
+                options.num_vertices,
+                options.max_radial_length,
+                options.bbox);
+        default:
+            throw new Error('Unknown type given: valid options are points and polygons');
+    }
+};
+
+},{"geojson-random":351}],351:[function(require,module,exports){
+module.exports = function() {
+    throw new Error('call .point() or .polygon() instead');
+};
+
+function position(bbox) {
+    if (bbox) return coordInBBBOX(bbox);
+    else return [lon(), lat()];
+}
+
+module.exports.position = position;
+
+module.exports.point = function(count, bbox) {
+    var features = [];
+    for (i = 0; i < count; i++) {
+        features.push(feature(bbox ? point(position(bbox)) : point()));
+    }
+    return collection(features);
+};
+
+module.exports.polygon = function(count, num_vertices, max_radial_length, bbox) {
+    if (typeof num_vertices !== 'number') num_vertices = 10;
+    if (typeof max_radial_length !== 'number') max_radial_length = 10;
+    var features = [];
+    for (i = 0; i < count; i++) {
+        var vertices = [],
+            circle_offsets = Array.apply(null,
+                new Array(num_vertices + 1)).map(Math.random);
+
+        circle_offsets.forEach(sumOffsets);
+        circle_offsets.forEach(scaleOffsets);
+        vertices[vertices.length - 1] = vertices[0]; // close the ring
+
+        // center the polygon around something
+        vertices = vertices.map(vertexToCoordinate(position(bbox)));
+        features.push(feature(polygon([vertices])));
+    }
+
+    function sumOffsets(cur, index, arr) {
+        arr[index] = (index > 0) ? cur + arr[index - 1] : cur;
+    }
+
+    function scaleOffsets(cur, index) {
+        cur = cur * 2 * Math.PI / circle_offsets[circle_offsets.length - 1];
+        var radial_scaler = Math.random();
+        vertices.push([
+            radial_scaler * max_radial_length * Math.sin(cur),
+            radial_scaler * max_radial_length * Math.cos(cur)
+        ]);
+    }
+
+    return collection(features);
+};
+
+
+function vertexToCoordinate(hub) {
+    return function(cur, index) { return [cur[0] + hub[0], cur[1] + hub[1]]; };
+}
+
+function rnd() { return Math.random() - 0.5; }
+function lon() { return rnd() * 360; }
+function lat() { return rnd() * 180; }
+
+function point(coordinates) {
+    return {
+        type: 'Point',
+        coordinates: coordinates || [lon(), lat()]
+    };
+}
+
+function coordInBBBOX(bbox) {
+    return [
+        (Math.random() * (bbox[2] - bbox[0])) + bbox[0],
+        (Math.random() * (bbox[3] - bbox[1])) + bbox[1]];
+}
+
+function pointInBBBOX() {
+    return {
+        type: 'Point',
+        coordinates: [lon(), lat()]
+    };
+}
+
+function polygon(coordinates) {
+    return {
+        type: 'Polygon',
+        coordinates: coordinates
+    };
+}
+
+function feature(geom) {
+    return {
+        type: 'Feature',
+        geometry: geom,
+        properties: {}
+    };
+}
+
+function collection(f) {
+    return {
+        type: 'FeatureCollection',
+        features: f
+    };
+}
+
+},{}],352:[function(require,module,exports){
+var featurecollection = require('turf-featurecollection');
+var reclass = require('./index.js');
+
+/**
+ * Takes a {@link FeatureCollection}, an input field, an output field, and
+ * an array of translations and outputs an identical FeatureCollection with
+ * the output field property populated.
+* @module turf/reclass
+* @category classification
+* @param {FeatureCollection} input a FeatureCollection of any type
+* @param {string} inField the field to translate
+* @param {string} outField the field in which to store translated results
+* @param {Array<number>} translations an array of translations
+* @return {FeatureCollection} a FeatureCollection with identical geometries to `input` but with `outField` populated.
+* @example
+* var points = {
+*   "type": "FeatureCollection",
+*   "features": [
+*     {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 200
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [13.170547, 32.888669]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 600
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [13.182048, 32.889533]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 100
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [13.17398, 32.882182]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 200
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [13.174324, 32.895011]
+*       }
+*     }, {
+*       "type": "Feature",
+*       "properties": {
+*         "population": 300
+*       },
+*       "geometry": {
+*         "type": "Point",
+*         "coordinates": [13.185825, 32.884344]
+*       }
+*     }
+*   ]
+* };
+* // 0 to 200 will map to "small", 200 to 400 will map to "medium", 400 to 600 will map to "large"
+* var translations = [
+*   [0, 200, "small"],
+*   [200, 400, "medium"],
+*   [400, 600, "large"]
+* ];
+*
+* var reclassed = turf.reclass(
+*   points, 'population', 'size', translations);
+*
+* //=reclassed
+*
+*/
+module.exports = function(fc, inField, outField, translations, done){
+  var reclassed = featurecollection([]);
+
+  fc.features.forEach(function(feature){
+    var reclassedFeature;
+    var found = false;
+    for(var i = 0; i < translations.length; i++){
+      if(feature.properties[inField] >= translations[i][0] && feature.properties[inField] <= translations[i][1]) {
+        feature.properties[outField] = translations[i][2];
+      }
+    }
+    reclassed.features.push(feature);
+  });
+
+  return reclassed;
+};
+
+},{"./index.js":352,"turf-featurecollection":323}],353:[function(require,module,exports){
+var featureCollection = require('turf-featurecollection');
+
+/**
+ * Takes a {@link FeatureCollection} of any type, a property, and a value and
+ * returns a FeatureCollection with features matching that
+ * property-value pair removed.
+ *
+ * @module turf/remove
+ * @category data
+ * @param {FeatureCollection} features a FeatureCollection of any type
+ * @param {String} property the property to filter
+ * @param {String} value the value to filter
+ * @return {FeatureCollection} the resulting FeatureCollection without features that match the property-value pair
+ * @example
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         'marker-color': '#00f'
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-0.235004, 5.551918]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         'marker-color': '#f00'
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-0.209598, 5.56439]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         'marker-color': '#00f'
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-0.197753, 5.556018]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         'marker-color': '#000'
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-0.217323, 5.549526]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         'marker-color': '#0f0'
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-0.211315, 5.543887]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         'marker-color': '#00f'
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-0.202217, 5.547134]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         'marker-color': '#0f0'
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-0.231227, 5.56644]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * //=points
+ *
+ * var filtered = turf.remove(points, 'marker-color', '#00f');
+ *
+ * //=filtered
+*/
+module.exports = function(collection, key, val) {
+  var newFC = featureCollection([]);
+  for(var i = 0; i < collection.features.length; i++) {
+    if(collection.features[i].properties[key] != val) {
+      newFC.features.push(collection.features[i]);
+    }
+  }
+  return newFC;
+};
+
+},{"turf-featurecollection":323}],354:[function(require,module,exports){
+// http://stackoverflow.com/questions/11935175/sampling-a-random-subset-from-an-array
+var featureCollection = require('turf-featurecollection');
+
+/**
+ * Takes a {@link FeatureCollection} and returns a FeatureCollection with given number of {@link Feature|features} at random.
+ *
+ * @module turf/sample
+ * @category data
+ * @param {FeatureCollection} features a FeatureCollection of any type
+ * @param {number} n number of features to select
+ * @return {FeatureCollection} a FeatureCollection with `n` features
+ * @example
+ * var points = turf.random('points', 1000);
+ *
+ * //=points
+ *
+ * var sample = turf.sample(points, 10);
+ *
+ * //=sample
+ */
+module.exports = function(fc, num){
+  var outFC = featureCollection(getRandomSubarray(fc.features, num));
+  return outFC;
+};
+
+function getRandomSubarray(arr, size) {
+  var shuffled = arr.slice(0), i = arr.length, min = i - size, temp, index;
+  while (i-- > min) {
+      index = Math.floor((i + 1) * Math.random());
+      temp = shuffled[index];
+      shuffled[index] = shuffled[i];
+      shuffled[i] = temp;
+  }
+  return shuffled.slice(min);
+}
+
+},{"turf-featurecollection":323}],355:[function(require,module,exports){
+/**
+ * Takes a bounding box and returns a new bounding box with a size expanded or contracted
+ * by a factor of X.
+ *
+ * @module turf/size
+ * @category measurement
+ * @param {Array<number>} bbox a bounding box
+ * @param {number} factor the ratio of the new bbox to the input bbox
+ * @return {Array<number>} the resized bbox
+ * @example
+ * var bbox = [0, 0, 10, 10]
+ *
+ * var resized = turf.size(bbox, 2);
+ *
+ * var features = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     turf.bboxPolygon(bbox),
+ *     turf.bboxPolygon(resized)
+ *   ]
+ * };
+ *
+ * //=features
+ */
+module.exports = function(bbox, factor){
+  var currentXDistance = (bbox[2] - bbox[0]);
+  var currentYDistance = (bbox[3] - bbox[1]);
+  var newXDistance = currentXDistance * factor;
+  var newYDistance = currentYDistance * factor;
+  var xChange = newXDistance - currentXDistance;
+  var yChange = newYDistance - currentYDistance;
+
+  var lowX = bbox[0] - (xChange / 2);
+  var lowY = bbox[1] - (yChange / 2);
+  var highX = (xChange / 2) + bbox[2];
+  var highY = (yChange / 2) + bbox[3];
+
+  var sized = [lowX, lowY, highX, highY];
+  return sized;
+}
+
+},{}],356:[function(require,module,exports){
+var featurecollection = require('turf-featurecollection');
+var point = require('turf-point');
+var polygon = require('turf-polygon');
+var distance = require('turf-distance');
+
+/**
+ * Takes a bounding box and a cell depth and returns a {@link FeatureCollection} of {@link Polygon} features in a grid.
+ *
+ * @module turf/square-grid
+ * @category interpolation
+ * @param {Array<number>} extent extent in [minX, minY, maxX, maxY] order
+ * @param {Number} cellWidth width of each cell
+ * @param {String} units units to use for cellWidth
+ * @return {FeatureCollection} grid as FeatureCollection with {@link Polygon} features
+ * @example
+ * var extent = [-77.3876953125,38.71980474264239,-76.9482421875,39.027718840211605];
+ * var cellWidth = 10;
+ * var units = 'miles';
+ *
+ * var squareGrid = turf.squareGrid(extent, cellWidth, units);
+ *
+ * //=squareGrid
+ */
+module.exports = function (bbox, cell, units) {
+  var fc = featurecollection([]);
+  var xFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[2], bbox[1]]), units));
+  var cellWidth = xFraction * (bbox[2] - bbox[0]);
+  var yFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[0], bbox[3]]), units));
+  var cellHeight = yFraction * (bbox[3] - bbox[1]);
+
+  var currentX = bbox[0];
+  while (currentX <= bbox[2]) {
+    var currentY = bbox[1];
+    while (currentY <= bbox[3]) {
+      var cellPoly = polygon([[
+          [currentX, currentY],
+          [currentX, currentY+cellHeight],
+          [currentX+cellWidth, currentY+cellHeight],
+          [currentX+cellWidth, currentY],
+          [currentX, currentY]
+        ]]);
+      fc.features.push(cellPoly);
+
+      currentY += cellHeight;
+    }
+    currentX += cellWidth;
+  }
+  
+  return fc;
+}
+
+},{"turf-distance":313,"turf-featurecollection":323,"turf-point":348,"turf-polygon":349}],357:[function(require,module,exports){
+var midpoint = require('turf-midpoint');
+var point = require('turf-point');
+var distance = require('turf-distance');
+
+/**
+ * Takes a bounding box and calculates the minimum square bounding box that would contain the input.
+ *
+ * @module turf/square
+ * @category measurement
+ * @param {Array<number>} bbox a bounding box
+ * @return {Array<number>} a square surrounding `bbox`
+ * @example
+ * var bbox = [-20,-20,-15,0];
+ *
+ * var squared = turf.square(bbox);
+ *
+ * var features = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     turf.bboxPolygon(bbox),
+ *     turf.bboxPolygon(squared)
+ *   ]
+ * };
+ *
+ * //=features
+ */
+module.exports = function(bbox){
+  var squareBbox = [0,0,0,0];
+  var lowLeft = point([bbox[0], bbox[1]]);
+  var topLeft = point([bbox[0], bbox[3]]);
+  var topRight = point([bbox[2], bbox[3]]);
+  var lowRight = point([bbox[2], bbox[1]]);
+
+  var horizontalDistance = distance(lowLeft, lowRight, 'miles');
+  var verticalDistance = distance(lowLeft, topLeft, 'miles');
+  if(horizontalDistance >= verticalDistance){
+    squareBbox[0] = bbox[0];
+    squareBbox[2] = bbox[2];
+    var verticalMidpoint = midpoint(lowLeft, topLeft);
+    squareBbox[1] = verticalMidpoint.geometry.coordinates[1] - ((bbox[2] - bbox[0]) / 2);
+    squareBbox[3] = verticalMidpoint.geometry.coordinates[1] + ((bbox[2] - bbox[0]) / 2);
+    return squareBbox;
+  }
+  else {
+    squareBbox[1] = bbox[1];
+    squareBbox[3] = bbox[3];
+    var horzontalMidpoint = midpoint(lowLeft, lowRight);
+    squareBbox[0] = horzontalMidpoint.geometry.coordinates[0] - ((bbox[3] - bbox[1]) / 2);
+    squareBbox[2] = horzontalMidpoint.geometry.coordinates[0] + ((bbox[3] - bbox[1]) / 2);
+    return squareBbox;
+  }
+}
+
+
+},{"turf-distance":313,"turf-midpoint":341,"turf-point":348}],358:[function(require,module,exports){
+var inside = require('turf-inside');
+
+/**
+ * Calculates the sum of a field for {@link Point} features within a set of {@link Polygon} features.
+ *
+ * @module turf/sum
+ * @category aggregation
+ * @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {String} inField the field in input data to analyze
+ * @param {String} outField the field in which to store results
+ * @return {FeatureCollection} a FeatureCollection of {@link Polygon} features
+ * with properties listed as `outField`
+ * @example
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-87.990188, 43.026486],
+ *           [-87.990188, 43.062115],
+ *           [-87.913284, 43.062115],
+ *           [-87.913284, 43.026486],
+ *           [-87.990188, 43.026486]
+ *         ]]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-87.973709, 42.962452],
+ *           [-87.973709, 43.014689],
+ *           [-87.904014, 43.014689],
+ *           [-87.904014, 42.962452],
+ *           [-87.973709, 42.962452]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-87.974052, 43.049321]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 600
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-87.957229, 43.037277]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 100
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-87.931137, 43.048568]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-87.963409, 42.99611]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 300
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-87.94178, 42.974762]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var aggregated = turf.sum(
+ *   polygons, points, 'population', 'sum');
+ *
+ * var resultFeatures = points.features.concat(
+ *   aggregated.features);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+module.exports = function(polyFC, ptFC, inField, outField){
+  polyFC.features.forEach(function(poly){
+    if(!poly.properties){
+      poly.properties = {};
+    }
+    var values = [];
+    ptFC.features.forEach(function(pt){
+      if (inside(pt, poly)) {
+        values.push(pt.properties[inField]);
+      }
+    });
+    poly.properties[outField] = sum(values);
+  });
+
+  return polyFC;
+};
+
+function sum(x) {
+    var value = 0;
+    for (var i = 0; i < x.length; i++) {
+        value += x[i];
+    }
+    return value;
+}
+
+},{"turf-inside":325}],359:[function(require,module,exports){
+var inside = require('turf-inside');
+
+/**
+ * Takes a {@link FeatureCollection} of {@link Point} features and a FeatureCollection of {@link Polygon} features and performs a spatial join.
+ *
+ * @module turf/tag
+ * @category joins
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+ * @param {String} polyId property in `polygons` to add to joined Point features
+ * @param {String} containingPolyId property in `points` in which to store joined property from `polygons
+ * @return {FeatureCollection} a FeatureCollection of point features
+ * @example
+ * var bbox = [0, 0, 50, 50];
+ * // create a triangular grid of polygons
+ * var triangleGrid = turf.tin(turf.grid(bbox, 10));
+ * triangleGrid.features.forEach(function(f) {
+ *   f.properties.fill = '#' +
+ *     (~~(Math.random() * 16)).toString(16) +
+ *     (~~(Math.random() * 16)).toString(16) +
+ *     (~~(Math.random() * 16)).toString(16);
+ *   f.properties.stroke = 0;
+ *   f.properties['fill-opacity'] = 1;
+ * });
+ * var randomPoints = turf.random('point', 30, {
+ *   bbox: bbox
+ * });
+ * var both = turf.featurecollection(
+ *   triangleGrid.features.concat(randomPoints.features));
+ *
+ * //=both
+ *
+ * var tagged = turf.tag(randomPoints, triangleGrid,
+ *                       'fill', 'marker-color');
+ *
+ * //=tagged
+ */
+module.exports = function(points, polygons, field, outField){
+  // prevent mutations
+  points = JSON.parse(JSON.stringify(points));
+  polygons = JSON.parse(JSON.stringify(polygons));
+  points.features.forEach(function(pt) {
+    if (!pt.properties) {
+      pt.properties = {};
+    }
+    polygons.features.forEach(function(poly) {
+      if (pt.properties[outField] === undefined) {
+        var isInside = inside(pt, poly);
+        if (isInside) {
+          pt.properties[outField] = poly.properties[field];
+        }
+      }
+    });
+  });
+  return points;
+};
+
+},{"turf-inside":325}],360:[function(require,module,exports){
+//http://en.wikipedia.org/wiki/Delaunay_triangulation
+//https://github.com/ironwallaby/delaunay
+var polygon = require('turf-polygon');
+var featurecollection = require('turf-featurecollection');
+
+/**
+ * Takes a set of points and the name of a z-value property and
+ * creates a [Triangulated Irregular Network](http://en.wikipedia.org/wiki/Triangulated_irregular_network),
+ * or a TIN for short, returned as a collection of Polygons. These are often used
+ * for developing elevation contour maps or stepped heat visualizations.
+ *
+ * This triangulates the points, as well as adds properties called `a`, `b`,
+ * and `c` representing the value of the given `propertyName` at each of
+ * the points that represent the corners of the triangle.
+ *
+ * @module turf/tin
+ * @category interpolation
+ * @param {FeatureCollection} points - a GeoJSON FeatureCollection containing
+ * Features with {@link Point} geometries
+ * @param {string=} propertyName - name of the property from which to pull z values.
+ * This is optional: if not given, then there will be no extra data added to the derived triangles.
+ * @return {FeatureCollection} TIN output
+ * @example
+ * // generate some random point data
+ * var points = turf.random('points', 30, {
+ *   bbox: [50, 30, 70, 50]
+ * });
+ * //=points
+ * // add a random property to each point between 0 and 9
+ * for (var i = 0; i < points.features.length; i++) {
+ *   points.features[i].properties.z = ~~(Math.random() * 9);
+ * }
+ * var tin = turf.tin(points, 'z')
+ * for (var i = 0; i < tin.features.length; i++) {
+ *   var properties  = tin.features[i].properties;
+ *   // roughly turn the properties of each
+ *   // triangle into a fill color
+ *   // so we can visualize the result
+ *   properties.fill = '#' + properties.a +
+ *     properties.b + properties.c;
+ * }
+ * //=tin
+ */
+module.exports = function(points, z) {
+  //break down points
+  return featurecollection(triangulate(points.features.map(function(p) {
+    var point = {
+      x: p.geometry.coordinates[0],
+      y: p.geometry.coordinates[1]
+    };
+    if (z) point.z = p.properties[z];
+    return point;
+  })).map(function(triangle) {
+    return polygon([[
+        [triangle.a.x, triangle.a.y],
+        [triangle.b.x, triangle.b.y],
+        [triangle.c.x, triangle.c.y],
+        [triangle.a.x, triangle.a.y]
+    ]], {
+        a: triangle.a.z,
+        b: triangle.b.z,
+        c: triangle.c.z
+      });
+  }));
+};
+
+function Triangle(a, b, c) {
+  this.a = a;
+  this.b = b;
+  this.c = c;
+
+  var A = b.x - a.x,
+    B = b.y - a.y,
+    C = c.x - a.x,
+    D = c.y - a.y,
+    E = A * (a.x + b.x) + B * (a.y + b.y),
+    F = C * (a.x + c.x) + D * (a.y + c.y),
+    G = 2 * (A * (c.y - b.y) - B * (c.x - b.x)),
+    minx, miny, dx, dy;
+
+  // If the points of the triangle are collinear, then just find the
+  // extremes and use the midpoint as the center of the circumcircle.
+  if (Math.abs(G) < 0.000001) {
+    minx = Math.min(a.x, b.x, c.x);
+    miny = Math.min(a.y, b.y, c.y);
+    dx = (Math.max(a.x, b.x, c.x) - minx) * 0.5;
+    dy = (Math.max(a.y, b.y, c.y) - miny) * 0.5;
+
+    this.x = minx + dx;
+    this.y = miny + dy;
+    this.r = dx * dx + dy * dy;
+  } else {
+    this.x = (D * E - B * F) / G;
+    this.y = (A * F - C * E) / G;
+    dx = this.x - a.x;
+    dy = this.y - a.y;
+    this.r = dx * dx + dy * dy;
+  }
+}
+
+function byX(a, b) {
+  return b.x - a.x;
+}
+
+function dedup(edges) {
+  var j = edges.length,
+    a, b, i, m, n;
+
+  outer:
+  while (j) {
+    b = edges[--j];
+    a = edges[--j];
+    i = j;
+    while (i) {
+      n = edges[--i];
+      m = edges[--i];
+      if ((a === m && b === n) || (a === n && b === m)) {
+        edges.splice(j, 2);
+        edges.splice(i, 2);
+        j -= 2;
+        continue outer;
+      }
+    }
+  }
+}
+
+function triangulate(vertices) {
+  // Bail if there aren't enough vertices to form any triangles.
+  if (vertices.length < 3)
+    return [];
+
+    // Ensure the vertex array is in order of descending X coordinate
+    // (which is needed to ensure a subquadratic runtime), and then find
+    // the bounding box around the points. 
+  vertices.sort(byX);
+
+  var i = vertices.length - 1,
+    xmin = vertices[i].x,
+    xmax = vertices[0].x,
+    ymin = vertices[i].y,
+    ymax = ymin;
+
+  while (i--) {
+    if (vertices[i].y < ymin)
+      ymin = vertices[i].y;
+    if (vertices[i].y > ymax)
+      ymax = vertices[i].y;
+  }
+
+  //Find a supertriangle, which is a triangle that surrounds all the
+  //vertices. This is used like something of a sentinel value to remove
+  //cases in the main algorithm, and is removed before we return any
+  // results.
+ 
+  // Once found, put it in the "open" list. (The "open" list is for
+  // triangles who may still need to be considered; the "closed" list is
+  // for triangles which do not.)
+  var dx = xmax - xmin,
+    dy = ymax - ymin,
+    dmax = (dx > dy) ? dx : dy,
+    xmid = (xmax + xmin) * 0.5,
+    ymid = (ymax + ymin) * 0.5,
+    open = [
+      new Triangle({
+        x: xmid - 20 * dmax,
+        y: ymid - dmax,
+        __sentinel: true
+      },
+      {
+        x: xmid,
+        y: ymid + 20 * dmax,
+        __sentinel: true
+      },
+      {
+        x: xmid + 20 * dmax,
+        y: ymid - dmax,
+        __sentinel: true
+      }
+    )],
+    closed = [],
+    edges = [],
+    j, a, b;
+
+    // Incrementally add each vertex to the mesh.
+  i = vertices.length;
+  while (i--) {
+    // For each open triangle, check to see if the current point is
+    // inside it's circumcircle. If it is, remove the triangle and add
+    // it's edges to an edge list.
+    edges.length = 0;
+    j = open.length;
+    while (j--) {
+      // If this point is to the right of this triangle's circumcircle,
+      // then this triangle should never get checked again. Remove it
+      // from the open list, add it to the closed list, and skip.
+      dx = vertices[i].x - open[j].x;
+      if (dx > 0 && dx * dx > open[j].r) {
+        closed.push(open[j]);
+        open.splice(j, 1);
+        continue;
+      }
+
+      // If not, skip this triangle.
+      dy = vertices[i].y - open[j].y;
+      if (dx * dx + dy * dy > open[j].r)
+        continue;
+
+      // Remove the triangle and add it's edges to the edge list.
+      edges.push(
+        open[j].a, open[j].b,
+        open[j].b, open[j].c,
+        open[j].c, open[j].a
+      );
+      open.splice(j, 1);
+    }
+
+    // Remove any doubled edges.
+    dedup(edges);
+
+    // Add a new triangle for each edge.
+    j = edges.length;
+    while (j) {
+      b = edges[--j];
+      a = edges[--j];
+      open.push(new Triangle(a, b, vertices[i]));
+    }
+  }
+
+  // Copy any remaining open triangles to the closed list, and then
+  // remove any triangles that share a vertex with the supertriangle.
+  Array.prototype.push.apply(closed, open);
+
+  i = closed.length;
+  while (i--)
+  if (closed[i].a.__sentinel ||
+      closed[i].b.__sentinel ||
+      closed[i].c.__sentinel)
+      closed.splice(i, 1);
+
+  return closed;
+}
+
+},{"turf-featurecollection":323,"turf-polygon":349}],361:[function(require,module,exports){
+var featurecollection = require('turf-featurecollection');
+var point = require('turf-point');
+var polygon = require('turf-polygon');
+var distance = require('turf-distance');
+
+/**
+ * Takes a bounding box and a cell depth and returns a {@link FeatureCollection} of {@link Polygon} features in a grid.
+ *
+ * @module turf/triangle-grid
+ * @category interpolation
+ * @param {Array<number>} extent extent in [minX, minY, maxX, maxY] order
+ * @param {Number} cellWidth width of each cell
+ * @param {String} units units to use for cellWidth
+ * @return {FeatureCollection} grid as FeatureCollection with {@link Polygon} features
+ * @example
+ * var extent = [-77.3876953125,38.71980474264239,-76.9482421875,39.027718840211605];
+ * var cellWidth = 10;
+ * var units = 'miles';
+ *
+ * var triangleGrid = turf.triangleGrid(extent, cellWidth, units);
+ *
+ * //=triangleGrid
+ */
+module.exports = function (bbox, cell, units) {
+  var fc = featurecollection([]);
+  var xFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[2], bbox[1]]), units));
+  var cellWidth = xFraction * (bbox[2] - bbox[0]);
+  var yFraction = cell / (distance(point([bbox[0], bbox[1]]), point([bbox[0], bbox[3]]), units));
+  var cellHeight = yFraction * (bbox[3] - bbox[1]);
+
+  var xi = 0;
+  var currentX = bbox[0];
+  while (currentX <= bbox[2]) {
+    var yi = 0;
+    var currentY = bbox[1];
+    while (currentY <= bbox[3]) {
+      if(xi%2===0 && yi%2===0) {
+        var cell1 = polygon([[
+            [currentX, currentY],
+            [currentX, currentY+cellHeight],
+            [currentX+cellWidth, currentY],
+            [currentX, currentY]
+          ]]);
+        fc.features.push(cell1);
+        var cell2 = polygon([[
+            [currentX, currentY+cellHeight],
+            [currentX+cellWidth, currentY+cellHeight],
+            [currentX+cellWidth, currentY],
+            [currentX, currentY+cellHeight]
+          ]]);
+        fc.features.push(cell2);
+      } else if(xi%2===0 && yi%2===1) {
+        var cell1 = polygon([[
+            [currentX, currentY],
+            [currentX+cellWidth, currentY+cellHeight],
+            [currentX+cellWidth, currentY],
+            [currentX, currentY]
+          ]]);
+        fc.features.push(cell1);
+        var cell2 = polygon([[
+            [currentX, currentY],
+            [currentX, currentY+cellHeight],
+            [currentX+cellWidth, currentY+cellHeight],
+            [currentX, currentY]
+          ]]);
+        fc.features.push(cell2);
+      } else if(yi%2===0 && xi%2===1) {
+        var cell1 = polygon([[
+            [currentX, currentY],
+            [currentX, currentY+cellHeight],
+            [currentX+cellWidth, currentY+cellHeight],
+            [currentX, currentY]
+          ]]);
+        fc.features.push(cell1);
+        var cell2 = polygon([[
+            [currentX, currentY],
+            [currentX+cellWidth, currentY+cellHeight],
+            [currentX+cellWidth, currentY],
+            [currentX, currentY]
+          ]]);
+        fc.features.push(cell2);
+      } else if(yi%2===1 && xi%2===1) {
+        var cell1 = polygon([[
+            [currentX, currentY],
+            [currentX, currentY+cellHeight],
+            [currentX+cellWidth, currentY],
+            [currentX, currentY]
+          ]]);
+        fc.features.push(cell1);
+        var cell2 = polygon([[
+            [currentX, currentY+cellHeight],
+            [currentX+cellWidth, currentY+cellHeight],
+            [currentX+cellWidth, currentY],
+            [currentX, currentY+cellHeight]
+          ]]);
+        fc.features.push(cell2);
+      }
+      currentY += cellHeight;
+      yi++;
+    }
+    xi++;
+    currentX += cellWidth;
+  }
+  return fc;
+};
+
+
+},{"turf-distance":313,"turf-featurecollection":323,"turf-point":348,"turf-polygon":349}],362:[function(require,module,exports){
+// look here for help http://svn.osgeo.org/grass/grass/branches/releasebranch_6_4/vector/v.overlay/main.c
+//must be array of polygons
+
+// depend on jsts for now https://github.com/bjornharrtell/jsts/blob/master/examples/overlay.html
+
+var jsts = require('jsts');
+
+/**
+ * Takes two {@link Polygon} features and returnes a combined {@link Polygon} feature. If the input Polygon features are not contiguous, this function returns a {@link MultiPolygon} feature.
+ *
+ * @module turf/union
+ * @category transformation
+ * @param {Polygon} poly1 an input Polygon
+ * @param {Polygon} poly2 another input Polygon
+ * @return {Feature} a combined {@link Polygon} or {@link MultiPolygon} feature
+ * @example
+ * var poly1 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "fill": "#0f0"
+ *   },
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-82.574787, 35.594087],
+ *       [-82.574787, 35.615581],
+ *       [-82.545261, 35.615581],
+ *       [-82.545261, 35.594087],
+ *       [-82.574787, 35.594087]
+ *     ]]
+ *   }
+ * };
+ * var poly2 = {
+ *   "type": "Feature",
+ *   "properties": {
+ *     "fill": "#00f"
+ *   },
+ *   "geometry": {
+ *     "type": "Polygon",
+ *     "coordinates": [[
+ *       [-82.560024, 35.585153],
+ *       [-82.560024, 35.602602],
+ *       [-82.52964, 35.602602],
+ *       [-82.52964, 35.585153],
+ *       [-82.560024, 35.585153]
+ *     ]]
+ *   }
+ * };
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [poly1, poly2]
+ * };
+ *
+ * var union = turf.union(poly1, poly2);
+ *
+ * //=polygons
+ *
+ * //=union
+ */
+module.exports = function(poly1, poly2){
+  var reader = new jsts.io.GeoJSONReader();
+  var a = reader.read(JSON.stringify(poly1.geometry));
+  var b = reader.read(JSON.stringify(poly2.geometry));
+  var union = a.union(b);
+  var parser = new jsts.io.GeoJSONParser();
+
+  union = parser.write(union);
+  return {
+    type: 'Feature',
+    geometry: union,
+    properties: poly1.properties
+  };
+}
+
+},{"jsts":363}],363:[function(require,module,exports){
+arguments[4][255][0].apply(exports,arguments)
+},{"./lib/jsts":364,"dup":255,"javascript.util":366}],364:[function(require,module,exports){
+arguments[4][256][0].apply(exports,arguments)
+},{"dup":256}],365:[function(require,module,exports){
+arguments[4][257][0].apply(exports,arguments)
+},{"dup":257}],366:[function(require,module,exports){
+arguments[4][258][0].apply(exports,arguments)
+},{"./dist/javascript.util-node.min.js":365,"dup":258}],367:[function(require,module,exports){
+var ss = require('simple-statistics');
+var inside = require('turf-inside');
+
+/**
+ * Calculates the variance value of a field for {@link Point} features within a set of {@link Polygon} features.
+ *
+ * @module turf/variance
+ * @category aggregation
+ * @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {string} inField the field in input data to analyze
+ * @param {string} outField the field in which to store results
+ * @return {FeatureCollection} a FeatureCollection of {@link Polygon} features
+ * with properties listed as `outField`
+ * @example
+ * var polygons = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-97.414398, 37.684092],
+ *           [-97.414398, 37.731353],
+ *           [-97.332344, 37.731353],
+ *           [-97.332344, 37.684092],
+ *           [-97.414398, 37.684092]
+ *         ]]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-97.333717, 37.606072],
+ *           [-97.333717, 37.675397],
+ *           [-97.237586, 37.675397],
+ *           [-97.237586, 37.606072],
+ *           [-97.333717, 37.606072]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.401351, 37.719676]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 600
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.355346, 37.706639]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 100
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.387962, 37.70012]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 200
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.301788, 37.66507]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {
+ *         "population": 300
+ *       },
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-97.265052, 37.643325]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var aggregated = turf.variance(
+ *   polygons, points, 'population', 'variance');
+ *
+ * var resultFeatures = points.features.concat(
+ *   aggregated.features);
+ * var result = {
+ *   "type": "FeatureCollection",
+ *   "features": resultFeatures
+ * };
+ *
+ * //=result
+ */
+module.exports = function (polyFC, ptFC, inField, outField) {
+  polyFC.features.forEach(function(poly){
+    if(!poly.properties){
+      poly.properties = {};
+    }
+    var values = [];
+    ptFC.features.forEach(function(pt){
+      if (inside(pt, poly)) {
+        values.push(pt.properties[inField]);
+      }
+    });
+    poly.properties[outField] = ss.variance(values);
+  });
+
+  return polyFC;
+};
+
+},{"simple-statistics":368,"turf-inside":325}],368:[function(require,module,exports){
+arguments[4][260][0].apply(exports,arguments)
+},{"dup":260}],369:[function(require,module,exports){
+var inside = require('turf-inside');
+var featureCollection = require('turf-featurecollection');
+
+/**
+ * Takes a {@link FeatureCollection} of {@link Point} features and a FeatureCollection of {@link Polygon} features and returns a FeatureCollection of Point features representing all points that fall within a collection of polygons.
+ *
+ * @module turf/within
+ * @category joins
+ * @param {FeatureCollection} points a FeatureCollection of {@link Point} features
+ * @param {FeatureCollection} polygons a FeatureCollection of {@link Polygon} features
+ * @return {FeatureCollection} a collection of all points that land
+ * within at least one polygon
+ * @example
+ * var searchWithin = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Polygon",
+ *         "coordinates": [[
+ *           [-46.653,-23.543],
+ *           [-46.634,-23.5346],
+ *           [-46.613,-23.543],
+ *           [-46.614,-23.559],
+ *           [-46.631,-23.567],
+ *           [-46.653,-23.560],
+ *           [-46.653,-23.543]
+ *         ]]
+ *       }
+ *     }
+ *   ]
+ * };
+ * var points = {
+ *   "type": "FeatureCollection",
+ *   "features": [
+ *     {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-46.6318, -23.5523]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-46.6246, -23.5325]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-46.6062, -23.5513]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-46.663, -23.554]
+ *       }
+ *     }, {
+ *       "type": "Feature",
+ *       "properties": {},
+ *       "geometry": {
+ *         "type": "Point",
+ *         "coordinates": [-46.643, -23.557]
+ *       }
+ *     }
+ *   ]
+ * };
+ *
+ * var ptsWithin = turf.within(points, searchWithin);
+ *
+ * //=points
+ *
+ * //=searchWithin
+ *
+ * //=ptsWithin
+ */
+module.exports = function(ptFC, polyFC){
+  var pointsWithin = featureCollection([]);
+  for (var i = 0; i < polyFC.features.length; i++) {
+    for (var j = 0; j < ptFC.features.length; j++) {
+      var isInside = inside(ptFC.features[j], polyFC.features[i]);
+      if(isInside){
+        pointsWithin.features.push(ptFC.features[j]);
+      }
+    }
+  }
+  return pointsWithin;
+};
+
+},{"turf-featurecollection":323,"turf-inside":325}],370:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.1.34",
+  "version": "0.1.343",
   "private": true,
   "scripts": {
     "start": "node ./bin/www"
@@ -30671,14 +45257,19 @@ module.exports={
     "debug": "~2.0.0",
     "express": "~4.9.0",
     "filesaver.js": "^0.1.1",
+    "fixed-data-table": "^0.1.2",
     "hbs": "~2.7.0",
     "less-middleware": "1.0.x",
     "morgan": "~1.3.0",
+    "numeral": "^1.5.3",
     "osmtogeojson": "^2.2.5",
     "polytogeojson": "0.0.1",
     "serve-favicon": "~2.1.3",
     "togeojson": "^0.11.1",
     "topojson": "^1.6.18",
+    "turf": "^2.0.2",
+    "turf-area": "^1.1.1",
+    "turf-bearing": "^1.0.1",
     "turf-buffer": "^1.0.4",
     "turf-combine": "^1.0.2",
     "turf-explode": "^1.0.1",
@@ -30703,12 +45294,13 @@ module.exports={
   }
 }
 
-},{}],211:[function(require,module,exports){
+},{}],371:[function(require,module,exports){
 var React = require('react')
   , Tooltip = require('./Tooltip')
   , palette = require('../utils/palette')
   , readFile = require('../utils/readfile')
   , defaultLayer = require('../utils/DefaultLayer')
+  , Modals = require('./Modals.jsx')
 
 var LayerButton = React.createClass({displayName: "LayerButton",
   getInitialState: function() {
@@ -30753,7 +45345,7 @@ var AddLayerButton = React.createClass({displayName: "AddLayerButton",
           newLayer.geojson = gj
           newLayer.fileName = files[0].name
           newLayer.name = files[0].name.split('.')[0]
-          newLayer.id = Math.random().toString(36).slice(2)
+          newLayer.vector = true
           self.props.addLayer(newLayer)
         }
       })
@@ -30773,6 +45365,7 @@ var AddLayerButton = React.createClass({displayName: "AddLayerButton",
 var NewLayerButton = React.createClass({displayName: "NewLayerButton",
   onClick: function(e) {
     var newLayer = defaultLayer.generate()
+    newLayer.vector = true
     this.props.addLayer(newLayer)
   },
   render: function() {
@@ -30784,7 +45377,23 @@ var NewLayerButton = React.createClass({displayName: "NewLayerButton",
 
 var AddTileLayerButton = React.createClass({displayName: "AddTileLayerButton",
   onClick: function(e) {
-
+    var self = this
+    vex.dialog.open({
+      message: 'Enter tile layer URL',
+      afterOpen: function($vexContent) {
+        React.render(React.createElement(Modals.TileLayer, null), $vexContent.find('.vex-dialog-input').get(0))
+      },
+      callback: function(data) {
+        console.log(data)
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        var newLayer = defaultLayer.generate()
+        newLayer.tile = true
+        newLayer.tileURL = data.url
+        self.props.addLayer(newLayer)
+      }
+    })
   },
   render: function() {
     return (
@@ -30816,12 +45425,13 @@ var AddLayers = React.createClass({displayName: "AddLayers",
 
 module.exports = AddLayers
 
-},{"../utils/DefaultLayer":219,"../utils/palette":222,"../utils/readfile":223,"./Tooltip":217,"react":173}],212:[function(require,module,exports){
+},{"../utils/DefaultLayer":380,"../utils/palette":383,"../utils/readfile":384,"./Modals.jsx":376,"./Tooltip":378,"react":229}],372:[function(require,module,exports){
 var React = require('react')
   , Toolbar = require('./Toolbar.jsx')
   , AddLayers = require('./AddLayers.jsx')
   , LayerList = require('./LayerList.jsx')
   , WorkSpace = require('./WorkSpace.jsx')
+  , AttributeTable = require('./AttributeTable.jsx')
   , MessageBar = require('./MessageBar.jsx')
   , palette = require('../utils/palette')
   , vectorTools = require('../utils/VectorTools')
@@ -30947,22 +45557,7 @@ var App = React.createClass({displayName: "App",
       React.createElement("div", {className: "app", style: appStyle}, 
         React.createElement(Toolbar, {
           layers: this.state.layers, 
-          newLayer: vectorTools.newLayer.bind(vectorTools), 
-          renameLayer: vectorTools.renameLayer.bind(vectorTools), 
-          selectAll: vectorTools.selectAll.bind(vectorTools), 
-          deselectAll: vectorTools.deselectAll.bind(vectorTools), 
-          deleteFeature: vectorTools.deleteFeature.bind(vectorTools), 
-          saveAs: vectorTools.saveAs.bind(vectorTools), 
-          editFeature: vectorTools.editFeature.bind(vectorTools), 
-          simplify: vectorTools.simplify.bind(vectorTools), 
-          buffer: vectorTools.buffer.bind(vectorTools), 
-          flip: vectorTools.flip.bind(vectorTools), 
-          explode: vectorTools.explode.bind(vectorTools), 
-          combine: vectorTools.combine.bind(vectorTools), 
-          merge: vectorTools.merge.bind(vectorTools), 
-          hexgrid: vectorTools.createHexGrid.bind(vectorTools), 
-          quantile: vectorTools.quantile.bind(vectorTools), 
-          zoomToLayer: vectorTools.zoomToLayer.bind(vectorTools)}
+          vectorTools: vectorTools}
         ), 
         React.createElement("div", {className: "flex-row"}, 
           React.createElement(AddLayers, {
@@ -30973,9 +45568,15 @@ var App = React.createClass({displayName: "App",
             layers: this.state.layers, 
             updateLayer: this.updateLayer}
           ), 
-          React.createElement(WorkSpace, {
-            layers: this.state.layers, 
-            updateLayer: this.updateLayer}
+          React.createElement("div", {className: "right-pane"}, 
+            React.createElement(WorkSpace, {
+              layers: this.state.layers, 
+              updateLayer: this.updateLayer}
+            ), 
+            React.createElement(AttributeTable, {
+              layers: this.state.layers, 
+              updateLayer: this.updateLayer}
+            )
           )
         ), 
         React.createElement(MessageBar, {message: this.state.message})
@@ -30986,7 +45587,90 @@ var App = React.createClass({displayName: "App",
 
 module.exports = App
 
-},{"../../package.json":210,"../utils/VectorTools":220,"../utils/gjutils":221,"../utils/palette":222,"./AddLayers.jsx":211,"./LayerList.jsx":213,"./MessageBar.jsx":214,"./Toolbar.jsx":216,"./WorkSpace.jsx":218,"react":173}],213:[function(require,module,exports){
+},{"../../package.json":370,"../utils/VectorTools":381,"../utils/gjutils":382,"../utils/palette":383,"./AddLayers.jsx":371,"./AttributeTable.jsx":373,"./LayerList.jsx":374,"./MessageBar.jsx":375,"./Toolbar.jsx":377,"./WorkSpace.jsx":379,"react":229}],373:[function(require,module,exports){
+var React = require('react')
+  , FixedDataTable = require('fixed-data-table')
+
+var Table = FixedDataTable.Table
+var Column = FixedDataTable.Column
+
+var AttributeTable = React.createClass({displayName: "AttributeTable",
+  rowGetter: function(rowIndex) {
+    return this.rowValues[rowIndex]
+  },
+  rowClassNameGetter: function(rowIndex) {
+    var feature = this.layer.geojson.features[rowIndex]
+    return feature.selected ? 'selected' : null
+  },
+  onRowClick: function(e, rowIndex) {
+    var feature = this.layer.geojson.features[rowIndex]
+    feature.selected = !feature.selected
+    this.props.updateLayer(this.layer)
+  },
+  render: function() {
+    var self = this
+    var style = {}
+      , tableWidth = $('.right-pane').innerWidth() - 4
+      , tableHeight = 200
+      , indexColumnWidth = 30
+    this.layer = false
+    this.props.layers.forEach(function(l) {
+      if (l.viewAttributes) {
+        self.layer = l
+      }
+    })
+    if (!this.layer) {
+      style.display = 'none'
+      return (
+        React.createElement("div", {className: "attribute-table", style: style})
+      )
+    } else {
+      var columnLabels = _.pluck(this.layer.geojson.features, 'properties')
+      columnLabels = columnLabels.map(function(c) { return _.keys(c) })
+      columnLabels = _.uniq(_.flatten(columnLabels))
+      var columnWidth = (tableWidth - indexColumnWidth)/columnLabels.length
+      var columns = columnLabels.map(function(label, idx) {
+        return React.createElement(Column, {
+          label: label, 
+          width: columnWidth, 
+          dataKey: idx+1, 
+          key: idx+1})
+      })
+      columns.unshift(
+        React.createElement(Column, {
+          label: '', 
+          width: indexColumnWidth, 
+          dataKey: 0, 
+          key: 0})
+      )
+
+      this.rowValues = this.layer.geojson.features.map(function(f, idx) {
+        var row = _.values(f.properties)
+        row.unshift(idx)
+        return row
+      })
+      return (
+        React.createElement("div", {className: "attribute-table", style: style}, 
+          React.createElement(Table, {
+              rowHeight: 20, 
+              rowGetter: this.rowGetter, 
+              rowClassNameGetter: this.rowClassNameGetter, 
+              onRowClick: this.onRowClick, 
+              rowsCount: this.layer.geojson.features.length, 
+              width: tableWidth, 
+              maxHeight: tableHeight, 
+              headerHeight: 20}, 
+              columns
+            )
+        )
+      )
+    }
+  }
+})
+
+module.exports = AttributeTable
+
+},{"fixed-data-table":62,"react":229}],374:[function(require,module,exports){
 var React = require('react')
   , palette = require('../utils/palette')
 
@@ -31003,7 +45687,8 @@ var Layer = React.createClass({displayName: "Layer",
   },
   render: function() {
     var layerStyle = {
-      color: this.props.layer.selected ? palette.green : 'white'
+      color: this.props.layer.selected ? 'white': palette.light,
+      textDecoration: this.props.layer.selected ? 'underline': 'none'
     }
     return (
       React.createElement("div", {className: "layer", style: layerStyle, onClick: this.onClick}, 
@@ -31033,7 +45718,7 @@ var LayerList = React.createClass({displayName: "LayerList",
 
 module.exports = LayerList
 
-},{"../utils/palette":222,"react":173}],214:[function(require,module,exports){
+},{"../utils/palette":383,"react":229}],375:[function(require,module,exports){
 var React = require('react')
   , palette = require('../utils/palette')
 
@@ -31050,52 +45735,111 @@ var MessageBar = React.createClass({displayName: "MessageBar",
 
 module.exports = MessageBar
 
-},{"../utils/palette":222,"react":173}],215:[function(require,module,exports){
+},{"../utils/palette":383,"react":229}],376:[function(require,module,exports){
 var React = require('react')
+  , pkg = require('../../package.json')
 
-var Layername = React.createClass({displayName: "Layername",
-  render: function() {
-    return (
-      React.createElement("input", {name: "layername", type: "text", defaultValue: this.props.layername})
-    )
-  }
-})
+var Modals = {
 
-var Buffer = React.createClass({displayName: "Buffer",
-  render: function() {
-    return (
-      React.createElement("div", null, 
-      React.createElement("input", {name: "distance", type: "text", defaultValue: "0.1"}), 
-        React.createElement("select", {name: "units", defaultValue: "miles"}, 
-          React.createElement("option", {value: "miles"}, "Miles"), 
-          React.createElement("option", {value: "feet"}, "feet"), 
-          React.createElement("option", {value: "kilometers"}, "kilometers"), 
-          React.createElement("option", {value: "meters"}, "meters"), 
-          React.createElement("option", {value: "degrees"}, "degrees")
+  Layername: React.createClass({displayName: "Layername",
+    render: function() {
+      return (
+        React.createElement("input", {name: "layername", type: "text", defaultValue: this.props.layername})
+      )
+    }
+  }),
+
+  Buffer: React.createClass({displayName: "Buffer",
+    render: function() {
+      return (
+        React.createElement("div", null, 
+        React.createElement("input", {name: "distance", type: "text", defaultValue: "0.1"}), 
+          React.createElement("select", {name: "units", defaultValue: "miles"}, 
+            React.createElement("option", {value: "miles"}, "Miles"), 
+            React.createElement("option", {value: "feet"}, "feet"), 
+            React.createElement("option", {value: "kilometers"}, "kilometers"), 
+            React.createElement("option", {value: "meters"}, "meters"), 
+            React.createElement("option", {value: "degrees"}, "degrees")
+          )
         )
       )
-    )
-  }
-})
+    }
+  }),
 
-var Simplify = React.createClass({displayName: "Simplify",
-  render: function() {
-    return (
-      React.createElement("input", {name: "tolerance", type: "text", defaultValue: "0.1"})
-    )
-  }
-})
+  Simplify: React.createClass({displayName: "Simplify",
+    render: function() {
+      return (
+        React.createElement("input", {name: "tolerance", type: "text", defaultValue: "0.1"})
+      )
+    }
+  }),
 
-module.exports = {
-  Buffer: Buffer,
-  Layername: Layername,
-  Simplify: Simplify
+  About: React.createClass({displayName: "About",
+    render: function() {
+      return (
+        React.createElement("div", null, 
+          React.createElement("p", null, "About uGIS"), 
+          React.createElement("p", null, "uGIS is a web based, GeoJSON + Javascript GIS engine."), 
+          React.createElement("p", null, "Version ", pkg.version)
+        )
+      )
+    }
+  }),
+
+  TileLayer: React.createClass({displayName: "TileLayer",
+    render: function() {
+      return (
+        React.createElement("div", null, 
+          React.createElement("input", {name: "url", type: "text", defaultValue: "http://23.239.25.85/s/v2/att_wireless/{z}/{x}/{y}.png"})
+        )
+      )
+    }
+  }),
+
+  ViewGeoJSON: React.createClass({displayName: "ViewGeoJSON",
+    render: function() {
+      return (
+        React.createElement("div", null, 
+          React.createElement("textarea", {defaultValue: JSON.stringify(this.props.layer.geojson)})
+        )
+      )
+    }
+  }),
+
+  AttributeTable: React.createClass({displayName: "AttributeTable",
+    render: function() {
+      var columns = _.pluck(this.props.layer.geojson.features, 'properties')
+      columns = columns.map(function(c) { return _.keys(c) })
+      columns = _.uniq(_.flatten(columns))
+      console.log(columns)
+      var th = columns.map(function(c) {
+        return React.createElement("th", null, c)
+      })
+      var rows = this.props.layer.geojson.features.map(function(f) {
+        var fields = columns.map(function(c) {
+          return React.createElement("td", null, f.properties[c])
+        })
+        return React.createElement("tr", null, fields)
+      })
+      return (
+        React.createElement("div", null, 
+          React.createElement("table", null, 
+          React.createElement("tr", null, th), 
+          rows
+          )
+        )
+      )
+    }
+  })
 }
 
-},{"react":173}],216:[function(require,module,exports){
+module.exports = Modals
+
+},{"../../package.json":370,"react":229}],377:[function(require,module,exports){
 var React = require('react')
   , palette = require('../utils/palette')
   , gjutils = require('../utils/gjutils')
+  , Modals = require('./Modals.jsx')
 
 
 var ToolbarItem = React.createClass({displayName: "ToolbarItem",
@@ -31115,7 +45859,8 @@ var ToolbarItem = React.createClass({displayName: "ToolbarItem",
     if (this.props.active) className += ' active'
     return (
       React.createElement("div", {className: className, style: style, onClick: this.onClick}, 
-        this.props.text
+        React.createElement("span", {className: "label"}, this.props.text), 
+        React.createElement("span", {className: "icon"}, this.props.icon)
       )
     )
   }
@@ -31165,12 +45910,19 @@ var ToolbarDropdown = React.createClass({displayName: "ToolbarDropdown",
 var LayerMenu = React.createClass({displayName: "LayerMenu",
   render: function() {
     var active = this.props.config.oneLayer  || this.props.config.multiLayer
-    var submenu = React.createElement("ul", null, 
-      React.createElement("li", null, React.createElement(RenameLayer, {onClick: this.props.renameLayer, config: this.props.config})), 
-      React.createElement("li", null, React.createElement(Edit, {onClick: this.props.editFeature, config: this.props.config})), 
-      React.createElement("li", null, React.createElement(SaveAs, {onClick: this.props.saveAs, config: this.props.config})), 
-      React.createElement("li", null, React.createElement(ZoomToLayer, {onClick: this.props.zoomToLayer, config: this.props.config}))
-    )
+    if (this.props.config.oneLayer && this.props.config.oneLayer.viewAttributes) {
+      var attributeTable = React.createElement(CloseAttributes, {onClick: this.props.vectorTools.closeAttributes.bind(this.props.vectorTools), config: this.props.config})
+    } else {
+      var attributeTable = React.createElement(ViewAttributes, {onClick: this.props.vectorTools.viewAttributes.bind(this.props.vectorTools), config: this.props.config})
+    }
+    var submenu = [
+      attributeTable,
+      React.createElement(ViewGeoJSON, {onClick: this.props.vectorTools.viewGeoJSON.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(RenameLayer, {onClick: this.props.vectorTools.renameLayer.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Edit, {onClick: this.props.vectorTools.editFeature.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(SaveAs, {onClick: this.props.vectorTools.saveAs.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(ZoomToLayer, {onClick: this.props.vectorTools.zoomToLayer.bind(this.props.vectorTools), config: this.props.config})
+      ]
     return (
       React.createElement(ToolbarDropdown, {text: 'Layer', submenu: submenu, active: active})
     )
@@ -31180,17 +45932,20 @@ var LayerMenu = React.createClass({displayName: "LayerMenu",
 var FeatureMenu = React.createClass({displayName: "FeatureMenu",
   render: function() {
     var active = this.props.config.oneFeature || this.props.config.multiFeature
-    var submenu = React.createElement("ul", null, 
-        React.createElement("li", null, React.createElement(SelectAll, {onClick: this.props.selectAll, config: this.props.config})), 
-        React.createElement("li", null, React.createElement(DeselectAll, {onClick: this.props.deselectAll, config: this.props.config})), 
-        React.createElement("li", null, React.createElement(Delete, {onClick: this.props.deleteFeature, config: this.props.config})), 
-        React.createElement("li", null, React.createElement(Simplify, {onClick: this.props.simplify, config: this.props.config})), 
-        React.createElement("li", null, React.createElement(Buffer, {onClick: this.props.buffer, config: this.props.config})), 
-        React.createElement("li", null, React.createElement(Flip, {onClick: this.props.flip, config: this.props.config})), 
-        React.createElement("li", null, React.createElement(Explode, {onClick: this.props.explode, config: this.props.config})), 
-        React.createElement("li", null, React.createElement(Merge, {onClick: this.props.merge, config: this.props.config})), 
-        React.createElement("li", null, React.createElement(HexGrid, {onClick: this.props.hexgrid, config: this.props.config}))
-      )
+    var submenu = [
+      React.createElement(Area, {onClick: this.props.vectorTools.area.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Distance, {onClick: this.props.vectorTools.distance.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Bearing, {onClick: this.props.vectorTools.bearing.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Length, {onClick: this.props.vectorTools.lineLength.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Delete, {onClick: this.props.vectorTools.deleteFeature.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Simplify, {onClick: this.props.vectorTools.simplify.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Buffer, {onClick: this.props.vectorTools.buffer.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Flip, {onClick: this.props.vectorTools.flip.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Explode, {onClick: this.props.vectorTools.explode.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Merge, {onClick: this.props.vectorTools.merge.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Erase, {onClick: this.props.vectorTools.erase.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(Intersect, {onClick: this.props.vectorTools.intersect.bind(this.props.vectorTools), config: this.props.config})
+    ]
     return (
       React.createElement(ToolbarDropdown, {text: 'Feature', submenu: submenu, active: active})
     )
@@ -31200,9 +45955,10 @@ var FeatureMenu = React.createClass({displayName: "FeatureMenu",
 var SelectMenu = React.createClass({displayName: "SelectMenu",
   render: function() {
     var active = this.props.config.oneLayer  || this.props.config.multiLayer
-    var submenu = React.createElement("ul", null, 
-      React.createElement("li", null)
-    )
+    var submenu = [
+      React.createElement(SelectAll, {onClick: this.props.vectorTools.selectAll.bind(this.props.vectorTools), config: this.props.config}),
+      React.createElement(DeselectAll, {onClick: this.props.vectorTools.deselectAll.bind(this.props.vectorTools), config: this.props.config})
+    ]
     return (
       React.createElement(ToolbarDropdown, {text: 'Select', submenu: submenu, active: active})
     )
@@ -31212,11 +45968,23 @@ var SelectMenu = React.createClass({displayName: "SelectMenu",
 var HelpMenu = React.createClass({displayName: "HelpMenu",
   render: function() {
     var active = true
-    var submenu = React.createElement("ul", null, 
-      React.createElement("li", null)
-    )
+    var submenu = [
+      React.createElement(About, null)
+    ]
     return (
       React.createElement(ToolbarDropdown, {text: 'Help', submenu: submenu, active: active})
+    )
+  }
+})
+
+var About = React.createClass({displayName: "About",
+  onClick: function() {
+    vex.dialog.alert(React.renderToString(React.createElement(Modals.About, null)))
+  },
+  render: function() {
+    var active = true
+    return (
+      React.createElement(ToolbarItem, {text: 'About uGIS', onClick: this.onClick, active: active})
     )
   }
 })
@@ -31230,9 +45998,36 @@ var RenameLayer = React.createClass({displayName: "RenameLayer",
   }
 })
 
-var SaveAs = React.createClass({displayName: "SaveAs",
+var ViewAttributes = React.createClass({displayName: "ViewAttributes",
   render: function() {
     var active = this.props.config.oneLayer
+    return (
+      React.createElement(ToolbarItem, {text: 'View Attribute Table', onClick: this.props.onClick, active: active})
+    )
+  }
+})
+
+var CloseAttributes = React.createClass({displayName: "CloseAttributes",
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      React.createElement(ToolbarItem, {text: 'View Attribute Table', icon: React.createElement("i", {className: "fa fa-check"}), onClick: this.props.onClick, active: active})
+    )
+  }
+})
+
+var ViewGeoJSON = React.createClass({displayName: "ViewGeoJSON",
+  render: function() {
+    var active = this.props.config.oneLayer && this.props.config.vector
+    return (
+      React.createElement(ToolbarItem, {text: 'View GeoJSON', onClick: this.props.onClick, active: active})
+    )
+  }
+})
+
+var SaveAs = React.createClass({displayName: "SaveAs",
+  render: function() {
+    var active = this.props.config.oneLayer && this.props.config.vector
     return (
       React.createElement(ToolbarItem, {text: 'Save', onClick: this.props.onClick, active: active})
     )
@@ -31241,16 +46036,21 @@ var SaveAs = React.createClass({displayName: "SaveAs",
 
 var Edit = React.createClass({displayName: "Edit",
   render: function() {
-    var active = this.props.config.oneLayer
+    var active = this.props.config.oneLayer && this.props.config.vector
+    if (this.props.config.oneLayer && this.props.config.oneLayer.editing) {
+      var icon = React.createElement("i", {className: "fa fa-check"})
+    } else {
+      var icon = false
+    }
     return (
-      React.createElement(ToolbarItem, {text: 'Edit', onClick: this.props.onClick, active: active})
+      React.createElement(ToolbarItem, {text: 'Edit', onClick: this.props.onClick, icon: icon, active: active})
     )
   }
 })
 
 var SelectAll = React.createClass({displayName: "SelectAll",
   render: function() {
-    var active = this.props.config.oneLayer || this.props.config.multiLayer
+    var active = (this.props.config.oneLayer || this.props.config.multiLayer)  && this.props.config.vector
     return (
       React.createElement(ToolbarItem, {text: 'Select All', onClick: this.props.onClick, active: active})
     )
@@ -31262,6 +46062,42 @@ var DeselectAll = React.createClass({displayName: "DeselectAll",
     var active = this.props.config.oneFeature || this.props.config.multiFeature
     return (
       React.createElement(ToolbarItem, {text: 'Deselect All', onClick: this.props.onClick, active: active})
+    )
+  }
+})
+
+var Area = React.createClass({displayName: "Area",
+  render: function() {
+    var active = this.props.config.oneFeature || this.props.config.multiFeature
+    return (
+      React.createElement(ToolbarItem, {text: 'Area', onClick: this.props.onClick, active: active})
+    )
+  }
+})
+
+var Bearing = React.createClass({displayName: "Bearing",
+  render: function() {
+    var active = this.props.config.numPoints == 2
+    return (
+      React.createElement(ToolbarItem, {text: 'Bearing', onClick: this.props.onClick, active: active})
+    )
+  }
+})
+
+var Distance = React.createClass({displayName: "Distance",
+  render: function() {
+    var active = this.props.config.numPoints == 2
+    return (
+      React.createElement(ToolbarItem, {text: 'Distance', onClick: this.props.onClick, active: active})
+    )
+  }
+})
+
+var Length = React.createClass({displayName: "Length",
+  render: function() {
+    var active = this.props.config.numLines > 0
+    return (
+      React.createElement(ToolbarItem, {text: 'Line Length', onClick: this.props.onClick, active: active})
     )
   }
 })
@@ -31338,6 +46174,24 @@ var Merge = React.createClass({displayName: "Merge",
   }
 })
 
+var Erase = React.createClass({displayName: "Erase",
+  render: function() {
+    var active = this.props.config.numPolys === 2
+    return (
+      React.createElement(ToolbarItem, {text: 'Erase', onClick: this.props.onClick, active: active})
+    )
+  }
+})
+
+var Intersect = React.createClass({displayName: "Intersect",
+  render: function() {
+    var active = this.props.config.numPolys === 2
+    return (
+      React.createElement(ToolbarItem, {text: 'Intersect', onClick: this.props.onClick, active: active})
+    )
+  }
+})
+
 var HexGrid = React.createClass({displayName: "HexGrid",
   render: function() {
     var active = this.props.config.oneLayer || this.props.config.multiLayer
@@ -31360,7 +46214,7 @@ var ZoomToLayer = React.createClass({displayName: "ZoomToLayer",
   render: function() {
     var active = this.props.config.oneLayer || this.props.config.multiLayer
     return (
-      React.createElement(ToolbarItem, {text: 'ZoomToLayer', onClick: this.props.onClick, active: active})
+      React.createElement(ToolbarItem, {text: 'Zoom To Layer', onClick: this.props.onClick, active: active})
     )
   }
 })
@@ -31377,16 +46231,42 @@ var Toolbar = React.createClass({displayName: "Toolbar",
       point: false,
       poly: false,
       line: false,
+      numPoints: 0,
+      numPolys: 0,
+      numLines: 0,
       multipoint: false,
       multipoly: false,
-      multiline: false
+      multiline: false,
+      vector: false,
+      tile: true
     }
     var selected = _.where(this.props.layers, {selected: true})
+    var selectedFeatures = []
+    selected.forEach(function(layer) {
+      layer.geojson.features.forEach(function(feature) {
+        if (feature.selected) {
+          selectedFeatures.push(feature)
+          if (feature.geometry.type === 'Point') {
+            config.numPoints += 1
+            if (config.point) config.multipoint = true
+            config.point = true
+          } else if (feature.geometry.type === 'Polygon') {
+            config.numPolys += 1
+            if (config.poly) config.multipoly = true
+            config.poly = true
+          } else if (feature.geometry.type === 'LineString') {
+            config.numLines += 1
+            if (config.line) config.multiline = true
+            config.line = true
+          }
+        }
+      })
+    })
     if (selected.length === 0) {
       config.nothing = true
     }
     if (selected.length === 1) {
-      config.oneLayer = true
+      config.oneLayer = selected[0]
     }
     if (selected.length > 1) {
       config.multiLayer = true
@@ -31394,6 +46274,14 @@ var Toolbar = React.createClass({displayName: "Toolbar",
     var totalSelectedFeatures = 0
     this.props.layers.forEach(function(layer) {
       totalSelectedFeatures += gjutils.findSelectedCount(layer.geojson)
+      if (layer.selected) {
+        if (layer.vector) {
+          config.vector = true
+        }
+        if (layer.tile) {
+          config.tile = true
+        }
+      }
     })
     if (totalSelectedFeatures === 1) {
       config.oneFeature = true
@@ -31401,22 +46289,6 @@ var Toolbar = React.createClass({displayName: "Toolbar",
     if (totalSelectedFeatures > 1) {
       config.multiFeature = true
     }
-    selected.forEach(function(layer) {
-      layer.geojson.features.forEach(function(feature) {
-        if (feature.selected) {
-          if (feature.geometry.type === 'Point') {
-            if (config.point) config.multipoint = true
-            config.point = true
-          } else if (feature.geometry.type === 'Polygon') {
-            if (config.poly) config.multipoly = true
-            config.poly = true
-          } else if (feature.geometry.type === 'LineString') {
-            if (config.line) config.multiline = true
-            config.line = true
-          }
-        }
-      })
-    })
     return config
   },
   render: function() {
@@ -31425,24 +46297,14 @@ var Toolbar = React.createClass({displayName: "Toolbar",
       React.createElement("div", {className: "toolbar"}, 
         React.createElement("h1", null, "uGIS"), 
         React.createElement(LayerMenu, {config: config, 
-          newLayer: this.props.newLayer, 
-          renameLayer: this.props.renameLayer, 
-          editFeature: this.props.editFeature, 
-          saveAs: this.props.saveAs, 
-          zoomToLayer: this.props.zoomToLayer}
+          vectorTools: this.props.vectorTools}
         ), 
         React.createElement(FeatureMenu, {config: config, 
-          selectAll: this.props.selectAll, 
-          deselectAll: this.props.deselectAll, 
-          deleteFeature: this.props.deleteFeature, 
-          simplify: this.props.simplify, 
-          buffer: this.props.buffer, 
-          flip: this.props.flip, 
-          explode: this.props.explode, 
-          merge: this.props.merge, 
-          hexgrid: this.props.hexgrid}
+          vectorTools: this.props.vectorTools}
         ), 
-        React.createElement(SelectMenu, {config: config}), 
+        React.createElement(SelectMenu, {config: config, 
+          vectorTools: this.props.vectorTools}
+        ), 
         React.createElement(HelpMenu, {config: config})
       )
     )
@@ -31451,7 +46313,7 @@ var Toolbar = React.createClass({displayName: "Toolbar",
 
 module.exports = Toolbar
 
-},{"../utils/gjutils":221,"../utils/palette":222,"react":173}],217:[function(require,module,exports){
+},{"../utils/gjutils":382,"../utils/palette":383,"./Modals.jsx":376,"react":229}],378:[function(require,module,exports){
 var React = require('react')
 
 var Tooltip = React.createClass({displayName: "Tooltip",
@@ -31468,8 +46330,9 @@ var Tooltip = React.createClass({displayName: "Tooltip",
 
 module.exports = Tooltip
 
-},{"react":173}],218:[function(require,module,exports){
+},{"react":229}],379:[function(require,module,exports){
 var React = require('react')
+  , numeral = require('numeral')
   , palette = require('../utils/palette')
 
 var selectedStyle = {
@@ -31494,19 +46357,23 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
   componentDidMount: function() {
     this.makeMap()
   },
+  updateCoords: function(x, y, z) {
+    document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML = 
+      'x: ' + numeral(x).format('0,0.0000') + ' ' + 
+      'y: ' + numeral(y).format('0,0.0000') + ' ' +
+      'z: ' + z
+  },
   makeMap: function() {
     var self = this
     this.map = L.map(this.refs.workspace.getDOMNode(), {
       attributionControl: false,
       zoomControl: false
-    }).setView([38, -76], 5)
+    }).setView([30, 20], 2)
     L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png').addTo(this.map)
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
     this.map.on('mousemove', function(e) {
-      document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML = 
-        Math.round(e.latlng.lat * 100000) / 100000 + ', ' + 
-        Math.round(e.latlng.lng * 100000) / 100000
+      self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
     })
     this.map.on('draw:created', function (e) {
       console.log(e)
@@ -31536,58 +46403,67 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       this.props.updateLayer(layer)
     }
   },
+  styleFeature: function(feature) {
+    if (feature.selected) {
+      return selectedStyle
+    } else {
+      return unselectedStyle
+    }
+  },
   addLayers: function(layer) {
     var self = this
     var zoomToLayers = L.featureGroup()
     this.props.layers.forEach(function(layer) {
-      if (!layer.mapLayer) {
-        layer.mapLayer = L.geoJson(layer.geojson, {
-          pointToLayer: function(feature, latlng) {
-            return L.circleMarker(latlng, pointStyle)
-          },
-          style: function(feature) {
-            if (feature.selected) {
-              return selectedStyle
-            } else {
-              return unselectedStyle
-            }
-          },
-          onEachFeature: function (layer, feature, mapLayer) {
-            mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
-          }.bind(self, layer)
-        })
-      }
-
-      if (layer.editing) {
-        if (self.drawControl) {
-          self.map.removeControl(self.drawControl)
+      if (layer.vector) {
+        if (!layer.mapLayer) {
+          layer.mapLayer = L.geoJson(layer.geojson, {
+            pointToLayer: function(feature, latlng) {
+              return L.circleMarker(latlng, pointStyle)
+            },
+            style: self.styleFeature,
+            onEachFeature: function (layer, feature, mapLayer) {
+              mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
+            }.bind(self, layer)
+          })
+        } else {
+          layer.mapLayer.setStyle(self.styleFeature)
         }
-        self.drawControl = new L.Control.Draw({
-          draw: {
-            polyline: {
-                shapeOptions: unselectedStyle
-            },
-            polygon: {
-                shapeOptions: unselectedStyle
-            },
-            rectangle: {
-              shapeOptions: unselectedStyle
-            },
-            circle: false
-          },
-          edit: {
-            featureGroup: layer.mapLayer
+
+        if (layer.editing) {
+          if (self.drawControl) {
+            self.map.removeControl(self.drawControl)
           }
-        })
-        self.map.addControl(self.drawControl)
-      } else {
-        if (self.drawControl) {
-          self.map.removeControl(self.drawControl)
-          self.drawControl = false
+          self.drawControl = new L.Control.Draw({
+            draw: {
+              polyline: {
+                  shapeOptions: unselectedStyle
+              },
+              polygon: {
+                  shapeOptions: unselectedStyle
+              },
+              rectangle: {
+                shapeOptions: unselectedStyle
+              },
+              circle: false
+            },
+            edit: {
+              featureGroup: layer.mapLayer
+            }
+          })
+          self.map.addControl(self.drawControl)
+        } else {
+          if (self.drawControl) {
+            self.map.removeControl(self.drawControl)
+            self.drawControl = false
+          }
+        }
+      } else if (layer.tile) {
+        if (!layer.mapLayer) {
+          layer.mapLayer = L.tileLayer(layer.tileURL)
         }
       }
       if (layer.enabled) {
-        if (layer.zoomTo) {
+        if (layer.vector && layer.zoomTo) {
           zoomToLayers.addLayer(layer.mapLayer)
           layer.zoomTo = false
         }
@@ -31619,7 +46495,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
 
 module.exports = WorkSpace
 
-},{"../utils/palette":222,"react":173}],219:[function(require,module,exports){
+},{"../utils/palette":383,"numeral":63,"react":229}],380:[function(require,module,exports){
 function DefaultLayer() {
   this.defaultLayer = {
     name: 'New Layer',
@@ -31637,27 +46513,23 @@ function DefaultLayer() {
       "features": []
     }
   }
+  this.tileLayer = JSON.parse(JSON.stringify(this.defaultLayer))
 }
 
 DefaultLayer.prototype = {
   generate: function() {
-    return JSON.parse(JSON.stringify(this.defaultLayer))
+    var layer = JSON.parse(JSON.stringify(this.defaultLayer))
+    layer.id = Math.random().toString(36).slice(2)
+    return layer
   }
 }
 
 module.exports = new DefaultLayer()
 
-},{}],220:[function(require,module,exports){
+},{}],381:[function(require,module,exports){
 var React = require('react')
-  , turfbuffer = require('turf-buffer')
-  , turfsimplify = require('turf-simplify')
-  , turfflip = require('turf-flip')
-  , turfkinks = require('turf-kinks')
-  , turfexplode = require('turf-explode')
-  , turfcombine = require('turf-combine')
-  , turfmerge = require('turf-merge')
-  , turfhexgrid = require('turf-hex-grid')
-  , turfquantile = require('turf-quantile')
+  , numeral = require('numeral')
+  , turf = require('turf')
   , fileSaver = require('filesaver.js')
   , defaultLayer = require('./DefaultLayer')
   , gjutils =require('./gjutils')
@@ -31814,7 +46686,7 @@ VectorTools.prototype = {
     this.getDistance(function(err, data) {
       self.editFeatures(self.layers, function(gj) {
         if (gj.selected) {
-          var _gj = turfbuffer(gj, +data.distance, data.unit)
+          var _gj = turf.buffer(gj, +data.distance, data.unit)
           _gj.selected = true
           return _gj
         } else return gj
@@ -31826,7 +46698,7 @@ VectorTools.prototype = {
     this.getTolerance(function(err, tolerance) {
       self.editFeatures(self.layers, function(gj) {
         if (gj.selected) {
-          var _gj = turfsimplify(gj, tolerance, false)
+          var _gj = turf.simplify(gj, tolerance, false)
           _gj.selected = true
           return _gj
         } else return gj
@@ -31837,7 +46709,7 @@ VectorTools.prototype = {
     var self = this
     self.editFeatures(self.layers, function(gj) {
       if (gj.selected) {
-        var _gj = turfflip(gj)
+        var _gj = turf.flip(gj)
         _gj.selected = true
         return _gj
       } else return gj
@@ -31847,7 +46719,7 @@ VectorTools.prototype = {
     var self = this
     self.editFeatures(self.layers, function(gj) {
       if (gj.selected) {
-        var _gj = turfexplode(gj)
+        var _gj = turf.explode(gj)
         return _gj
       } else return gj
     })
@@ -31870,7 +46742,59 @@ VectorTools.prototype = {
               newFeatures.push(layer.geojson.features[i])
             }
           }
-          newFeatures.push(turfmerge(fc))
+          newFeatures.push(turf.merge(fc))
+          layer.geojson.features = newFeatures
+          if (layer.mapLayer) {
+            layer.mapLayer.clearLayers()
+            if (layer.geojson) layer.mapLayer.addData(layer.geojson)
+          }
+        }
+      }
+    })
+    this.updateLayers(this.layers)
+  },
+  erase: function() {
+    var self = this
+    this.layers.forEach(function(layer) {
+      if (layer.selected) {
+        var fc = gjutils.newFeatureCollection()
+        var polys = []
+        var newFeatures = []
+        if (layer.geojson.type === 'FeatureCollection') {
+          for (var i = 0; i < layer.geojson.features.length; i++) {
+            if (layer.geojson.features[i].selected) {
+              polys.push(layer.geojson.features[i])
+            } else {
+              newFeatures.push(layer.geojson.features[i])
+            }
+          }
+          newFeatures.push(turf.erase(polys[0], polys[1]))
+          layer.geojson.features = newFeatures
+          if (layer.mapLayer) {
+            layer.mapLayer.clearLayers()
+            if (layer.geojson) layer.mapLayer.addData(layer.geojson)
+          }
+        }
+      }
+    })
+    this.updateLayers(this.layers)
+  },
+  intersect: function() {
+    var self = this
+    this.layers.forEach(function(layer) {
+      if (layer.selected) {
+        var fc = gjutils.newFeatureCollection()
+        var polys = []
+        var newFeatures = []
+        if (layer.geojson.type === 'FeatureCollection') {
+          for (var i = 0; i < layer.geojson.features.length; i++) {
+            if (layer.geojson.features[i].selected) {
+              polys.push(layer.geojson.features[i])
+            } else {
+              newFeatures.push(layer.geojson.features[i])
+            }
+          }
+          newFeatures.push(turf.intersect(polys[0], polys[1]))
           layer.geojson.features = newFeatures
           if (layer.mapLayer) {
             layer.mapLayer.clearLayers()
@@ -31885,7 +46809,7 @@ VectorTools.prototype = {
     var self = this
     this.layers.forEach(function(layer) {
       if (layer.selected) {
-        var breaks = turfquantile(layer.geojson, 'population', [25, 50, 75, 99])
+        var breaks = turf.quantile(layer.geojson, 'population', [25, 50, 75, 99])
         console.log(breaks)
       }
     })
@@ -31895,7 +46819,7 @@ VectorTools.prototype = {
     var bbox = [-96,31,-84,40];
     var cellWidth = 50;
     var units = 'miles';
-    var hexgrid = turfhexgrid(bbox, cellWidth, units)
+    var hexgrid = turf.hexgrid(bbox, cellWidth, units)
     var newLayer = defaultLayer.generate()
     newLayer.geojson = hexgrid
     this.addLayer(newLayer)
@@ -31905,12 +46829,129 @@ VectorTools.prototype = {
       layer.zoomTo = layer.selected ? true : false
     })
     this.updateLayers(this.layers)
+  },
+  viewAttributes: function() {
+    var layer = _.findWhere(this.layers, {selected: true})
+    if (layer) {
+      layer.viewAttributes = true
+      this.updateLayers(this.layers)
+    }
+  },
+  closeAttributes: function() {
+    var layer = _.findWhere(this.layers, {selected: true})
+    if (layer) {
+      layer.viewAttributes = false
+      this.updateLayers(this.layers)
+    }
+  },
+  viewGeoJSON: function() {
+    var layer = _.findWhere(this.layers, {selected: true})
+    if (layer) {
+      vex.dialog.alert(JSON.stringify(layer.geojson))
+    }
+  },
+  area: function() {
+    var fc = gjutils.newFeatureCollection()
+    this.layers.forEach(function(layer) {
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          fc.features = fc.features.concat(selected)
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            fc.features.push(layer.geojson.feature)
+          }
+        }
+      }
+    })
+    var area = turf.area(fc)
+    var msg = '<p>Area</p><p>' + numeral(area).format('0.0000') + ' m<sup>2</sup></p>'
+    vex.dialog.alert(msg)
+  },
+  bearing: function() {
+    var points = []
+    this.layers.forEach(function(layer) {
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          selected.forEach(function(f) {
+            if (f.geometry.type === 'Point') {
+              points.push(f)
+            }
+          })
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            if (layer.geojson.feature.geometry.type === 'Point') {
+              points.push(f)
+            }
+          }
+        }
+      }
+    })
+    var bearing = turf.bearing(points[0], points[1])
+    var msg = '<p>Bearing</p><p>' + numeral(bearing).format('0.0000')
+    vex.dialog.alert(msg)
+  },
+  distance: function() {
+    var points = []
+    this.layers.forEach(function(layer) {
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          selected.forEach(function(f) {
+            if (f.geometry.type === 'Point') {
+              points.push(f)
+            }
+          })
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            if (layer.geojson.feature.geometry.type === 'Point') {
+              points.push(layer.geojson.feature)
+            }
+          }
+        }
+      }
+    })
+    var bearing = turf.distance(points[0], points[1], 'miles')
+    var msg = '<p>Distance</p><p>' + numeral(bearing).format('0.0000') + ' mi'
+    vex.dialog.alert(msg)
+  },
+  lineLength: function() {
+    var lines = []
+    this.layers.forEach(function(layer) {
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          selected.forEach(function(f) {
+            if (f.geometry.type === 'LineString') {
+              lines.push(f)
+            }
+          })
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            if (layer.geojson.feature.geometry.type === 'LineString') {
+              lines.push(layer.geojson.feature)
+            }
+          }
+        }
+      }
+    })
+    var distance = 0
+    lines.forEach(function(line) {
+      distance += turf.lineDistance(line, 'miles')
+    })
+    var msg = '<p>Length</p><p>' + numeral(distance).format('0.0000') + ' mi'
+    vex.dialog.alert(msg)
   }
 }
 
 module.exports = new VectorTools()
 
-},{"../components/Modals.jsx":215,"./DefaultLayer":219,"./gjutils":221,"filesaver.js":11,"react":173,"turf-buffer":176,"turf-combine":183,"turf-explode":184,"turf-flip":188,"turf-hex-grid":189,"turf-kinks":195,"turf-merge":199,"turf-quantile":206,"turf-simplify":208}],221:[function(require,module,exports){
+},{"../components/Modals.jsx":376,"./DefaultLayer":380,"./gjutils":382,"filesaver.js":11,"numeral":63,"react":229,"turf":263}],382:[function(require,module,exports){
 function GJUtils() {
 
 }
@@ -31937,7 +46978,7 @@ GJUtils.prototype = {
 
 module.exports = new GJUtils()
 
-},{}],222:[function(require,module,exports){
+},{}],383:[function(require,module,exports){
 // module.exports = {
 //   darkest: '#594F4F',
 //   dark: '#547980',
@@ -31963,7 +47004,7 @@ module.exports = {
   green: '#428675'
 }
 
-},{}],223:[function(require,module,exports){
+},{}],384:[function(require,module,exports){
 var topojson = require('topojson'),
     toGeoJSON = require('togeojson'),
     csv2geojson = require('csv2geojson'),
@@ -32142,4 +47183,4 @@ function readFile(f, text, callback) {
     }
 }
 
-},{"csv2geojson":8,"osmtogeojson":12,"polytogeojson":18,"togeojson":174,"topojson":175}]},{},[1]);
+},{"csv2geojson":8,"osmtogeojson":64,"polytogeojson":70,"togeojson":230,"topojson":231}]},{},[1]);

@@ -3,6 +3,7 @@ var React = require('react')
   , AddLayers = require('./AddLayers.jsx')
   , LayerList = require('./LayerList.jsx')
   , WorkSpace = require('./WorkSpace.jsx')
+  , AttributeTable = require('./AttributeTable.jsx')
   , MessageBar = require('./MessageBar.jsx')
   , palette = require('../utils/palette')
   , vectorTools = require('../utils/VectorTools')
@@ -128,22 +129,7 @@ var App = React.createClass({
       <div className="app" style={appStyle}>
         <Toolbar
           layers={this.state.layers}
-          newLayer={vectorTools.newLayer.bind(vectorTools)}
-          renameLayer={vectorTools.renameLayer.bind(vectorTools)}
-          selectAll={vectorTools.selectAll.bind(vectorTools)}
-          deselectAll={vectorTools.deselectAll.bind(vectorTools)}
-          deleteFeature={vectorTools.deleteFeature.bind(vectorTools)}
-          saveAs={vectorTools.saveAs.bind(vectorTools)}
-          editFeature={vectorTools.editFeature.bind(vectorTools)}
-          simplify={vectorTools.simplify.bind(vectorTools)}
-          buffer={vectorTools.buffer.bind(vectorTools)}
-          flip={vectorTools.flip.bind(vectorTools)}
-          explode={vectorTools.explode.bind(vectorTools)}
-          combine={vectorTools.combine.bind(vectorTools)}
-          merge={vectorTools.merge.bind(vectorTools)}
-          hexgrid={vectorTools.createHexGrid.bind(vectorTools)}
-          quantile={vectorTools.quantile.bind(vectorTools)}
-          zoomToLayer={vectorTools.zoomToLayer.bind(vectorTools)}
+          vectorTools={vectorTools}
         />
         <div className="flex-row">
           <AddLayers
@@ -154,10 +140,16 @@ var App = React.createClass({
             layers={this.state.layers}
             updateLayer={this.updateLayer}
           />
-          <WorkSpace
-            layers={this.state.layers}
-            updateLayer={this.updateLayer}
-          />
+          <div className="right-pane">
+            <WorkSpace
+              layers={this.state.layers}
+              updateLayer={this.updateLayer}
+            />
+            <AttributeTable
+              layers={this.state.layers}
+              updateLayer={this.updateLayer}
+            />
+          </div>
         </div>
         <MessageBar message={this.state.message}/>
       </div>

@@ -6,7 +6,7 @@
 @lightest: #D5D5D5;
 @green: #428675;
 @borderColor: @light;
-@smallFont: 12px;
+@smallFont: 14px;
 
 #ugis {
   height: 100%;
@@ -43,72 +43,65 @@
 
 .toolbar {
   border-bottom: 1px solid @borderColor;
-  background: @dark;
+  background: @darkest;
   width: 100%;
   h1 {
     margin: 0;
     float: left;
     color: white;
     font-size: 18px;
-    padding: 10px 0 0 5px;
+    padding: 3px 5px 0 5px;
     text-shadow: 1px 1px 0px rgba(0,0,0,1);
   }
   .toolbar-dropdown {
     float: left;
     position: relative;
+    background: blue;
+    & > .toolbar-item {
+      margin: 0;
+    }
     i {
       padding-left: 5px;
     }
-    ul {
-      width: 100px;
+    .submenu {
       position: absolute;
       top: 100%;
       left: 0;
       z-index: 1000;
-      float: left;
-      background: @medium;
-      margin: -8px 0 0 9px;
+      background: @darkest;
+      margin: 0;
       border-radius: 0;
-      padding: 5px 0;
-      overflow: hidden;
-      li {
-        list-style-type: none;
-        .toolbar-item {
-          background-color: @medium;
-          margin: 0;
-          padding: 0 10px;
-          text-align: left;
-          font-size: @smallFont;
-          width: 100%;
-          &:hover {
-            cursor: pointer;
-            background-color: @light;
-          }
-        }
-        &:hover {
-          cursor: pointer;
-          background-color: @light;
-        }
+      display: inline-block;
+      .toolbar-item {
+        display: inline-block;
+        white-space: nowrap;
+        margin: 0;
+        width: 110%;
       }
     }
   }
   .toolbar-item {
     margin: 8px 0 8px 9px;
     padding: 5px 5px;
-    float: left;
-    background-color: @dark;
+    float:left;
+    background-color: @darkest;
     border-width: 0;
     border-radius: 0px;
     border-color: @lightest;
     font-size: @smallFont;
     color: @light;
-    text-align: center;
+    .label {
+      float: left;
+    }
+    .icon {
+      float: right;
+    }
     &.active {
       color: #fff;
     }
     &.active:hover, &.open {
       cursor: pointer;
-      background-color: @medium;
+      background-color: @light;
     }
   }
 }
@@ -140,6 +133,7 @@
   min-height: 100px;
   flex: none;
   border-right: 1px solid @lightest;
+  background: @medium;
   .layer {
     text-align: left;
     padding: 10px;
@@ -151,10 +145,22 @@
   }
 }
 
+.right-pane {
+  min-height: 100px;
+  min-width: 400px;
+  flex: 1;
+  flex-direction: column;
+  display: flex;
+}
+
 .work-space {
   min-height: 100px;
   min-width: 400px;
   flex: 1;
+}
+
+.attribute-table {
+  flex: none;
 }
 
 .message-bar {
@@ -178,12 +184,13 @@
 .tooltip {
   display: inline-block;
   position: absolute;
-  top: 0;
+  top: 10%;
   left: 100%;
   z-index: 9999;
-  background: black;
+  background: @darkest;
   color: white;
-  padding: 2px;
+  padding: 5px;
+  margin-left: 5px;
   .tooltip-inner {
     font-size: 11px;
     line-height: 12px;

@@ -16,12 +16,6 @@ var getPackageJson = function () {
   return JSON.parse(fs.readFileSync('./package.json', 'utf8'))
 }
 
-var paths = {
-  css: ['./public/css/style.less'],
-  index: ['./src/index.js'],
-  js: ['./src/**/*.js', './src/**/*.jsx'],
-}
-
 gulp.task('bump', function(){
   gulp.src('./package.json')
   .pipe(bump())
@@ -29,7 +23,7 @@ gulp.task('bump', function(){
 })
 
 gulp.task('css', function () {
-  return gulp.src(paths.css)
+  return gulp.src('./public/css/style.less')
     .pipe(less({
       paths: [ './public/css/' ]
     }))
@@ -39,7 +33,7 @@ gulp.task('css', function () {
 
 gulp.task('js', function() {
   var package = getPackageJson()
-  browserify(paths.index)
+  browserify('./src/index.js')
     .transform(reactify)
     .bundle()
     .pipe(source(package.name + '.js'))
@@ -56,8 +50,8 @@ gulp.task('compress', function() {
 
 gulp.task('watch', function() {
   livereload.listen()
-  gulp.watch(paths.css, ['bump', 'css'])
-  gulp.watch(paths.js, ['bump', 'js'])
+  gulp.watch('./public/css/*.less', ['bump', 'css'])
+  gulp.watch(['./src/**/*.js', './src/**/*.jsx'], ['bump', 'js'])
 })
 
 gulp.task('default', ['watch', 'bump', 'css', 'js'])

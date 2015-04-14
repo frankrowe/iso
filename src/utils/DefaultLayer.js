@@ -15,11 +15,14 @@ function DefaultLayer() {
       "features": []
     }
   }
+  this.tileLayer = JSON.parse(JSON.stringify(this.defaultLayer))
 }
 
 DefaultLayer.prototype = {
   generate: function() {
-    return JSON.parse(JSON.stringify(this.defaultLayer))
+    var layer = JSON.parse(JSON.stringify(this.defaultLayer))
+    layer.id = Math.random().toString(36).slice(2)
+    return layer
   }
 }
 

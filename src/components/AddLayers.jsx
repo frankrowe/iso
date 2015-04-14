@@ -3,6 +3,7 @@ var React = require('react')
   , palette = require('../utils/palette')
   , readFile = require('../utils/readfile')
   , defaultLayer = require('../utils/DefaultLayer')
+  , Modals = require('./Modals.jsx')
 
 var LayerButton = React.createClass({
   getInitialState: function() {
@@ -47,7 +48,7 @@ var AddLayerButton = React.createClass({
           newLayer.geojson = gj
           newLayer.fileName = files[0].name
           newLayer.name = files[0].name.split('.')[0]
-          newLayer.id = Math.random().toString(36).slice(2)
+          newLayer.vector = true
           self.props.addLayer(newLayer)
         }
       })
@@ -67,6 +68,7 @@ var AddLayerButton = React.createClass({
 var NewLayerButton = React.createClass({
   onClick: function(e) {
     var newLayer = defaultLayer.generate()
+    newLayer.vector = true
     this.props.addLayer(newLayer)
   },
   render: function() {
@@ -78,7 +80,23 @@ var NewLayerButton = React.createClass({
 
 var AddTileLayerButton = React.createClass({
   onClick: function(e) {
-
+    var self = this
+    vex.dialog.open({
+      message: 'Enter tile layer URL',
+      afterOpen: function($vexContent) {
+        React.render(<Modals.TileLayer />, $vexContent.find('.vex-dialog-input').get(0))
+      },
+      callback: function(data) {
+        console.log(data)
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        var newLayer = defaultLayer.generate()
+        newLayer.tile = true
+        newLayer.tileURL = data.url
+        self.props.addLayer(newLayer)
+      }
+    })
   },
   render: function() {
     return (

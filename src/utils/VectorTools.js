@@ -1,13 +1,6 @@
 var React = require('react')
-  , turfbuffer = require('turf-buffer')
-  , turfsimplify = require('turf-simplify')
-  , turfflip = require('turf-flip')
-  , turfkinks = require('turf-kinks')
-  , turfexplode = require('turf-explode')
-  , turfcombine = require('turf-combine')
-  , turfmerge = require('turf-merge')
-  , turfhexgrid = require('turf-hex-grid')
-  , turfquantile = require('turf-quantile')
+  , numeral = require('numeral')
+  , turf = require('turf')
   , fileSaver = require('filesaver.js')
   , defaultLayer = require('./DefaultLayer')
   , gjutils =require('./gjutils')
@@ -164,7 +157,7 @@ VectorTools.prototype = {
     this.getDistance(function(err, data) {
       self.editFeatures(self.layers, function(gj) {
         if (gj.selected) {
-          var _gj = turfbuffer(gj, +data.distance, data.unit)
+          var _gj = turf.buffer(gj, +data.distance, data.unit)
           _gj.selected = true
           return _gj
         } else return gj
@@ -176,7 +169,7 @@ VectorTools.prototype = {
     this.getTolerance(function(err, tolerance) {
       self.editFeatures(self.layers, function(gj) {
         if (gj.selected) {
-          var _gj = turfsimplify(gj, tolerance, false)
+          var _gj = turf.simplify(gj, tolerance, false)
           _gj.selected = true
           return _gj
         } else return gj
@@ -187,7 +180,7 @@ VectorTools.prototype = {
     var self = this
     self.editFeatures(self.layers, function(gj) {
       if (gj.selected) {
-        var _gj = turfflip(gj)
+        var _gj = turf.flip(gj)
         _gj.selected = true
         return _gj
       } else return gj
@@ -197,7 +190,7 @@ VectorTools.prototype = {
     var self = this
     self.editFeatures(self.layers, function(gj) {
       if (gj.selected) {
-        var _gj = turfexplode(gj)
+        var _gj = turf.explode(gj)
         return _gj
       } else return gj
     })
@@ -220,7 +213,59 @@ VectorTools.prototype = {
               newFeatures.push(layer.geojson.features[i])
             }
           }
-          newFeatures.push(turfmerge(fc))
+          newFeatures.push(turf.merge(fc))
+          layer.geojson.features = newFeatures
+          if (layer.mapLayer) {
+            layer.mapLayer.clearLayers()
+            if (layer.geojson) layer.mapLayer.addData(layer.geojson)
+          }
+        }
+      }
+    })
+    this.updateLayers(this.layers)
+  },
+  erase: function() {
+    var self = this
+    this.layers.forEach(function(layer) {
+      if (layer.selected) {
+        var fc = gjutils.newFeatureCollection()
+        var polys = []
+        var newFeatures = []
+        if (layer.geojson.type === 'FeatureCollection') {
+          for (var i = 0; i < layer.geojson.features.length; i++) {
+            if (layer.geojson.features[i].selected) {
+              polys.push(layer.geojson.features[i])
+            } else {
+              newFeatures.push(layer.geojson.features[i])
+            }
+          }
+          newFeatures.push(turf.erase(polys[0], polys[1]))
+          layer.geojson.features = newFeatures
+          if (layer.mapLayer) {
+            layer.mapLayer.clearLayers()
+            if (layer.geojson) layer.mapLayer.addData(layer.geojson)
+          }
+        }
+      }
+    })
+    this.updateLayers(this.layers)
+  },
+  intersect: function() {
+    var self = this
+    this.layers.forEach(function(layer) {
+      if (layer.selected) {
+        var fc = gjutils.newFeatureCollection()
+        var polys = []
+        var newFeatures = []
+        if (layer.geojson.type === 'FeatureCollection') {
+          for (var i = 0; i < layer.geojson.features.length; i++) {
+            if (layer.geojson.features[i].selected) {
+              polys.push(layer.geojson.features[i])
+            } else {
+              newFeatures.push(layer.geojson.features[i])
+            }
+          }
+          newFeatures.push(turf.intersect(polys[0], polys[1]))
           layer.geojson.features = newFeatures
           if (layer.mapLayer) {
             layer.mapLayer.clearLayers()
@@ -235,7 +280,7 @@ VectorTools.prototype = {
     var self = this
     this.layers.forEach(function(layer) {
       if (layer.selected) {
-        var breaks = turfquantile(layer.geojson, 'population', [25, 50, 75, 99])
+        var breaks = turf.quantile(layer.geojson, 'population', [25, 50, 75, 99])
         console.log(breaks)
       }
     })
@@ -245,7 +290,7 @@ VectorTools.prototype = {
     var bbox = [-96,31,-84,40];
     var cellWidth = 50;
     var units = 'miles';
-    var hexgrid = turfhexgrid(bbox, cellWidth, units)
+    var hexgrid = turf.hexgrid(bbox, cellWidth, units)
     var newLayer = defaultLayer.generate()
     newLayer.geojson = hexgrid
     this.addLayer(newLayer)
@@ -255,6 +300,123 @@ VectorTools.prototype = {
       layer.zoomTo = layer.selected ? true : false
     })
     this.updateLayers(this.layers)
+  },
+  viewAttributes: function() {
+    var layer = _.findWhere(this.layers, {selected: true})
+    if (layer) {
+      layer.viewAttributes = true
+      this.updateLayers(this.layers)
+    }
+  },
+  closeAttributes: function() {
+    var layer = _.findWhere(this.layers, {selected: true})
+    if (layer) {
+      layer.viewAttributes = false
+      this.updateLayers(this.layers)
+    }
+  },
+  viewGeoJSON: function() {
+    var layer = _.findWhere(this.layers, {selected: true})
+    if (layer) {
+      vex.dialog.alert(JSON.stringify(layer.geojson))
+    }
+  },
+  area: function() {
+    var fc = gjutils.newFeatureCollection()
+    this.layers.forEach(function(layer) {
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          fc.features = fc.features.concat(selected)
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            fc.features.push(layer.geojson.feature)
+          }
+        }
+      }
+    })
+    var area = turf.area(fc)
+    var msg = '<p>Area</p><p>' + numeral(area).format('0.0000') + ' m<sup>2</sup></p>'
+    vex.dialog.alert(msg)
+  },
+  bearing: function() {
+    var points = []
+    this.layers.forEach(function(layer) {
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          selected.forEach(function(f) {
+            if (f.geometry.type === 'Point') {
+              points.push(f)
+            }
+          })
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            if (layer.geojson.feature.geometry.type === 'Point') {
+              points.push(f)
+            }
+          }
+        }
+      }
+    })
+    var bearing = turf.bearing(points[0], points[1])
+    var msg = '<p>Bearing</p><p>' + numeral(bearing).format('0.0000')
+    vex.dialog.alert(msg)
+  },
+  distance: function() {
+    var points = []
+    this.layers.forEach(function(layer) {
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          selected.forEach(function(f) {
+            if (f.geometry.type === 'Point') {
+              points.push(f)
+            }
+          })
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            if (layer.geojson.feature.geometry.type === 'Point') {
+              points.push(layer.geojson.feature)
+            }
+          }
+        }
+      }
+    })
+    var bearing = turf.distance(points[0], points[1], 'miles')
+    var msg = '<p>Distance</p><p>' + numeral(bearing).format('0.0000') + ' mi'
+    vex.dialog.alert(msg)
+  },
+  lineLength: function() {
+    var lines = []
+    this.layers.forEach(function(layer) {
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          selected.forEach(function(f) {
+            if (f.geometry.type === 'LineString') {
+              lines.push(f)
+            }
+          })
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            if (layer.geojson.feature.geometry.type === 'LineString') {
+              lines.push(layer.geojson.feature)
+            }
+          }
+        }
+      }
+    })
+    var distance = 0
+    lines.forEach(function(line) {
+      distance += turf.lineDistance(line, 'miles')
+    })
+    var msg = '<p>Length</p><p>' + numeral(distance).format('0.0000') + ' mi'
+    vex.dialog.alert(msg)
   }
 }
 

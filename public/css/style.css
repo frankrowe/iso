@@ -40,7 +40,7 @@ body {
 }
 .toolbar {
   border-bottom: 1px solid #7d7d7d;
-  background: #525252;
+  background: #303030;
   width: 100%;
 }
 .toolbar h1 {
@@ -48,59 +48,52 @@ body {
   float: left;
   color: white;
   font-size: 18px;
-  padding: 10px 0 0 5px;
+  padding: 3px 5px 0 5px;
   text-shadow: 1px 1px 0px #000000;
 }
 .toolbar .toolbar-dropdown {
   float: left;
   position: relative;
+  background: blue;
+}
+.toolbar .toolbar-dropdown > .toolbar-item {
+  margin: 0;
 }
 .toolbar .toolbar-dropdown i {
   padding-left: 5px;
 }
-.toolbar .toolbar-dropdown ul {
-  width: 100px;
+.toolbar .toolbar-dropdown .submenu {
   position: absolute;
   top: 100%;
   left: 0;
   z-index: 1000;
-  float: left;
-  background: #636363;
-  margin: -8px 0 0 9px;
-  border-radius: 0;
-  padding: 5px 0;
-  overflow: hidden;
-}
-.toolbar .toolbar-dropdown ul li {
-  list-style-type: none;
-}
-.toolbar .toolbar-dropdown ul li .toolbar-item {
-  background-color: #636363;
+  background: #303030;
   margin: 0;
-  padding: 0 10px;
-  text-align: left;
-  font-size: 12px;
-  width: 100%;
+  border-radius: 0;
+  display: inline-block;
 }
-.toolbar .toolbar-dropdown ul li .toolbar-item:hover {
-  cursor: pointer;
-  background-color: #7d7d7d;
-}
-.toolbar .toolbar-dropdown ul li:hover {
-  cursor: pointer;
-  background-color: #7d7d7d;
+.toolbar .toolbar-dropdown .submenu .toolbar-item {
+  display: inline-block;
+  white-space: nowrap;
+  margin: 0;
+  width: 110%;
 }
 .toolbar .toolbar-item {
   margin: 8px 0 8px 9px;
   padding: 5px 5px;
   float: left;
-  background-color: #525252;
+  background-color: #303030;
   border-width: 0;
   border-radius: 0px;
   border-color: #d5d5d5;
-  font-size: 12px;
+  font-size: 14px;
   color: #7d7d7d;
-  text-align: center;
+}
+.toolbar .toolbar-item .label {
+  float: left;
+}
+.toolbar .toolbar-item .icon {
+  float: right;
 }
 .toolbar .toolbar-item.active {
   color: #fff;
@@ -108,7 +101,7 @@ body {
 .toolbar .toolbar-item.active:hover,
 .toolbar .toolbar-item.open {
   cursor: pointer;
-  background-color: #636363;
+  background-color: #7d7d7d;
 }
 .add-layers {
   width: 50px;
@@ -135,6 +128,7 @@ body {
   min-height: 100px;
   flex: none;
   border-right: 1px solid #d5d5d5;
+  background: #636363;
 }
 .layer-list .layer {
   text-align: left;
@@ -145,10 +139,20 @@ body {
 .layer-list .layer span {
   padding-left: 5px;
 }
+.right-pane {
+  min-height: 100px;
+  min-width: 400px;
+  flex: 1;
+  flex-direction: column;
+  display: flex;
+}
 .work-space {
   min-height: 100px;
   min-width: 400px;
   flex: 1;
+}
+.attribute-table {
+  flex: none;
 }
 .message-bar {
   height: 20px;
@@ -157,7 +161,7 @@ body {
 }
 .message-bar .message-bar-item {
   float: left;
-  font-size: 12px;
+  font-size: 14px;
   margin: 0 0 0 5px;
   color: white;
   line-height: 20px;
@@ -170,12 +174,13 @@ body {
 .tooltip {
   display: inline-block;
   position: absolute;
-  top: 0;
+  top: 10%;
   left: 100%;
   z-index: 9999;
-  background: black;
+  background: #303030;
   color: white;
-  padding: 2px;
+  padding: 5px;
+  margin-left: 5px;
 }
 .tooltip .tooltip-inner {
   font-size: 11px;

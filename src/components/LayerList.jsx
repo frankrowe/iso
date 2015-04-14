@@ -14,7 +14,8 @@ var Layer = React.createClass({
   },
   render: function() {
     var layerStyle = {
-      color: this.props.layer.selected ? palette.green : 'white'
+      color: this.props.layer.selected ? 'white': palette.light,
+      textDecoration: this.props.layer.selected ? 'underline': 'none'
     }
     return (
       <div className="layer" style={layerStyle} onClick={this.onClick}>

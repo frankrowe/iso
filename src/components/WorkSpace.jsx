@@ -1,4 +1,5 @@
 var React = require('react')
+  , numeral = require('numeral')
   , palette = require('../utils/palette')
 
 var selectedStyle = {
@@ -23,19 +24,23 @@ var WorkSpace = React.createClass({
   componentDidMount: function() {
     this.makeMap()
   },
+  updateCoords: function(x, y, z) {
+    document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML = 
+      'x: ' + numeral(x).format('0,0.0000') + ' ' + 
+      'y: ' + numeral(y).format('0,0.0000') + ' ' +
+      'z: ' + z
+  },
   makeMap: function() {
     var self = this
     this.map = L.map(this.refs.workspace.getDOMNode(), {
       attributionControl: false,
       zoomControl: false
-    }).setView([38, -76], 5)
+    }).setView([30, 20], 2)
     L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png').addTo(this.map)
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
     this.map.on('mousemove', function(e) {
-      document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML = 
-        Math.round(e.latlng.lat * 100000) / 100000 + ', ' + 
-        Math.round(e.latlng.lng * 100000) / 100000
+      self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
     })
     this.map.on('draw:created', function (e) {
       console.log(e)
@@ -65,58 +70,67 @@ var WorkSpace = React.createClass({
       this.props.updateLayer(layer)
     }
   },
+  styleFeature: function(feature) {
+    if (feature.selected) {
+      return selectedStyle
+    } else {
+      return unselectedStyle
+    }
+  },
   addLayers: function(layer) {
     var self = this
     var zoomToLayers = L.featureGroup()
     this.props.layers.forEach(function(layer) {
-      if (!layer.mapLayer) {
-        layer.mapLayer = L.geoJson(layer.geojson, {
-          pointToLayer: function(feature, latlng) {
-            return L.circleMarker(latlng, pointStyle)
-          },
-          style: function(feature) {
-            if (feature.selected) {
-              return selectedStyle
-            } else {
-              return unselectedStyle
-            }
-          },
-          onEachFeature: function (layer, feature, mapLayer) {
-            mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
-          }.bind(self, layer)
-        })
-      }
-
-      if (layer.editing) {
-        if (self.drawControl) {
-          self.map.removeControl(self.drawControl)
+      if (layer.vector) {
+        if (!layer.mapLayer) {
+          layer.mapLayer = L.geoJson(layer.geojson, {
+            pointToLayer: function(feature, latlng) {
+              return L.circleMarker(latlng, pointStyle)
+            },
+            style: self.styleFeature,
+            onEachFeature: function (layer, feature, mapLayer) {
+              mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
+            }.bind(self, layer)
+          })
+        } else {
+          layer.mapLayer.setStyle(self.styleFeature)
         }
-        self.drawControl = new L.Control.Draw({
-          draw: {
-            polyline: {
-                shapeOptions: unselectedStyle
-            },
-            polygon: {
-                shapeOptions: unselectedStyle
-            },
-            rectangle: {
-              shapeOptions: unselectedStyle
-            },
-            circle: false
-          },
-          edit: {
-            featureGroup: layer.mapLayer
+
+        if (layer.editing) {
+          if (self.drawControl) {
+            self.map.removeControl(self.drawControl)
           }
-        })
-        self.map.addControl(self.drawControl)
-      } else {
-        if (self.drawControl) {
-          self.map.removeControl(self.drawControl)
-          self.drawControl = false
+          self.drawControl = new L.Control.Draw({
+            draw: {
+              polyline: {
+                  shapeOptions: unselectedStyle
+              },
+              polygon: {
+                  shapeOptions: unselectedStyle
+              },
+              rectangle: {
+                shapeOptions: unselectedStyle
+              },
+              circle: false
+            },
+            edit: {
+              featureGroup: layer.mapLayer
+            }
+          })
+          self.map.addControl(self.drawControl)
+        } else {
+          if (self.drawControl) {
+            self.map.removeControl(self.drawControl)
+            self.drawControl = false
+          }
+        }
+      } else if (layer.tile) {
+        if (!layer.mapLayer) {
+          layer.mapLayer = L.tileLayer(layer.tileURL)
         }
       }
       if (layer.enabled) {
-        if (layer.zoomTo) {
+        if (layer.vector && layer.zoomTo) {
           zoomToLayers.addLayer(layer.mapLayer)
           layer.zoomTo = false
         }
