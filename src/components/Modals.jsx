@@ -52,7 +52,8 @@ var Modals = {
     render: function() {
       return (
         <div>
-          <input name="url" type="text" defaultValue="http://23.239.25.85/s/v2/att_wireless/{z}/{x}/{y}.png" />
+          <p>{'(http://tile.stamen.com/watercolor/{z}/{x}/{y}.jpg)'}</p>
+          <input name="url" type="text" defaultValue="" />
         </div>
       )
     }

@@ -24,6 +24,9 @@ var WorkSpace = React.createClass({
   componentDidMount: function() {
     this.makeMap()
   },
+  componentDidUpdate: function() {
+    this.map.invalidateSize()
+  },
   updateCoords: function(x, y, z) {
     document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML = 
       'x: ' + numeral(x).format('0,0.0000') + ' ' + 
@@ -43,11 +46,19 @@ var WorkSpace = React.createClass({
       self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
     })
     this.map.on('draw:created', function (e) {
-      console.log(e)
       this.props.layers.forEach(function(layer) {
         if (layer.selected) {
-          console.log(e.layer.toGeoJSON())
           layer.geojson.features.push(e.layer.toGeoJSON())
+          layer.mapLayer.clearLayers()
+          layer.mapLayer = false
+          this.props.updateLayer(layer)
+        }
+      }, this)
+    }, this)
+    this.map.on('draw:edited', function (e) {
+      this.props.layers.forEach(function(layer) {
+        if (layer.selected) {
+          layer.geojson = layer.mapLayer.toGeoJSON()
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
           this.props.updateLayer(layer)
@@ -79,8 +90,12 @@ var WorkSpace = React.createClass({
   },
   addLayers: function(layer) {
     var self = this
+    var style = {}
     var zoomToLayers = L.featureGroup()
     this.props.layers.forEach(function(layer) {
+      if (layer.editGeoJSON) {
+        style.marginRight = 400
+      }
       if (layer.vector) {
         if (!layer.mapLayer) {
           layer.mapLayer = L.geoJson(layer.geojson, {
@@ -150,11 +165,12 @@ var WorkSpace = React.createClass({
       this.map.removeLayer(zoomToLayers)
       zoomToLayers = null
     }
+    return style
   },
   render: function() {
-    this.addLayers()
+    var style = this.addLayers()
     return (
-      <div className="work-space" ref="workspace">
+      <div className="work-space" ref="workspace" style={style}>
       </div>
     )
   }

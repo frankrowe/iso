@@ -82,12 +82,11 @@ var AddTileLayerButton = React.createClass({
   onClick: function(e) {
     var self = this
     vex.dialog.open({
-      message: 'Enter tile layer URL',
+      message: 'Enter TileLayer URL',
       afterOpen: function($vexContent) {
         React.render(<Modals.TileLayer />, $vexContent.find('.vex-dialog-input').get(0))
       },
       callback: function(data) {
-        console.log(data)
         if (data === false) {
           return console.log('Cancelled');
         }

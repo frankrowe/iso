@@ -20,7 +20,7 @@ var AttributeTable = React.createClass({
   render: function() {
     var self = this
     var style = {}
-      , tableWidth = $('.right-pane').innerWidth() - 4
+      , tableWidth = $('.work-space').innerWidth() - 4
       , tableHeight = 200
       , indexColumnWidth = 30
     this.layer = false

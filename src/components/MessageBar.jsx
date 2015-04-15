@@ -6,6 +6,7 @@ var MessageBar = React.createClass({
     return (
       <div className="message-bar">
         <div className="message-bar-item message">{this.props.message}</div>
+        <div className="message-bar-item error">{this.props.error}</div>
         <div className="message-bar-item coordinates"></div>
       </div>
     )

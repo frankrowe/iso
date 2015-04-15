@@ -72,6 +72,21 @@ var ToolbarDropdown = React.createClass({
 var LayerMenu = React.createClass({
   render: function() {
     var active = this.props.config.oneLayer  || this.props.config.multiLayer
+    var submenu = [
+      <RenameLayer onClick={this.props.vectorTools.renameLayer.bind(this.props.vectorTools)} config={this.props.config}/>,
+      <SaveAs onClick={this.props.vectorTools.saveAs.bind(this.props.vectorTools)} config={this.props.config}/>,
+      <ZoomToLayer onClick={this.props.vectorTools.zoomToLayer.bind(this.props.vectorTools)} config={this.props.config}/>,
+      <MoveLower onClick={this.props.vectorTools.moveLower.bind(this.props.vectorTools)} config={this.props.config}/>
+      ]
+    return (
+      <ToolbarDropdown text={'Layer'} submenu={submenu} active={active}/>
+    )
+  }
+})
+
+var ViewMenu = React.createClass({
+  render: function() {
+    var active = this.props.config.oneLayer  || this.props.config.multiLayer
     if (this.props.config.oneLayer && this.props.config.oneLayer.viewAttributes) {
       var attributeTable = <CloseAttributes onClick={this.props.vectorTools.closeAttributes.bind(this.props.vectorTools)} config={this.props.config}/>
     } else {
@@ -80,13 +95,10 @@ var LayerMenu = React.createClass({
     var submenu = [
       attributeTable,
       <ViewGeoJSON onClick={this.props.vectorTools.viewGeoJSON.bind(this.props.vectorTools)} config={this.props.config}/>,
-      <RenameLayer onClick={this.props.vectorTools.renameLayer.bind(this.props.vectorTools)} config={this.props.config}/>,
-      <Edit onClick={this.props.vectorTools.editFeature.bind(this.props.vectorTools)} config={this.props.config}/>,
-      <SaveAs onClick={this.props.vectorTools.saveAs.bind(this.props.vectorTools)} config={this.props.config}/>,
-      <ZoomToLayer onClick={this.props.vectorTools.zoomToLayer.bind(this.props.vectorTools)} config={this.props.config}/>
+      <Edit onClick={this.props.vectorTools.editFeature.bind(this.props.vectorTools)} config={this.props.config}/>
       ]
     return (
-      <ToolbarDropdown text={'Layer'} submenu={submenu} active={active}/>
+      <ToolbarDropdown text={'View'} submenu={submenu} active={active}/>
     )
   }
 })
@@ -164,7 +176,7 @@ var ViewAttributes = React.createClass({
   render: function() {
     var active = this.props.config.oneLayer
     return (
-      <ToolbarItem text={'View Attribute Table'} onClick={this.props.onClick} active={active}/>
+      <ToolbarItem text={'Attribute Table'} onClick={this.props.onClick} active={active}/>
     )
   }
 })
@@ -173,7 +185,7 @@ var CloseAttributes = React.createClass({
   render: function() {
     var active = this.props.config.oneLayer
     return (
-      <ToolbarItem text={'View Attribute Table'} icon={<i className="fa fa-check"></i>} onClick={this.props.onClick} active={active}/>
+      <ToolbarItem text={'Attribute Table'} icon={<i className="fa fa-check"></i>} onClick={this.props.onClick} active={active}/>
     )
   }
 })
@@ -181,8 +193,12 @@ var CloseAttributes = React.createClass({
 var ViewGeoJSON = React.createClass({
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector
+    var icon = false
+    if (this.props.config.oneLayer && this.props.config.oneLayer.editGeoJSON) {
+      icon = <i className="fa fa-check"></i>
+    }
     return (
-      <ToolbarItem text={'View GeoJSON'} onClick={this.props.onClick} active={active}/>
+      <ToolbarItem text={'GeoJSON Editor'} icon={icon} onClick={this.props.onClick} active={active}/>
     )
   }
 })
@@ -199,13 +215,12 @@ var SaveAs = React.createClass({
 var Edit = React.createClass({
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector
+    var icon = false
     if (this.props.config.oneLayer && this.props.config.oneLayer.editing) {
       var icon = <i className="fa fa-check"></i>
-    } else {
-      var icon = false
     }
     return (
-      <ToolbarItem text={'Edit'} onClick={this.props.onClick} icon={icon} active={active}/>
+      <ToolbarItem text={'Editing Toolbar'} onClick={this.props.onClick} icon={icon} active={active}/>
     )
   }
 })
@@ -381,6 +396,15 @@ var ZoomToLayer = React.createClass({
   }
 })
 
+var MoveLower = React.createClass({
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      <ToolbarItem text={'Move Lower'} onClick={this.props.onClick} active={active}/>
+    )
+  }
+})
+
 var Toolbar = React.createClass({
   findActive: function() {
     var config = {
@@ -459,6 +483,9 @@ var Toolbar = React.createClass({
       <div className="toolbar">
         <h1>uGIS</h1>
         <LayerMenu config={config}
+          vectorTools={this.props.vectorTools}
+        />
+        <ViewMenu config={config}
           vectorTools={this.props.vectorTools}
         />
         <FeatureMenu config={config}

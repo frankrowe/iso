@@ -5,11 +5,17 @@ var Layer = React.createClass({
   onClick: function(e) {
     if (e.target.tagName === 'DIV' || e.target.tagName === 'SPAN') {
       this.props.layer.selected = !this.props.layer.selected
+      if (!this.props.layer.selected) {
+        this.props.layer.editing = false
+        this.props.layer.editGeoJSON = false
+        this.props.layer.viewAttributes = false
+      }
       this.props.updateLayer(this.props.layer)
     }
   },
   onChange: function(e) {
     this.props.layer.enabled = !this.props.layer.enabled
+    this.props.layer.selected = false
     this.props.updateLayer(this.props.layer)
   },
   render: function() {

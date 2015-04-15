@@ -94,6 +94,7 @@ body {
 }
 .toolbar .toolbar-item .icon {
   float: right;
+  font-weight: 800;
 }
 .toolbar .toolbar-item.active {
   color: #fff;
@@ -136,6 +137,9 @@ body {
   background: #525252;
   border-bottom: 1px solid #7d7d7d;
 }
+.layer-list .layer:hover {
+  cursor: pointer;
+}
 .layer-list .layer span {
   padding-left: 5px;
 }
@@ -171,6 +175,9 @@ body {
   text-align: right;
   margin: 0 5px 0 0;
 }
+.message-bar .error {
+  color: red;
+}
 .tooltip {
   display: inline-block;
   position: absolute;
@@ -187,6 +194,23 @@ body {
   line-height: 12px;
   text-align: center;
   white-space: nowrap;
+}
+.editor {
+  width: 400px;
+  flex: none;
+  background: #262626;
+  position: absolute;
+  top: 27px;
+  bottom: 20px;
+  right: 0;
+}
+.editor .CodeMirror {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  top: 0;
+  font-size: 14px;
 }
 .vex.vex-theme-os .vex-content {
   border-radius: 0;
@@ -205,6 +229,11 @@ body {
   min-height: 2.5em;
   margin: 0 0 0.25em;
 }
+.vex.vex-theme-os .vex-content p {
+  margin: 0 0 5px 0;
+  font-size: 14px;
+  line-height: 14px;
+}
 .vex.vex-theme-os .vex-dialog-button.vex-dialog-button-primary {
   background-color: #428675;
 }
@@ -215,4 +244,83 @@ body {
 .vex-custom-field-wrapper > label {
   display: inline-block;
   margin-bottom: .2em;
+}
+/*
+
+    Name:       Tomorrow Night - Bright
+    Author:     Chris Kempson
+
+    Port done by Gerard Braad <me@gbraad.nl>
+
+*/
+.cm-s-tomorrow-night-bright.CodeMirror {
+  background: #d5d5d5;
+  color: #525252;
+}
+.cm-s-tomorrow-night-bright div.CodeMirror-selected {
+  background: #96cbbe !important;
+}
+.cm-s-tomorrow-night-bright .CodeMirror-gutters {
+  background: #303030;
+  border-right: 0px;
+}
+.cm-s-tomorrow-night-bright .CodeMirror-guttermarker {
+  color: #e78c45;
+}
+.cm-s-tomorrow-night-bright .CodeMirror-guttermarker-subtle {
+  color: #777;
+}
+.cm-s-tomorrow-night-bright .CodeMirror-linenumber {
+  color: #7d7d7d;
+}
+.cm-s-tomorrow-night-bright .CodeMirror-cursor {
+  border-left: 2px solid #525252 !important;
+}
+.cm-s-tomorrow-night-bright span.cm-comment {
+  color: #d27b53;
+}
+.cm-s-tomorrow-night-bright span.cm-atom {
+  color: blue;
+}
+.cm-s-tomorrow-night-bright span.cm-number {
+  color: blue;
+}
+.cm-s-tomorrow-night-bright span.cm-property,
+.cm-s-tomorrow-night-bright span.cm-attribute {
+  color: #99cc99;
+}
+.cm-s-tomorrow-night-bright span.cm-keyword {
+  color: #d54e53;
+}
+.cm-s-tomorrow-night-bright span.cm-string {
+  color: #428675;
+}
+.cm-s-tomorrow-night-bright span.cm-variable {
+  color: #83095B;
+}
+.cm-s-tomorrow-night-bright span.cm-variable-2 {
+  color: #7aa6da;
+}
+.cm-s-tomorrow-night-bright span.cm-def {
+  color: #e78c45;
+}
+.cm-s-tomorrow-night-bright span.cm-bracket {
+  color: #525252;
+}
+.cm-s-tomorrow-night-bright span.cm-tag {
+  color: #d54e53;
+}
+.cm-s-tomorrow-night-bright span.cm-link {
+  color: #a16a94;
+}
+.cm-s-tomorrow-night-bright span.cm-error {
+  background: #d54e53;
+  color: #6A6A6A;
+}
+.cm-s-tomorrow-night-bright .CodeMirror-activeline-background {
+  background: #2a2a2a !important;
+}
+.cm-s-tomorrow-night-bright .CodeMirror-matchingbracket {
+  text-decoration: underline;
+  color: red !important;
 }

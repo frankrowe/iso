@@ -4,6 +4,7 @@ var React = require('react')
   , LayerList = require('./LayerList.jsx')
   , WorkSpace = require('./WorkSpace.jsx')
   , AttributeTable = require('./AttributeTable.jsx')
+  , Editor = require('./Editor.jsx')
   , MessageBar = require('./MessageBar.jsx')
   , palette = require('../utils/palette')
   , vectorTools = require('../utils/VectorTools')
@@ -23,7 +24,8 @@ var App = React.createClass({
   getInitialState: function() {
     return {
       layers: [],
-      message: '0 layers added.'
+      message: '0 layers added.',
+      error: false
     }
   },
   componentDidMount: function() {
@@ -59,6 +61,12 @@ var App = React.createClass({
         return layers[i]
       }
     }
+  },
+  updateMessage: function(message) {
+    this.setState({message: message})
+  },
+  updateError: function(error) {
+    this.setState({error: error})
   },
   updateLayer: function(layer) {
     var layers = this.state.layers
@@ -124,7 +132,18 @@ var App = React.createClass({
   },
   render: function() {
     console.log('render App')
+    var self = this
     vectorTools.setLayers(this.state.layers)
+    var editor = false
+    this.state.layers.forEach(function(l) {
+      if (l.editGeoJSON) {
+        editor = <Editor
+          layer={l}
+          updateLayer={self.updateLayer}
+          updateMessage={self.updateMessage}
+          updateError={self.updateError} />
+      }
+    })
     return (
       <div className="app" style={appStyle}>
         <Toolbar
@@ -150,8 +169,9 @@ var App = React.createClass({
               updateLayer={this.updateLayer}
             />
           </div>
+          {editor}
         </div>
-        <MessageBar message={this.state.message}/>
+        <MessageBar message={this.state.message} error={this.state.error}/>
       </div>
     )
   }

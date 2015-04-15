@@ -18,6 +18,21 @@ VectorTools.prototype = {
     var newLayer = defaultLayer.generate()
     this.addLayer(newLayer)
   },
+  moveLower: function() {
+    this.layers.forEach(function(l, idx) {
+      if (l.selected) {
+        if (idx > 0) {
+          var x = this.layers[idx - 1]
+          this.layers[idx - 1] = l
+          this.layers[idx] = x
+        }
+      }
+    }, this)
+    this.updateLayers(this.layers)
+  },
+  moveHigher: function() {
+
+  },
   editFeatures: function(layers, fn) {
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i]
@@ -318,7 +333,8 @@ VectorTools.prototype = {
   viewGeoJSON: function() {
     var layer = _.findWhere(this.layers, {selected: true})
     if (layer) {
-      vex.dialog.alert(JSON.stringify(layer.geojson))
+      layer.editGeoJSON = !layer.editGeoJSON
+      this.updateLayers(this.layers)
     }
   },
   area: function() {

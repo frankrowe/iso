@@ -95,6 +95,7 @@
     }
     .icon {
       float: right;
+      font-weight: 800;
     }
     &.active {
       color: #fff;
@@ -139,6 +140,9 @@
     padding: 10px;
     background: @dark;
     border-bottom: 1px solid @borderColor;
+    &:hover {
+      cursor: pointer;
+    }
     span {
       padding-left: 5px;
     }
@@ -179,6 +183,9 @@
     text-align: right;
     margin: 0 5px 0 0;
   }
+  .error {
+    color: red;
+  }
 }
 
 .tooltip {
@@ -196,5 +203,23 @@
     line-height: 12px;
     text-align: center;
     white-space: nowrap;
+  }
+}
+
+.editor {
+  width: 400px;
+  flex: none;
+  background: #262626;
+  position: absolute;
+  top: 27px;
+  bottom: 20px;
+  right: 0;
+  .CodeMirror {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    top: 0;
+    font-size: 14px;
   }
 }
