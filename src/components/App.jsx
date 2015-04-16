@@ -1,4 +1,4 @@
-var React = require('react')
+var React = require('react/addons')
   , Toolbar = require('./Toolbar.jsx')
   , AddLayers = require('./AddLayers.jsx')
   , LayerList = require('./LayerList.jsx')
@@ -30,6 +30,7 @@ var App = React.createClass({
   },
   componentDidMount: function() {
     vectorTools.updateLayers = this.updateLayers
+    vectorTools.updateLayer = this.updateLayer
     vectorTools.addLayer = this.addLayer
   },
   layerMessage: function() {
@@ -62,6 +63,14 @@ var App = React.createClass({
       }
     }
   },
+  findLayerIndex: function(layer) {
+    var layers = this.state.layers
+    for (var i = 0; i < layers.length; i++) {
+      if (layers[i].id === layer.id) {
+        return i
+      }
+    }
+  },
   updateMessage: function(message) {
     this.setState({message: message})
   },
@@ -69,30 +78,31 @@ var App = React.createClass({
     this.setState({error: error})
   },
   updateLayer: function(layer) {
-    var layers = this.state.layers
     var l = this.findLayer(layer)
+    var layers = this.state.layers
     if (l) {
       l = layer
-      this.setState({
-        layers: layers,
-        message: this.layerMessage()
-      })
     }
+    // this.setState({
+    //   layers: layers,
+    //   message: this.layerMessage()
+    // })
   },
   updateLayers: function(layers) {
-    this.setState({
-      layers: layers,
-      message: this.layerMessage()
+    var newState = React.addons.update(this.state, {
+      layers: { $set : layers },
+      message: { $set: this.layerMessage() }
     })
+    this.setState(newState)
   },
   addLayer: function(layer) {
-    var self = this
-    var layers = this.state.layers
-    layers.push(layer)
-    this.setState({
-      layers: layers,
-      message: this.layerMessage()
+    var newState = React.addons.update(this.state, {
+      layers : {
+        $push : [layer]
+      },
+      message: {$set: this.layerMessage()}
     })
+    this.setState(newState)
   },
   removeLayers: function() {
     var layers = this.state.layers
@@ -130,6 +140,27 @@ var App = React.createClass({
       })
     }
   },
+  swapLayers: function(from, to) {
+    var layers = this.state.layers
+    layers.splice(to, 0, layers.splice(from, 1)[0])
+    layers.forEach(function(layer) {
+      if (layer.vector) {
+        layer.mapLayer.clearLayers()
+      } else {
+
+      }
+      layer.mapLayer = false
+    })
+    this.setState({
+      layers: layers
+    })
+  },
+  componentWillUpdate: function(nextProps, nextState) {
+    if (this.state.layers.length) {
+      console.log('componentWillUpdate', this.state.layers[0].name, nextState.layers[0].name)
+    }
+    vectorTools.setOldLayers(this.state.layers)
+  },
   render: function() {
     console.log('render App')
     var self = this
@@ -158,6 +189,7 @@ var App = React.createClass({
           <LayerList
             layers={this.state.layers}
             updateLayer={this.updateLayer}
+            swapLayers={this.swapLayers}
           />
           <div className="right-pane">
             <WorkSpace

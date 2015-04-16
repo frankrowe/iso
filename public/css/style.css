@@ -134,7 +134,6 @@ body {
 .layer-list .layer {
   text-align: left;
   padding: 10px;
-  background: #525252;
   border-bottom: 1px solid #7d7d7d;
 }
 .layer-list .layer:hover {

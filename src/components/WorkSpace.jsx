@@ -13,11 +13,17 @@ var unselectedStyle = {
 }
 
 var pointStyle = {
-  radius: 2,
-  color: "#000",
+  radius: 3,
+  color: palette.green,
   weight: 1,
   opacity: 1,
-  fillOpacity: 0.8
+  fillOpacity: 1
+}
+
+var lineStyle = {
+  color: "blue",
+  weight: 3,
+  opacity: 1
 }
 
 var WorkSpace = React.createClass({
@@ -85,7 +91,13 @@ var WorkSpace = React.createClass({
     if (feature.selected) {
       return selectedStyle
     } else {
-      return unselectedStyle
+      if (feature.geometry.type === 'Point') {
+        return pointStyle
+      } else if (feature.geometry.type === 'LineString') {
+        return lineStyle
+      } else {
+        return unselectedStyle
+      }
     }
   },
   addLayers: function(layer) {

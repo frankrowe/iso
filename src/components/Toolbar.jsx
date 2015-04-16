@@ -73,10 +73,10 @@ var LayerMenu = React.createClass({
   render: function() {
     var active = this.props.config.oneLayer  || this.props.config.multiLayer
     var submenu = [
+      <Undo onClick={this.props.vectorTools.undo.bind(this.props.vectorTools)} config={this.props.config}/>,
       <RenameLayer onClick={this.props.vectorTools.renameLayer.bind(this.props.vectorTools)} config={this.props.config}/>,
       <SaveAs onClick={this.props.vectorTools.saveAs.bind(this.props.vectorTools)} config={this.props.config}/>,
-      <ZoomToLayer onClick={this.props.vectorTools.zoomToLayer.bind(this.props.vectorTools)} config={this.props.config}/>,
-      <MoveLower onClick={this.props.vectorTools.moveLower.bind(this.props.vectorTools)} config={this.props.config}/>
+      <ZoomToLayer onClick={this.props.vectorTools.zoomToLayer.bind(this.props.vectorTools)} config={this.props.config}/>
       ]
     return (
       <ToolbarDropdown text={'Layer'} submenu={submenu} active={active}/>
@@ -159,6 +159,15 @@ var About = React.createClass({
     var active = true
     return (
       <ToolbarItem text={'About uGIS'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var Undo = React.createClass({
+  render: function() {
+    var active = true
+    return (
+      <ToolbarItem text={'Undo'} onClick={this.props.onClick} active={active}/>
     )
   }
 })
@@ -392,15 +401,6 @@ var ZoomToLayer = React.createClass({
     var active = this.props.config.oneLayer || this.props.config.multiLayer
     return (
       <ToolbarItem text={'Zoom To Layer'} onClick={this.props.onClick} active={active}/>
-    )
-  }
-})
-
-var MoveLower = React.createClass({
-  render: function() {
-    var active = this.props.config.oneLayer
-    return (
-      <ToolbarItem text={'Move Lower'} onClick={this.props.onClick} active={active}/>
     )
   }
 })

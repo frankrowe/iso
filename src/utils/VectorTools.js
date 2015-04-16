@@ -7,31 +7,25 @@ var React = require('react')
   , Modals = require('../components/Modals.jsx')
 
 function VectorTools () {
-  this.layers = {}
+  this.layers = []
+  this.oldLayers = []
 }
 
 VectorTools.prototype = {
   setLayers: function(layers) {
     this.layers = layers
+    //console.log(this.layers, this.oldLayers)
+  },
+  setOldLayers: function(oldLayers) {
+    //console.log('oldLayers', oldLayers)
+    this.oldLayers = oldLayers
+  },
+  undo: function() {
+    this.updateLayers(this.oldLayers)
   },
   newLayer: function() {
     var newLayer = defaultLayer.generate()
     this.addLayer(newLayer)
-  },
-  moveLower: function() {
-    this.layers.forEach(function(l, idx) {
-      if (l.selected) {
-        if (idx > 0) {
-          var x = this.layers[idx - 1]
-          this.layers[idx - 1] = l
-          this.layers[idx] = x
-        }
-      }
-    }, this)
-    this.updateLayers(this.layers)
-  },
-  moveHigher: function() {
-
   },
   editFeatures: function(layers, fn) {
     for (var i = 0; i < layers.length; i++) {
@@ -116,8 +110,9 @@ VectorTools.prototype = {
     if (layer) {
       this.getName(layer.name, function(err, name) {
         layer.name = name
-        self.updateLayers(self.layers)
+        self.updateLayer(layer)
       })
+      //self.updateLayer(this.layers)
     }
   },
   saveAs: function() {
