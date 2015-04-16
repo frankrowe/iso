@@ -49,7 +49,7 @@ var WorkSpace = React.createClass({
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
     this.map.on('mousemove', function(e) {
-      self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
+      //self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
     })
     this.map.on('draw:created', function (e) {
       this.props.layers.forEach(function(layer) {
@@ -104,7 +104,9 @@ var WorkSpace = React.createClass({
     var self = this
     var style = {}
     var zoomToLayers = L.featureGroup()
-    this.props.layers.forEach(function(layer) {
+    //this.props.layers.forEach(function(layer) {
+    for (var key in this.props.layers) {
+      var layer = this.props.layers[key]
       if (layer.editGeoJSON) {
         style.marginRight = 400
       }
@@ -169,7 +171,7 @@ var WorkSpace = React.createClass({
           self.workingLayers.removeLayer(layer.mapLayer)
         }
       }
-    })
+    }
     if (zoomToLayers.getLayers().length) {
       if (zoomToLayers.getBounds().isValid()) {
         this.map.fitBounds(zoomToLayers.getBounds())

@@ -22,7 +22,7 @@ var _layers = {};
  * Create a TODO item.
  * @param  {string} text The content of the TODO
  */
-function create(text) {
+function create() {
   var id = (+new Date() + Math.floor(Math.random() * 999999)).toString(36);
   _layers[id] = {
     id: id,
@@ -36,6 +36,7 @@ function create(text) {
     zoomTo: true,
     //true when layer is currently being edited
     editing: false,
+    vector: true,
     geojson: {
       "type": "FeatureCollection",
       "features": []
@@ -104,6 +105,7 @@ var LayerStore = assign({}, EventEmitter.prototype, {
    * @return {object}
    */
   getAll: function() {
+    console.log(_layers)
     return _layers;
   },
 
@@ -132,11 +134,11 @@ AppDispatcher.register(function(action) {
 
   switch(action.actionType) {
     case LayerConstants.TODO_CREATE:
-      text = action.text.trim();
-      if (text !== '') {
-        create(text);
+      //text = action.text.trim();
+      //if (text !== '') {
+        create();
         LayerStore.emitChange();
-      }
+      //}
       break;
 
     case LayerConstants.TODO_TOGGLE_COMPLETE_ALL:

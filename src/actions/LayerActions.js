@@ -6,10 +6,10 @@ var LayerActions = {
   /**
    * @param  {string} text
    */
-  create: function(text) {
+  create: function() {
     AppDispatcher.dispatch({
-      actionType: LayerConstants.TODO_CREATE,
-      text: text
+      actionType: LayerConstants.TODO_CREATE
+      //text: text
     });
   },
 

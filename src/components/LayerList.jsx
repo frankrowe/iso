@@ -71,14 +71,16 @@ var LayerList = React.createClass({
   render: function() {
     var self = this
     var layerListStyle = {
-      width: (this.props.layers.length > 0) ? 200 : 0
+      width: (Object.keys(this.props.layers).length > 0) ? 200 : 0
     }
-    var layers = this.props.layers.map(function(layer, idx) {
-      return (<Layer layer={layer} swapLayers={self.props.swapLayers} updateLayer={self.props.updateLayer} key={idx} idx={idx}/>)
-    })
+    var _layers = [];
+    for (var key in this.props.layers) {
+      _layers.push(<Layer layer={this.props.layers[key]} key={key}/>);
+    }
+    console.log(_layers)
     return (
       <div className="layer-list" style={layerListStyle}>
-      {layers}
+      {_layers}
       </div>
     )
   }

@@ -478,25 +478,30 @@ var Toolbar = React.createClass({
     return config
   },
   render: function() {
-    var config = this.findActive()
+    //var config = this.findActive()
     return (
       <div className="toolbar">
         <h1>uGIS</h1>
-        <LayerMenu config={config}
-          vectorTools={this.props.vectorTools}
-        />
-        <ViewMenu config={config}
-          vectorTools={this.props.vectorTools}
-        />
-        <FeatureMenu config={config}
-          vectorTools={this.props.vectorTools}
-        />
-        <SelectMenu config={config}
-          vectorTools={this.props.vectorTools}
-        />
-        <HelpMenu config={config} />
       </div>
     )
+    // return (
+    //   <div className="toolbar">
+    //     <h1>uGIS</h1>
+    //     <LayerMenu config={config}
+    //       vectorTools={this.props.vectorTools}
+    //     />
+    //     <ViewMenu config={config}
+    //       vectorTools={this.props.vectorTools}
+    //     />
+    //     <FeatureMenu config={config}
+    //       vectorTools={this.props.vectorTools}
+    //     />
+    //     <SelectMenu config={config}
+    //       vectorTools={this.props.vectorTools}
+    //     />
+    //     <HelpMenu config={config} />
+    //   </div>
+    // )
   }
 })
 

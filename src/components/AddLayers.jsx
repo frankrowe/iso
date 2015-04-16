@@ -1,4 +1,5 @@
 var React = require('react')
+  , LayerActions = require('../actions/LayerActions')
   , Tooltip = require('./Tooltip')
   , palette = require('../utils/palette')
   , readFile = require('../utils/readfile')
@@ -67,9 +68,10 @@ var AddLayerButton = React.createClass({
 
 var NewLayerButton = React.createClass({
   onClick: function(e) {
-    var newLayer = defaultLayer.generate()
-    newLayer.vector = true
-    this.props.addLayer(newLayer)
+    LayerActions.create()
+    // var newLayer = defaultLayer.generate()
+    // newLayer.vector = true
+    // this.props.addLayer(newLayer)
   },
   render: function() {
     return (

@@ -1,7 +1,7 @@
 var React = require('react')
-  , App = require('./components/App.jsx')
+  , UGISApp = require('./components/UGISApp.jsx')
 
 React.render(
-  <App />,
+  <UGISApp />,
   document.getElementById('ugis')
 )

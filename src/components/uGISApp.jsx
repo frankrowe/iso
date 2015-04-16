@@ -1,4 +1,4 @@
-var React = require('react/addons')
+var React = require('react')
   , Toolbar = require('./Toolbar.jsx')
   , AddLayers = require('./AddLayers.jsx')
   , LayerList = require('./LayerList.jsx')
@@ -11,19 +11,24 @@ var React = require('react/addons')
   , pkg = require('../../package.json')
   , LayerStore = require('../stores/LayerStore')
 
+var appStyle = {
+  backgroundColor: palette.darkest
+}
 
 /**
  * Retrieve the current TODO data from the TodoStore
  */
 function getLayerState() {
+  console.log(LayerStore.getAll())
   return {
     layers: LayerStore.getAll()
   };
 }
 
-var uGISApp = React.createClass({
+var UGISApp = React.createClass({
 
   getInitialState: function() {
+    console.log('getInitialState')
     return getLayerState();
   },
 
@@ -41,25 +46,13 @@ var uGISApp = React.createClass({
   render: function() {
     return (
       <div className="app" style={appStyle}>
-        <Toolbar
-          layers={this.state.layers}
-          vectorTools={vectorTools}
-        />
+        <Toolbar layers={this.state.layers} />
         <div className="flex-row">
-          <AddLayers
-            addLayer={this.addLayer}
-            removeLayers={this.removeLayers}
-          />
-          <LayerList
-            layers={this.state.layers}
-            updateLayer={this.updateLayer}
-            swapLayers={this.swapLayers}
-          />
+          <AddLayers />
+          <LayerList layers={this.state.layers} />
           <div className="right-pane">
-            <WorkSpace
-              layers={this.state.layers}
-              updateLayer={this.updateLayer}
-            />
+            <WorkSpace layers={this.state.layers} />
+          </div>
         </div>
       </div>
     )
@@ -74,4 +67,4 @@ var uGISApp = React.createClass({
 
 });
 
-module.exports = uGISApp;
+module.exports = UGISApp;
