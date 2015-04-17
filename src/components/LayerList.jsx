@@ -1,5 +1,6 @@
 var React = require('react')
   , palette = require('../utils/palette')
+  , LayerActions = require('../actions/LayerActions')
 
 var Layer = React.createClass({
   getInitialState: function() {
@@ -9,19 +10,21 @@ var Layer = React.createClass({
   },
   onClick: function(e) {
     if (e.target.tagName === 'DIV' || e.target.tagName === 'SPAN') {
-      this.props.layer.selected = !this.props.layer.selected
-      if (!this.props.layer.selected) {
-        this.props.layer.editing = false
-        this.props.layer.editGeoJSON = false
-        this.props.layer.viewAttributes = false
+      var update = {}
+      update.selected = !this.props.layer.selected
+      if (!update.selected) {
+        update.editing = false
+        update.editGeoJSON = false
+        update.viewAttributes = false
       }
-      this.props.updateLayer(this.props.layer)
+      LayerActions.update(this.props.layer.id, update)
     }
   },
   onChange: function(e) {
-    this.props.layer.enabled = !this.props.layer.enabled
-    this.props.layer.selected = false
-    this.props.updateLayer(this.props.layer)
+    var update = {}
+    update.enabled = !this.props.layer.enabled
+    if (!update.enabled) update.selected = false
+    LayerActions.update(this.props.layer.id, update)
   },
   onDragStart: function(e) {
     e.dataTransfer.effectAllowed = 'move'
@@ -39,7 +42,7 @@ var Layer = React.createClass({
   },
   onDrop: function(e) {
     this.setState({dragEnter: false})
-    this.props.swapLayers(+e.dataTransfer.getData('text'), this.props.idx)
+    LayerActions.reorder(+e.dataTransfer.getData('text'), this.props.idx)
   },
   onDragEnd: function() {
 
@@ -73,11 +76,12 @@ var LayerList = React.createClass({
     var layerListStyle = {
       width: (Object.keys(this.props.layers).length > 0) ? 200 : 0
     }
-    var _layers = [];
-    for (var key in this.props.layers) {
-      _layers.push(<Layer layer={this.props.layers[key]} key={key}/>);
-    }
-    console.log(_layers)
+    var _layers = []
+    var layers = _.values(this.props.layers)
+    layers = _.sortBy(layers, 'order')
+    layers.forEach(function(layer, idx) {
+      _layers.push(<Layer layer={layer} key={layer.id} idx={idx} />)
+    })
     return (
       <div className="layer-list" style={layerListStyle}>
       {_layers}

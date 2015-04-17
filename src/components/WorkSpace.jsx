@@ -1,5 +1,6 @@
 var React = require('react')
   , numeral = require('numeral')
+  , LayerActions = require('../actions/LayerActions')
   , palette = require('../utils/palette')
 
 var selectedStyle = {
@@ -52,24 +53,26 @@ var WorkSpace = React.createClass({
       //self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
     })
     this.map.on('draw:created', function (e) {
-      this.props.layers.forEach(function(layer) {
+      for (var id in this.props.layers) {
+        var layer = this.props.layers[id]
         if (layer.selected) {
           layer.geojson.features.push(e.layer.toGeoJSON())
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
-          this.props.updateLayer(layer)
+          LayerActions.update(layer.id, {geojson: layer.geojson, mapLayer: layer.mapLayer})
         }
-      }, this)
+      }
     }, this)
     this.map.on('draw:edited', function (e) {
-      this.props.layers.forEach(function(layer) {
+      for (var id in this.props.layers) {
+        var layer = this.props.layers[id]
         if (layer.selected) {
           layer.geojson = layer.mapLayer.toGeoJSON()
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
-          this.props.updateLayer(layer)
+          LayerActions.update(layer.id, {geojson: layer.geojson, mapLayer: layer.mapLayer})
         }
-      }, this)
+      }
     }, this)
   },
   featureOnClick: function(layer, feature, mapLayer) {
@@ -84,7 +87,7 @@ var WorkSpace = React.createClass({
       } else {
         mapLayer.setStyle(unselectedStyle)
       }
-      this.props.updateLayer(layer)
+      LayerActions.update(layer.id, {geojson: layer.geojson})
     }
   },
   styleFeature: function(feature) {
@@ -104,9 +107,9 @@ var WorkSpace = React.createClass({
     var self = this
     var style = {}
     var zoomToLayers = L.featureGroup()
-    //this.props.layers.forEach(function(layer) {
-    for (var key in this.props.layers) {
-      var layer = this.props.layers[key]
+    var layers = _.values(this.props.layers)
+    layers = _.sortBy(layers, 'order')
+    layers.forEach(function(layer) {
       if (layer.editGeoJSON) {
         style.marginRight = 400
       }
@@ -171,7 +174,7 @@ var WorkSpace = React.createClass({
           self.workingLayers.removeLayer(layer.mapLayer)
         }
       }
-    }
+    })
     if (zoomToLayers.getLayers().length) {
       if (zoomToLayers.getBounds().isValid()) {
         this.map.fitBounds(zoomToLayers.getBounds())

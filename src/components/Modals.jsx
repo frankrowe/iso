@@ -3,39 +3,6 @@ var React = require('react')
 
 var Modals = {
 
-  Layername: React.createClass({
-    render: function() {
-      return (
-        <input name="layername" type="text" defaultValue={this.props.layername} />
-      )
-    }
-  }),
-
-  Buffer: React.createClass({
-    render: function() {
-      return (
-        <div>
-        <input name="distance" type="text" defaultValue="0.1" />
-          <select name="units" defaultValue="miles">
-            <option value="miles">Miles</option>
-            <option value="feet">feet</option>
-            <option value="kilometers">kilometers</option>
-            <option value="meters">meters</option>
-            <option value="degrees">degrees</option>
-          </select>
-        </div>
-      )
-    }
-  }),
-
-  Simplify: React.createClass({
-    render: function() {
-      return (
-        <input name="tolerance" type="text" defaultValue="0.1" />
-      )
-    }
-  }),
-
   About: React.createClass({
     render: function() {
       return (
@@ -43,17 +10,6 @@ var Modals = {
           <p>About uGIS</p>
           <p>uGIS is a web based, GeoJSON + Javascript GIS engine.</p>
           <p>Version {pkg.version}</p>
-        </div>
-      )
-    }
-  }),
-
-  TileLayer: React.createClass({
-    render: function() {
-      return (
-        <div>
-          <p>{'(http://tile.stamen.com/watercolor/{z}/{x}/{y}.jpg)'}</p>
-          <input name="url" type="text" defaultValue="" />
         </div>
       )
     }
@@ -93,7 +49,121 @@ var Modals = {
         </div>
       )
     }
-  })
+  }),
+
+  getTolerance: function(next) {
+
+    var Simplify = React.createClass({
+      render: function() {
+        return (
+          <input name="tolerance" type="text" defaultValue="0.1" />
+        )
+      }
+    })
+    vex.dialog.open({
+      message: 'Select tolerance.',
+      afterOpen: function($vexContent) {
+        React.render(<Simplify />, $vexContent.find('.vex-dialog-input').get(0))
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        //TODO make sure tolerance is 0 - 1
+        var err = false
+        next(err, +data.tolerance)
+      }
+    })
+  },
+
+  getDistance: function(next) {
+
+    var Buffer = React.createClass({
+      render: function() {
+        return (
+          <div>
+          <input name="distance" type="text" defaultValue="0.1" />
+            <select name="units" defaultValue="miles">
+              <option value="miles">Miles</option>
+              <option value="feet">feet</option>
+              <option value="kilometers">kilometers</option>
+              <option value="meters">meters</option>
+              <option value="degrees">degrees</option>
+            </select>
+          </div>
+        )
+      }
+    })
+    vex.dialog.open({
+      message: 'Select distance.',
+      afterOpen: function($vexContent) {
+        React.render(<Buffer />, $vexContent.find('.vex-dialog-input').get(0))
+      },
+      callback: function(data) {
+        console.log(data)
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        //TODO make sure distance is number
+        data.distance = +data.distance
+        var err = false
+        next(err, data)
+      }
+    })
+  },
+
+  getName: function(layername, next) {
+
+    var Modal = React.createClass({
+      render: function() {
+        return (
+          <input name="layername" type="text" defaultValue={this.props.layername} />
+        )
+      }
+    })
+
+    var dialog = vex.dialog.open({
+      message: 'Enter New Layer Name',
+      afterOpen: function($vexContent) {
+        React.render(<Modal layername={layername}/>, $vexContent.find('.vex-dialog-input').get(0))
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled')
+        }
+        var err = false
+        next(err, data.layername)
+      }
+    })
+
+  },
+
+  getTileURL: function(next) {
+
+    var TileLayer = React.createClass({
+      render: function() {
+        return (
+          <div>
+            <p>{'(http://tile.stamen.com/watercolor/{z}/{x}/{y}.jpg)'}</p>
+            <input name="url" type="text" defaultValue="" />
+          </div>
+        )
+      }
+    })
+
+    vex.dialog.open({
+      message: 'Enter TileLayer URL',
+      afterOpen: function($vexContent) {
+        React.render(<TileLayer />, $vexContent.find('.vex-dialog-input').get(0))
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        next(false, data.url)
+      }
+    })
+  }
 }
 
 module.exports = Modals

@@ -50,7 +50,7 @@ var AddLayerButton = React.createClass({
           newLayer.fileName = files[0].name
           newLayer.name = files[0].name.split('.')[0]
           newLayer.vector = true
-          self.props.addLayer(newLayer)
+          LayerActions.importLayer(newLayer)
         }
       })
     })
@@ -68,10 +68,9 @@ var AddLayerButton = React.createClass({
 
 var NewLayerButton = React.createClass({
   onClick: function(e) {
-    LayerActions.create()
-    // var newLayer = defaultLayer.generate()
-    // newLayer.vector = true
-    // this.props.addLayer(newLayer)
+    var newLayer = defaultLayer.generate()
+    newLayer.vector = true
+    LayerActions.importLayer(newLayer)
   },
   render: function() {
     return (
@@ -83,20 +82,11 @@ var NewLayerButton = React.createClass({
 var AddTileLayerButton = React.createClass({
   onClick: function(e) {
     var self = this
-    vex.dialog.open({
-      message: 'Enter TileLayer URL',
-      afterOpen: function($vexContent) {
-        React.render(<Modals.TileLayer />, $vexContent.find('.vex-dialog-input').get(0))
-      },
-      callback: function(data) {
-        if (data === false) {
-          return console.log('Cancelled');
-        }
-        var newLayer = defaultLayer.generate()
-        newLayer.tile = true
-        newLayer.tileURL = data.url
-        self.props.addLayer(newLayer)
-      }
+    Modals.getTileURL(function(err, url) {
+      var newLayer = defaultLayer.generate()
+      newLayer.tile = true
+      newLayer.tileURL = url
+      LayerActions.importLayer(newLayer)
     })
   },
   render: function() {
@@ -107,9 +97,12 @@ var AddTileLayerButton = React.createClass({
 })
 
 var RemoveLayerButton = React.createClass({
+  onClick: function() {
+    LayerActions.destroySelected()
+  },
   render: function() {
     return (
-      <LayerButton img={"/img/MActionRemoveLayer.png"} tooltip={'Remove Layer'} onClick={this.props.removeLayers}/>
+      <LayerButton img={"/img/MActionRemoveLayer.png"} tooltip={'Remove Layer'} onClick={this.onClick}/>
     )
   }
 })
@@ -118,10 +111,10 @@ var AddLayers = React.createClass({
   render: function() {
     return (
       <div className="add-layers">
-        <NewLayerButton addLayer={this.props.addLayer}/>
-        <AddLayerButton addLayer={this.props.addLayer}/>
-        <AddTileLayerButton addLayer={this.props.addLayer}/>
-        <RemoveLayerButton removeLayers={this.props.removeLayers}/>
+        <NewLayerButton />
+        <AddLayerButton />
+        <AddTileLayerButton />
+        <RemoveLayerButton />
       </div>
     )
   }
