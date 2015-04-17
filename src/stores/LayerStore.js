@@ -13,35 +13,22 @@ var AppDispatcher = require('../dispatcher/AppDispatcher');
 var EventEmitter = require('events').EventEmitter;
 var LayerConstants = require('../constants/LayerConstants');
 var assign = require('object-assign');
+var DefaultLayer = require('../utils/DefaultLayer')
 
 var CHANGE_EVENT = 'change';
 
 var _layers = {};
+
+var _backupLayers = {};
 
 /**
  * Create a TODO item.
  * @param  {string} text The content of the TODO
  */
 function create() {
-  var id = (+new Date() + Math.floor(Math.random() * 999999)).toString(36);
-  _layers[id] = {
-    id: id,
-    name: 'New Layer',
-    fileName: '',
-    //checkbox
-    enabled: true,
-    //layer selected in layer list
-    selected: true,
-    //causes map to zoom to this layer
-    zoomTo: true,
-    //true when layer is currently being edited
-    editing: false,
-    vector: true,
-    geojson: {
-      "type": "FeatureCollection",
-      "features": []
-    }
-  }
+  var layer = DefaultLayer.generate()
+  layer.order = Object.keys(_layers).length + 1
+  _layers[layer.id] = layer
 }
 
 /**
@@ -51,7 +38,21 @@ function create() {
  *     updated.
  */
 function update(id, updates) {
-  _layers[id] = assign({}, _layers[id], updates);
+  backup()
+  console.log('updating')
+  _layers[id] = assign({}, _layers[id], updates)
+}
+
+/**
+ * Update multiple Layers.
+ * @param {object} updates An object literal with key of layer id and value of
+ * update objects
+ */
+function updateList(updates) {
+  console.log('updateList', updates)
+  for (var id in updates) {
+    update(id, updates[id])
+  }
 }
 
 /**
@@ -67,22 +68,68 @@ function updateAll(updates) {
 }
 
 /**
+ * Import a layer.
+ * @param  {object} geojson
+ * @param {object} the layer name
+ */
+function importLayer(layer) {
+  layer.order = Object.keys(_layers).length + 1
+  _layers[layer.id] = layer
+}
+
+/**
  * Delete a TODO item.
  * @param  {string} id
  */
 function destroy(id) {
+  _layers[id].mapLayer.clearLayers()
   delete _layers[id];
 }
 
 /**
  * Delete all the completed TODO items.
  */
-function destroyCompleted() {
+function destroySelected() {
   for (var id in _layers) {
-    if (_layers[id].complete) {
+    if (_layers[id].selected) {
       destroy(id);
     }
   }
+}
+
+function reorder(from, to) {
+  var orderHash = {}
+  for (var id in _layers) {
+    orderHash[_layers[id].order] = _layers[id]
+  }
+  var orders = _.pluck(_layers, 'order')
+  orders.splice(to, 0, orders.splice(from, 1)[0])
+  orders.forEach(function(order, idx) {
+    orderHash[order].order = idx + 1
+  })
+  for (var id in _layers) {
+    if (_layers[id].vector) {
+      _layers[id].mapLayer.clearLayers()
+    }
+    _layers[id].mapLayer = false
+  }
+}
+
+function backup() {
+  _backupLayers = _.cloneDeep(_layers)
+  for (var id in _backupLayers) {
+    _backupLayers[id].mapLayer = false
+  }
+}
+
+function undo() {
+  for (var id in _layers) {
+    if (_layers[id].mapLayer) {
+      _layers[id].mapLayer.clearLayers()
+      _layers[id].mapLayer = false
+    }
+  }
+  _layers = _backupLayers
 }
 
 var LayerStore = assign({}, EventEmitter.prototype, {
@@ -101,12 +148,33 @@ var LayerStore = assign({}, EventEmitter.prototype, {
   },
 
   /**
-   * Get the entire collection of TODOs.
+   * Get the entire collection of layers.
    * @return {object}
    */
   getAll: function() {
-    console.log(_layers)
     return _layers;
+  },
+
+  /**
+   * Get all selected layers
+   * @return {object}
+   */
+  getAllSelected: function() {
+    var selected = {}
+    for (var id in _layers) {
+      if (_layers[id].selected) {
+        selected[id] = _layers[id]
+      }
+    }
+    return selected
+  },
+
+  /**
+   * Get all selected layers
+   * @return {object}
+   */
+  getSelected: function() {
+    return _.findWhere(_layers, {selected: true})
   },
 
   emitChange: function() {
@@ -126,6 +194,7 @@ var LayerStore = assign({}, EventEmitter.prototype, {
   removeChangeListener: function(callback) {
     this.removeListener(CHANGE_EVENT, callback);
   }
+
 });
 
 // Register callback to handle all updates
@@ -133,12 +202,34 @@ AppDispatcher.register(function(action) {
   var text;
 
   switch(action.actionType) {
-    case LayerConstants.TODO_CREATE:
-      //text = action.text.trim();
-      //if (text !== '') {
-        create();
-        LayerStore.emitChange();
-      //}
+    case LayerConstants.LAYER_CREATE:
+      create();
+      LayerStore.emitChange();
+      break;
+
+    case LayerConstants.LAYER_UPDATE:
+      update(action.id, action.update);
+      LayerStore.emitChange();
+      break;
+
+    case LayerConstants.LAYER_UPDATE_LIST:
+      updateList(action.updates);
+      LayerStore.emitChange();
+      break;
+
+    case LayerConstants.LAYER_IMPORT:
+      importLayer(action.layer);
+      LayerStore.emitChange();
+      break;
+
+    case LayerConstants.LAYER_REORDER:
+      reorder(action.from, action.to);
+      LayerStore.emitChange();
+      break;
+
+    case LayerConstants.LAYER_UNDO:
+      undo();
+      LayerStore.emitChange();
       break;
 
     case LayerConstants.TODO_TOGGLE_COMPLETE_ALL:
@@ -168,13 +259,13 @@ AppDispatcher.register(function(action) {
       }
       break;
 
-    case LayerConstants.TODO_DESTROY:
+    case LayerConstants.LAYER_DESTROY:
       destroy(action.id);
       LayerStore.emitChange();
       break;
 
-    case LayerConstants.TODO_DESTROY_COMPLETED:
-      destroyCompleted();
+    case LayerConstants.LAYER_DESTROY_SELECTED:
+      destroySelected();
       LayerStore.emitChange();
       break;
 

@@ -19,9 +19,12 @@ function DefaultLayer() {
 }
 
 DefaultLayer.prototype = {
+  generateID: function() {
+    return (+new Date() + Math.floor(Math.random() * 999999)).toString(36)
+  },
   generate: function() {
     var layer = JSON.parse(JSON.stringify(this.defaultLayer))
-    layer.id = Math.random().toString(36).slice(2)
+    layer.id = this.generateID()
     return layer
   }
 }
