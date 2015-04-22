@@ -1,6 +1,8 @@
 var React = require('react')
   , numeral = require('numeral')
   , LayerActions = require('../actions/LayerActions')
+  , LayerStore = require('../stores/LayerStore')
+  , vectorTools = require('../utils/vectorTools')
   , palette = require('../utils/palette')
 
 var selectedStyle = {
@@ -50,16 +52,31 @@ var WorkSpace = React.createClass({
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
     this.map.on('mousemove', function(e) {
-      //self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
+      self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
     })
+    this.map.on('draw:drawstart', function (e) {
+      if (this.selectBoxActive) {
+        this.map.off('mousedown', this.selectBoxMouseDown, this)
+        this.map.off('mousemove', this.selectBoxMouseMove, this)
+        this.map.off('mouseup', this.selectBoxMouseUp, this)
+      }
+    }, this)
+    this.map.on('draw:drawstop', function (e) {
+      if (this.selectBoxActive) {
+        this.map.on('mousedown', this.selectBoxMouseDown, this)
+        this.map.on('mousemove', this.selectBoxMouseMove, this)
+        this.map.on('mouseup', this.selectBoxMouseUp, this)
+      }
+    }, this)
     this.map.on('draw:created', function (e) {
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
         if (layer.selected) {
-          layer.geojson.features.push(e.layer.toGeoJSON())
+          var gj = _.cloneDeep(layer.geojson)
+          gj.features.push(e.layer.toGeoJSON())
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
-          LayerActions.update(layer.id, {geojson: layer.geojson, mapLayer: layer.mapLayer})
+          LayerActions.update(layer.id, {geojson: gj, mapLayer: layer.mapLayer})
         }
       }
     }, this)
@@ -75,7 +92,8 @@ var WorkSpace = React.createClass({
       }
     }, this)
   },
-  featureOnClick: function(layer, feature, mapLayer) {
+  featureOnClick: function(_layer, feature, mapLayer) {
+    var layer = LayerStore.getById(_layer.id)
     if (layer.selected) {
       if (!feature.selected) {
         feature.selected = true
@@ -103,15 +121,58 @@ var WorkSpace = React.createClass({
       }
     }
   },
+  selectBoxMouseDown: function(e) {
+    this.map.dragging.disable()
+    this.rectangleStart = e.latlng
+    bounds = L.latLngBounds(this.rectangleStart, this.rectangleStart)
+    this.rectangle = L.rectangle(bounds, {color: "#f00", weight: 1})
+    this.rectangle.addTo(this.map)
+  },
+  selectBoxMouseMove: function(e) {
+    if (this.rectangle) {
+      bounds = L.latLngBounds(this.rectangleStart, e.latlng)
+      this.rectangle.setBounds(bounds)
+    }
+  },
+  selectBoxMouseUp: function(e) {
+    this.map.dragging.enable()
+    if (this.rectangle) {
+      var rectangleBounds = this.rectangle.getBounds()
+      vectorTools.selectBox(LayerStore.getAllSelected(), this.rectangle.toGeoJSON())
+      this.map.removeLayer(this.rectangle)
+      this.rectangle = false
+    }
+  },
+  selectBox: function(on) {
+    if (on) {
+      if (!this.selectBoxActive) {
+        this.selectBoxActive = true
+        this.map.on('mousedown', this.selectBoxMouseDown, this)
+        this.map.on('mousemove', this.selectBoxMouseMove, this)
+        this.map.on('mouseup', this.selectBoxMouseUp, this)
+      }
+    } else {
+      if (this.map) {
+        this.selectBoxActive = false
+        this.map.off('mousedown', this.selectBoxMouseDown, this)
+        this.map.off('mousemove', this.selectBoxMouseMove, this)
+        this.map.off('mouseup', this.selectBoxMouseUp, this)
+      }
+    }
+  },
   addLayers: function(layer) {
     var self = this
     var style = {}
+    var selectBox = false
     var zoomToLayers = L.featureGroup()
     var layers = _.values(this.props.layers)
     layers = _.sortBy(layers, 'order')
     layers.forEach(function(layer) {
       if (layer.editGeoJSON) {
         style.marginRight = 400
+      }
+      if (layer.selected && layer.selectBox) {
+        selectBox = true
       }
       if (layer.vector) {
         if (!layer.mapLayer) {
@@ -175,6 +236,10 @@ var WorkSpace = React.createClass({
         }
       }
     })
+    self.selectBox(selectBox)
+    if (this.selectBoxActive) {
+      style.cursor = 'crosshair'
+    }
     if (zoomToLayers.getLayers().length) {
       if (zoomToLayers.getBounds().isValid()) {
         this.map.fitBounds(zoomToLayers.getBounds())

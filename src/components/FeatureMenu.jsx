@@ -200,8 +200,8 @@ var Quantile = React.createClass({
 
 var FeatureMenu = React.createClass({
   render: function() {
-    var self = this
-    var active = this.props.config.oneFeature || this.props.config.multiFeature
+    //var active = this.props.config.oneFeature || this.props.config.multiFeature
+    var active = true
     var submenu = [
       <Area {...this.props} key={'area'}/>,
       <Distance {...this.props} key={'distance'}/>,

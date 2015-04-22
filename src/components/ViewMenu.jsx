@@ -70,7 +70,8 @@ var Edit = React.createClass({
 
 var ViewMenu = React.createClass({
   render: function() {
-    var active = this.props.config.oneLayer  || this.props.config.multiLayer
+    //var active = this.props.config.oneLayer  || this.props.config.multiLayer
+    var active = true
     var submenu = [
       <ViewAttributes {...this.props} key={'viewAttributes'}/>,
       <ViewGeoJSON {...this.props} key={'viewGeoJSON'}/>,

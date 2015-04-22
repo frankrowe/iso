@@ -90,6 +90,13 @@
     border-color: @lightest;
     font-size: @smallFont;
     color: @light;
+    &.toolbar-submenu {
+      position: relative;
+    }
+    .submenu {
+      top: 0;
+      left: 100%;
+    }
     .label {
       float: left;
     }
@@ -160,6 +167,9 @@
   min-height: 100px;
   min-width: 400px;
   flex: 1;
+  &.active {
+    cursor: crosshair;
+  }
 }
 
 .attribute-table {

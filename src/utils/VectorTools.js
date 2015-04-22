@@ -19,27 +19,26 @@ VectorTools.prototype = {
       var layer = layers[id]
       if (layer.geojson.type === 'FeatureCollection') {
         var newFeatures = []
+        var newGj = gjutils.newFeatureCollection()
         for (var j = 0; j < layer.geojson.features.length; j++) {
-          var newgj = fn(layer.geojson.features[j], layer)
-          if (newgj) {
-            if (newgj.type === 'FeatureCollection') {
-              newFeatures = newFeatures.concat(newgj.features)
+          var newFeature = fn(layer.geojson.features[j], layer)
+          if (newFeature) {
+            if (newFeature.type === 'FeatureCollection') {
+              newGj.features = newGj.features.concat(newFeature.features)
             } else {
-              newFeatures.push(newgj)
+              newGj.features.push(newFeature)
             }
           }
         }
-        layer.geojson.features = newFeatures
       } else if (layer.geojson.type === 'Feature') {
-        layer.geojson = fn(layer.geojson, layer)
+        var newGj = fn(layer.geojson, layer)
       }
       if (layer.mapLayer) {
         layer.mapLayer.clearLayers()
-        if (layer.geojson) layer.mapLayer.addData(layer.geojson)
+        layer.mapLayer = false
       }
       updates[id] = {
-        geojson: layer.geojson,
-        mapLayer: layer.mapLayer
+        geojson: newGj
       }
     }
     return updates
@@ -51,11 +50,71 @@ VectorTools.prototype = {
     })
     LayerActions.updateList(updates)
   },
+  selectPoints: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      if (gj.geometry.type.indexOf('Point') >= 0) {
+        gj.selected = true
+      }
+      return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  selectLines: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      if (gj.geometry.type.indexOf('Line') >= 0) {
+        gj.selected = true
+      }
+      return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  selectPolygons: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      if (gj.geometry.type.indexOf('Polygon') >= 0) {
+        gj.selected = true
+      }
+      return gj
+    })
+    LayerActions.updateList(updates)
+  },
   deselectAll: function(layers) {
     var updates = this.editFeatures(layers, function(gj, layer) {
       gj.selected = false
       return gj
     })
+    LayerActions.updateList(updates)
+  },
+  selectBoxToggle: function(layers) {
+    var updates = {}
+    for (var id in layers) {
+      var layer = layers[id]
+      updates[id] = {
+        selectBox: !layer.selectBox
+      }
+    }
+    LayerActions.updateList(updates)
+  },
+  //TODO fix to support multifeatures
+  selectBox: function(layers, bbox) {
+    var updates = this.editFeatures(layers, function(bbox, gj, layer) {
+      if (gj.geometry.type === 'Point') {
+        if (turf.inside(gj, bbox)) {
+          gj.selected = true
+        }
+      } else if (gj.geometry.type === 'LineString') {
+        for (var i = 0; i < gj.geometry.coordinates.length; i++) {
+          var pt = turf.point(gj.geometry.coordinates[i])
+          if (turf.inside(pt, bbox)) {
+            gj.selected = true
+          }
+        }
+      } else if (gj.geometry.type === 'Polygon') {
+        if (turf.intersect(gj, bbox)) {
+          gj.selected = true
+        }
+      }
+      return gj
+    }.bind(null, bbox))
     LayerActions.updateList(updates)
   },
   deleteFeature: function(layers) {
@@ -130,14 +189,12 @@ VectorTools.prototype = {
           }
         }
         newFeatures.push(turf.merge(fc))
-        layer.geojson.features = newFeatures
-        if (layer.mapLayer) {
-          layer.mapLayer.clearLayers()
-          if (layer.geojson) layer.mapLayer.addData(layer.geojson)
-        }
+        var newGj = gjutils.newFeatureCollection()
+        newGj.features = newGj.features.concat(newFeatures)
+        layer.mapLayer.clearLayers()
+        layer.mapLayer = false
         updates[id] = {
-          geojson: layer.geojson,
-          mapLayer: layer.mapLayer
+          geojson: newGj
         }
       }
     }
@@ -160,14 +217,12 @@ VectorTools.prototype = {
           }
         }
         newFeatures.push(turf.erase(polys[0], polys[1]))
-        layer.geojson.features = newFeatures
-        if (layer.mapLayer) {
-          layer.mapLayer.clearLayers()
-          if (layer.geojson) layer.mapLayer.addData(layer.geojson)
-        }
+        var newGj = gjutils.newFeatureCollection()
+        newGj.features = newGj.features.concat(newFeatures)
+        layer.mapLayer.clearLayers()
+        layer.mapLayer = false
         updates[id] = {
-          geojson: layer.geojson,
-          mapLayer: layer.mapLayer
+          geojson: newGj
         }
       }
     }
@@ -190,14 +245,12 @@ VectorTools.prototype = {
           }
         }
         newFeatures.push(turf.intersect(polys[0], polys[1]))
-        layer.geojson.features = newFeatures
-        if (layer.mapLayer) {
-          layer.mapLayer.clearLayers()
-          if (layer.geojson) layer.mapLayer.addData(layer.geojson)
-        }
+        var newGj = gjutils.newFeatureCollection()
+        newGj.features = newGj.features.concat(newFeatures)
+        layer.mapLayer.clearLayers()
+        layer.mapLayer = false
         updates[id] = {
-          geojson: layer.geojson,
-          mapLayer: layer.mapLayer
+          geojson: newGj
         }
       }
     }

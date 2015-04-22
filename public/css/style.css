@@ -89,6 +89,13 @@ body {
   font-size: 14px;
   color: #7d7d7d;
 }
+.toolbar .toolbar-item.toolbar-submenu {
+  position: relative;
+}
+.toolbar .toolbar-item .submenu {
+  top: 0;
+  left: 100%;
+}
 .toolbar .toolbar-item .label {
   float: left;
 }
@@ -153,6 +160,9 @@ body {
   min-height: 100px;
   min-width: 400px;
   flex: 1;
+}
+.work-space.active {
+  cursor: crosshair;
 }
 .attribute-table {
   flex: none;

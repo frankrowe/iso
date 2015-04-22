@@ -25,7 +25,7 @@ var Toolbar = React.createClass({
       multipoly: false,
       multiline: false,
       vector: false,
-      tile: true
+      tile: false
     }
     var selected = _.where(this.props.layers, {selected: true})
     var selectedFeatures = []
@@ -87,7 +87,7 @@ var Toolbar = React.createClass({
         <LayerMenu config={config} />
         <ViewMenu config={config} />
         <FeatureMenu config={config} />
-        <SelectMenu config={config} />
+        <SelectMenu {...this.props} config={config} />
         <HelpMenu />
       </div>
     )

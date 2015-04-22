@@ -5,6 +5,7 @@ var React = require('react')
   , readFile = require('../utils/readfile')
   , defaultLayer = require('../utils/DefaultLayer')
   , Modals = require('./Modals.jsx')
+  , normalize = require('geojson-normalize')
 
 var LayerButton = React.createClass({
   getInitialState: function() {
@@ -46,7 +47,7 @@ var AddLayerButton = React.createClass({
       readFile.readFile(files[0], text, function(err, gj, warning) {
         if (gj && gj.features) {
           var newLayer = defaultLayer.generate()
-          newLayer.geojson = gj
+          newLayer.geojson = normalize(gj)
           newLayer.fileName = files[0].name
           newLayer.name = files[0].name.split('.')[0]
           newLayer.vector = true

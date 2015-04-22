@@ -67,7 +67,6 @@ var LayerActions = {
    *     updated
    */
   updateList: function(updates) {
-    console.log('updateList Action', updates)
     AppDispatcher.dispatch({
       actionType: LayerConstants.LAYER_UPDATE_LIST,
       updates: updates

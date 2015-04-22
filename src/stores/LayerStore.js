@@ -38,8 +38,6 @@ function create() {
  *     updated.
  */
 function update(id, updates) {
-  backup()
-  console.log('updating')
   _layers[id] = assign({}, _layers[id], updates)
 }
 
@@ -49,9 +47,8 @@ function update(id, updates) {
  * update objects
  */
 function updateList(updates) {
-  console.log('updateList', updates)
   for (var id in updates) {
-    update(id, updates[id])
+    _layers[id] = assign({}, _layers[id], updates[id])
   }
 }
 
@@ -116,6 +113,7 @@ function reorder(from, to) {
 }
 
 function backup() {
+  console.log('backup')
   _backupLayers = _.cloneDeep(_layers)
   for (var id in _backupLayers) {
     _backupLayers[id].mapLayer = false
@@ -129,7 +127,7 @@ function undo() {
       _layers[id].mapLayer = false
     }
   }
-  _layers = _backupLayers
+  _layers = _.cloneDeep(_backupLayers)
 }
 
 var LayerStore = assign({}, EventEmitter.prototype, {
@@ -167,6 +165,13 @@ var LayerStore = assign({}, EventEmitter.prototype, {
       }
     }
     return selected
+  },
+
+  getById: function(_id) {
+    for (var id in _layers) {
+      if (id === _id) return _layers[id]
+    }
+    return false
   },
 
   /**

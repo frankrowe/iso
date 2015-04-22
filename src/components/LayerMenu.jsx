@@ -2,6 +2,7 @@ var React = require('react')
   , vectorTools = require('../utils/vectorTools')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
+  , ToolbarSubmenu = require('./ToolbarSubmenu.jsx')
   , ToolbarDropdown = require('./ToolbarDropdown.jsx')
   , LayerActions = require('../actions/LayerActions')
   , LayerStore = require('../stores/LayerStore')
@@ -12,7 +13,7 @@ var Undo = React.createClass({
     LayerActions.undo()
   },
   render: function() {
-    var active = true
+    var active = this.props.config.oneLayer  || this.props.config.multiLayer
     return (
       <ToolbarItem text={'Undo'} onClick={this.onClick} active={active}/>
     )
@@ -37,6 +38,20 @@ var RenameLayer = React.createClass({
 })
 
 var SaveAs = React.createClass({
+  render: function() {
+    var active = this.props.config.oneLayer && this.props.config.vector
+        var submenu = [
+          <SaveAsGeoJSON {...this.props} key={'saveAsGeoJSON'}/>,
+          <SaveAsShp {...this.props} key={'saveAsShp'}/>
+        ]
+    return (
+      <ToolbarSubmenu text={'Save'} submenu={submenu} active={active}/>
+    )
+  }
+})
+
+
+var SaveAsGeoJSON = React.createClass({
   onClick: function() {
     var layers = LayerStore.getAllSelected()
     for (var id in layers) {
@@ -51,7 +66,25 @@ var SaveAs = React.createClass({
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector
     return (
-      <ToolbarItem text={'Save'} onClick={this.onClick} active={active}/>
+      <ToolbarItem text={'GeoJSON'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var SaveAsShp = React.createClass({
+  onClick: function() {
+    var layers = LayerStore.getAllSelected()
+    for (var id in layers) {
+      var layer = layers[id]
+      if (layer.selected) {
+        shpwrite.download(layer.geojson)
+      }
+    }
+  },
+  render: function() {
+    var active = this.props.config.oneLayer && this.props.config.vector
+    return (
+      <ToolbarItem text={'Shapefile'} onClick={this.onClick} active={active}/>
     )
   }
 })
@@ -70,7 +103,8 @@ var ZoomToLayer = React.createClass({
 
 var LayerMenu = React.createClass({
   render: function() {
-    var active = this.props.config.oneLayer  || this.props.config.multiLayer
+    //var active = this.props.config.oneLayer  || this.props.config.multiLayer
+    var active = true
     var submenu = [
       <Undo {...this.props} key={'undo'}/>,
       <RenameLayer {...this.props} key={'renameLayer'}/>,
