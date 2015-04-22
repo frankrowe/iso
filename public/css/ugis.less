@@ -143,6 +143,7 @@
   border-right: 1px solid @lightest;
   background: @medium;
   .layer {
+    position: relative;
     text-align: left;
     padding: 10px;
     border-bottom: 1px solid @borderColor;
@@ -151,6 +152,22 @@
     }
     span {
       padding-left: 5px;
+    }
+    .swatch-wrap {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background-color: #bbb;
+    }
+    .color-swatch {
+      background: @medium;
+      height: 17px;
+      width: 17px;
+      border: 1px solid @medium;
+      background-clip: padding-box;
+      box-sizing: border-box;
+      float: right;
+      padding: 0;
     }
   }
 }

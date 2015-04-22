@@ -1,9 +1,11 @@
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
+  , ToolbarSubmenu = require('./ToolbarSubmenu.jsx')
   , ToolbarDropdown = require('./ToolbarDropdown.jsx')
   , LayerActions = require('../actions/LayerActions')
   , LayerStore = require('../stores/LayerStore')
+  , baseMaps = require('../utils/BaseMaps')
 
 var ViewAttributes = React.createClass({
   onClick: function() {
@@ -63,19 +65,39 @@ var Edit = React.createClass({
       var icon = <i className="fa fa-check"></i>
     }
     return (
-      <ToolbarItem text={'Editing Toolbar'} onClick={this.onClick} icon={icon} active={active}/>
+      <ToolbarItem text={'Drawing Toolbar'} onClick={this.onClick} icon={icon} active={active}/>
+    )
+  }
+})
+
+var Basemap = React.createClass({
+  render: function() {
+    var active = true
+    var submenu = []
+    for (var name in baseMaps) {
+      var icon = false
+      if (this.props.baseMap === name) {
+        var icon = <i className="fa fa-check"></i>
+      }
+      var update = function(name) {
+        this.props.updateBaseMap(name)
+      }.bind(this, name)
+      submenu.push(<ToolbarItem {...this.props} key={name} text={baseMaps[name].name} onClick={update} icon={icon} active={true}/>)
+    }
+    return (
+      <ToolbarSubmenu text={'Basemap'} submenu={submenu} active={active}/>
     )
   }
 })
 
 var ViewMenu = React.createClass({
   render: function() {
-    //var active = this.props.config.oneLayer  || this.props.config.multiLayer
     var active = true
     var submenu = [
-      <ViewAttributes {...this.props} key={'viewAttributes'}/>,
+      <Basemap {...this.props} key={'Basemap'}/>,
+      <Edit {...this.props} key={'editFeature'}/>,
       <ViewGeoJSON {...this.props} key={'viewGeoJSON'}/>,
-      <Edit {...this.props} key={'editFeature'}/>
+      <ViewAttributes {...this.props} key={'viewAttributes'}/>
       ]
     return (
       <ToolbarDropdown text={'View'} submenu={submenu} active={active}/>

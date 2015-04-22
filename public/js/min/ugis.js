@@ -7,7 +7,7 @@ React.render(
   document.getElementById('ugis')
 )
 
-},{"./components/UGISApp.jsx":398,"react":240}],2:[function(require,module,exports){
+},{"./components/UGISApp.jsx":403,"react":245}],2:[function(require,module,exports){
 
 },{}],3:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
@@ -2183,6 +2183,1601 @@ process.chdir = function (dir) {
 process.umask = function() { return 0; };
 
 },{}],11:[function(require,module,exports){
+/* MIT license */
+var convert = require("color-convert"),
+    string = require("color-string");
+
+var Color = function(obj) {
+  if (obj instanceof Color) return obj;
+  if (! (this instanceof Color)) return new Color(obj);
+
+   this.values = {
+      rgb: [0, 0, 0],
+      hsl: [0, 0, 0],
+      hsv: [0, 0, 0],
+      hwb: [0, 0, 0],
+      cmyk: [0, 0, 0, 0],
+      alpha: 1
+   }
+
+   // parse Color() argument
+   if (typeof obj == "string") {
+      var vals = string.getRgba(obj);
+      if (vals) {
+         this.setValues("rgb", vals);
+      }
+      else if(vals = string.getHsla(obj)) {
+         this.setValues("hsl", vals);
+      }
+      else if(vals = string.getHwb(obj)) {
+         this.setValues("hwb", vals);
+      }
+      else {
+        throw new Error("Unable to parse color from string \"" + obj + "\"");
+      }
+   }
+   else if (typeof obj == "object") {
+      var vals = obj;
+      if(vals["r"] !== undefined || vals["red"] !== undefined) {
+         this.setValues("rgb", vals)
+      }
+      else if(vals["l"] !== undefined || vals["lightness"] !== undefined) {
+         this.setValues("hsl", vals)
+      }
+      else if(vals["v"] !== undefined || vals["value"] !== undefined) {
+         this.setValues("hsv", vals)
+      }
+      else if(vals["w"] !== undefined || vals["whiteness"] !== undefined) {
+         this.setValues("hwb", vals)
+      }
+      else if(vals["c"] !== undefined || vals["cyan"] !== undefined) {
+         this.setValues("cmyk", vals)
+      }
+      else {
+        throw new Error("Unable to parse color from object " + JSON.stringify(obj));
+      }
+   }
+}
+
+Color.prototype = {
+   rgb: function (vals) {
+      return this.setSpace("rgb", arguments);
+   },
+   hsl: function(vals) {
+      return this.setSpace("hsl", arguments);
+   },
+   hsv: function(vals) {
+      return this.setSpace("hsv", arguments);
+   },
+   hwb: function(vals) {
+      return this.setSpace("hwb", arguments);
+   },
+   cmyk: function(vals) {
+      return this.setSpace("cmyk", arguments);
+   },
+
+   rgbArray: function() {
+      return this.values.rgb;
+   },
+   hslArray: function() {
+      return this.values.hsl;
+   },
+   hsvArray: function() {
+      return this.values.hsv;
+   },
+   hwbArray: function() {
+      if (this.values.alpha !== 1) {
+        return this.values.hwb.concat([this.values.alpha])
+      }
+      return this.values.hwb;
+   },
+   cmykArray: function() {
+      return this.values.cmyk;
+   },
+   rgbaArray: function() {
+      var rgb = this.values.rgb;
+      return rgb.concat([this.values.alpha]);
+   },
+   hslaArray: function() {
+      var hsl = this.values.hsl;
+      return hsl.concat([this.values.alpha]);
+   },
+   alpha: function(val) {
+      if (val === undefined) {
+         return this.values.alpha;
+      }
+      this.setValues("alpha", val);
+      return this;
+   },
+
+   red: function(val) {
+      return this.setChannel("rgb", 0, val);
+   },
+   green: function(val) {
+      return this.setChannel("rgb", 1, val);
+   },
+   blue: function(val) {
+      return this.setChannel("rgb", 2, val);
+   },
+   hue: function(val) {
+      return this.setChannel("hsl", 0, val);
+   },
+   saturation: function(val) {
+      return this.setChannel("hsl", 1, val);
+   },
+   lightness: function(val) {
+      return this.setChannel("hsl", 2, val);
+   },
+   saturationv: function(val) {
+      return this.setChannel("hsv", 1, val);
+   },
+   whiteness: function(val) {
+      return this.setChannel("hwb", 1, val);
+   },
+   blackness: function(val) {
+      return this.setChannel("hwb", 2, val);
+   },
+   value: function(val) {
+      return this.setChannel("hsv", 2, val);
+   },
+   cyan: function(val) {
+      return this.setChannel("cmyk", 0, val);
+   },
+   magenta: function(val) {
+      return this.setChannel("cmyk", 1, val);
+   },
+   yellow: function(val) {
+      return this.setChannel("cmyk", 2, val);
+   },
+   black: function(val) {
+      return this.setChannel("cmyk", 3, val);
+   },
+
+   hexString: function() {
+      return string.hexString(this.values.rgb);
+   },
+   rgbString: function() {
+      return string.rgbString(this.values.rgb, this.values.alpha);
+   },
+   rgbaString: function() {
+      return string.rgbaString(this.values.rgb, this.values.alpha);
+   },
+   percentString: function() {
+      return string.percentString(this.values.rgb, this.values.alpha);
+   },
+   hslString: function() {
+      return string.hslString(this.values.hsl, this.values.alpha);
+   },
+   hslaString: function() {
+      return string.hslaString(this.values.hsl, this.values.alpha);
+   },
+   hwbString: function() {
+      return string.hwbString(this.values.hwb, this.values.alpha);
+   },
+   keyword: function() {
+      return string.keyword(this.values.rgb, this.values.alpha);
+   },
+
+   rgbNumber: function() {
+      return (this.values.rgb[0] << 16) | (this.values.rgb[1] << 8) | this.values.rgb[2];
+   },
+
+   luminosity: function() {
+      // http://www.w3.org/TR/WCAG20/#relativeluminancedef
+      var rgb = this.values.rgb;
+      var lum = [];
+      for (var i = 0; i < rgb.length; i++) {
+         var chan = rgb[i] / 255;
+         lum[i] = (chan <= 0.03928) ? chan / 12.92
+                  : Math.pow(((chan + 0.055) / 1.055), 2.4)
+      }
+      return 0.2126 * lum[0] + 0.7152 * lum[1] + 0.0722 * lum[2];
+   },
+
+   contrast: function(color2) {
+      // http://www.w3.org/TR/WCAG20/#contrast-ratiodef
+      var lum1 = this.luminosity();
+      var lum2 = color2.luminosity();
+      if (lum1 > lum2) {
+         return (lum1 + 0.05) / (lum2 + 0.05)
+      };
+      return (lum2 + 0.05) / (lum1 + 0.05);
+   },
+
+   level: function(color2) {
+     var contrastRatio = this.contrast(color2);
+     return (contrastRatio >= 7.1)
+       ? 'AAA'
+       : (contrastRatio >= 4.5)
+        ? 'AA'
+        : '';
+   },
+
+   dark: function() {
+      // YIQ equation from http://24ways.org/2010/calculating-color-contrast
+      var rgb = this.values.rgb,
+          yiq = (rgb[0] * 299 + rgb[1] * 587 + rgb[2] * 114) / 1000;
+      return yiq < 128;
+   },
+
+   light: function() {
+      return !this.dark();
+   },
+
+   negate: function() {
+      var rgb = []
+      for (var i = 0; i < 3; i++) {
+         rgb[i] = 255 - this.values.rgb[i];
+      }
+      this.setValues("rgb", rgb);
+      return this;
+   },
+
+   lighten: function(ratio) {
+      this.values.hsl[2] += this.values.hsl[2] * ratio;
+      this.setValues("hsl", this.values.hsl);
+      return this;
+   },
+
+   darken: function(ratio) {
+      this.values.hsl[2] -= this.values.hsl[2] * ratio;
+      this.setValues("hsl", this.values.hsl);
+      return this;
+   },
+
+   saturate: function(ratio) {
+      this.values.hsl[1] += this.values.hsl[1] * ratio;
+      this.setValues("hsl", this.values.hsl);
+      return this;
+   },
+
+   desaturate: function(ratio) {
+      this.values.hsl[1] -= this.values.hsl[1] * ratio;
+      this.setValues("hsl", this.values.hsl);
+      return this;
+   },
+
+   whiten: function(ratio) {
+      this.values.hwb[1] += this.values.hwb[1] * ratio;
+      this.setValues("hwb", this.values.hwb);
+      return this;
+   },
+
+   blacken: function(ratio) {
+      this.values.hwb[2] += this.values.hwb[2] * ratio;
+      this.setValues("hwb", this.values.hwb);
+      return this;
+   },
+
+   greyscale: function() {
+      var rgb = this.values.rgb;
+      // http://en.wikipedia.org/wiki/Grayscale#Converting_color_to_grayscale
+      var val = rgb[0] * 0.3 + rgb[1] * 0.59 + rgb[2] * 0.11;
+      this.setValues("rgb", [val, val, val]);
+      return this;
+   },
+
+   clearer: function(ratio) {
+      this.setValues("alpha", this.values.alpha - (this.values.alpha * ratio));
+      return this;
+   },
+
+   opaquer: function(ratio) {
+      this.setValues("alpha", this.values.alpha + (this.values.alpha * ratio));
+      return this;
+   },
+
+   rotate: function(degrees) {
+      var hue = this.values.hsl[0];
+      hue = (hue + degrees) % 360;
+      hue = hue < 0 ? 360 + hue : hue;
+      this.values.hsl[0] = hue;
+      this.setValues("hsl", this.values.hsl);
+      return this;
+   },
+
+   mix: function(color2, weight) {
+      weight = 1 - (weight == null ? 0.5 : weight);
+
+      // algorithm from Sass's mix(). Ratio of first color in mix is
+      // determined by the alphas of both colors and the weight
+      var t1 = weight * 2 - 1,
+          d = this.alpha() - color2.alpha();
+
+      var weight1 = (((t1 * d == -1) ? t1 : (t1 + d) / (1 + t1 * d)) + 1) / 2;
+      var weight2 = 1 - weight1;
+
+      var rgb = this.rgbArray();
+      var rgb2 = color2.rgbArray();
+
+      for (var i = 0; i < rgb.length; i++) {
+         rgb[i] = rgb[i] * weight1 + rgb2[i] * weight2;
+      }
+      this.setValues("rgb", rgb);
+
+      var alpha = this.alpha() * weight + color2.alpha() * (1 - weight);
+      this.setValues("alpha", alpha);
+
+      return this;
+   },
+
+   toJSON: function() {
+     return this.rgb();
+   },
+
+   clone: function() {
+     return new Color(this.rgb());
+   }
+}
+
+
+Color.prototype.getValues = function(space) {
+   var vals = {};
+   for (var i = 0; i < space.length; i++) {
+      vals[space.charAt(i)] = this.values[space][i];
+   }
+   if (this.values.alpha != 1) {
+      vals["a"] = this.values.alpha;
+   }
+   // {r: 255, g: 255, b: 255, a: 0.4}
+   return vals;
+}
+
+Color.prototype.setValues = function(space, vals) {
+   var spaces = {
+      "rgb": ["red", "green", "blue"],
+      "hsl": ["hue", "saturation", "lightness"],
+      "hsv": ["hue", "saturation", "value"],
+      "hwb": ["hue", "whiteness", "blackness"],
+      "cmyk": ["cyan", "magenta", "yellow", "black"]
+   };
+
+   var maxes = {
+      "rgb": [255, 255, 255],
+      "hsl": [360, 100, 100],
+      "hsv": [360, 100, 100],
+      "hwb": [360, 100, 100],
+      "cmyk": [100, 100, 100, 100]
+   };
+
+   var alpha = 1;
+   if (space == "alpha") {
+      alpha = vals;
+   }
+   else if (vals.length) {
+      // [10, 10, 10]
+      this.values[space] = vals.slice(0, space.length);
+      alpha = vals[space.length];
+   }
+   else if (vals[space.charAt(0)] !== undefined) {
+      // {r: 10, g: 10, b: 10}
+      for (var i = 0; i < space.length; i++) {
+        this.values[space][i] = vals[space.charAt(i)];
+      }
+      alpha = vals.a;
+   }
+   else if (vals[spaces[space][0]] !== undefined) {
+      // {red: 10, green: 10, blue: 10}
+      var chans = spaces[space];
+      for (var i = 0; i < space.length; i++) {
+        this.values[space][i] = vals[chans[i]];
+      }
+      alpha = vals.alpha;
+   }
+   this.values.alpha = Math.max(0, Math.min(1, (alpha !== undefined ? alpha : this.values.alpha) ));
+   if (space == "alpha") {
+      return;
+   }
+
+   // cap values of the space prior converting all values
+   for (var i = 0; i < space.length; i++) {
+      var capped = Math.max(0, Math.min(maxes[space][i], this.values[space][i]));
+      this.values[space][i] = Math.round(capped);
+   }
+
+   // convert to all the other color spaces
+   for (var sname in spaces) {
+      if (sname != space) {
+         this.values[sname] = convert[space][sname](this.values[space])
+      }
+
+      // cap values
+      for (var i = 0; i < sname.length; i++) {
+         var capped = Math.max(0, Math.min(maxes[sname][i], this.values[sname][i]));
+         this.values[sname][i] = Math.round(capped);
+      }
+   }
+   return true;
+}
+
+Color.prototype.setSpace = function(space, args) {
+   var vals = args[0];
+   if (vals === undefined) {
+      // color.rgb()
+      return this.getValues(space);
+   }
+   // color.rgb(10, 10, 10)
+   if (typeof vals == "number") {
+      vals = Array.prototype.slice.call(args);
+   }
+   this.setValues(space, vals);
+   return this;
+}
+
+Color.prototype.setChannel = function(space, index, val) {
+   if (val === undefined) {
+      // color.red()
+      return this.values[space][index];
+   }
+   // color.red(100)
+   this.values[space][index] = val;
+   this.setValues(space, this.values[space]);
+   return this;
+}
+
+module.exports = Color;
+
+},{"color-convert":13,"color-string":14}],12:[function(require,module,exports){
+/* MIT license */
+
+module.exports = {
+  rgb2hsl: rgb2hsl,
+  rgb2hsv: rgb2hsv,
+  rgb2hwb: rgb2hwb,
+  rgb2cmyk: rgb2cmyk,
+  rgb2keyword: rgb2keyword,
+  rgb2xyz: rgb2xyz,
+  rgb2lab: rgb2lab,
+  rgb2lch: rgb2lch,
+
+  hsl2rgb: hsl2rgb,
+  hsl2hsv: hsl2hsv,
+  hsl2hwb: hsl2hwb,
+  hsl2cmyk: hsl2cmyk,
+  hsl2keyword: hsl2keyword,
+
+  hsv2rgb: hsv2rgb,
+  hsv2hsl: hsv2hsl,
+  hsv2hwb: hsv2hwb,
+  hsv2cmyk: hsv2cmyk,
+  hsv2keyword: hsv2keyword,
+
+  hwb2rgb: hwb2rgb,
+  hwb2hsl: hwb2hsl,
+  hwb2hsv: hwb2hsv,
+  hwb2cmyk: hwb2cmyk,
+  hwb2keyword: hwb2keyword,
+
+  cmyk2rgb: cmyk2rgb,
+  cmyk2hsl: cmyk2hsl,
+  cmyk2hsv: cmyk2hsv,
+  cmyk2hwb: cmyk2hwb,
+  cmyk2keyword: cmyk2keyword,
+
+  keyword2rgb: keyword2rgb,
+  keyword2hsl: keyword2hsl,
+  keyword2hsv: keyword2hsv,
+  keyword2hwb: keyword2hwb,
+  keyword2cmyk: keyword2cmyk,
+  keyword2lab: keyword2lab,
+  keyword2xyz: keyword2xyz,
+
+  xyz2rgb: xyz2rgb,
+  xyz2lab: xyz2lab,
+  xyz2lch: xyz2lch,
+
+  lab2xyz: lab2xyz,
+  lab2rgb: lab2rgb,
+  lab2lch: lab2lch,
+
+  lch2lab: lch2lab,
+  lch2xyz: lch2xyz,
+  lch2rgb: lch2rgb
+}
+
+
+function rgb2hsl(rgb) {
+  var r = rgb[0]/255,
+      g = rgb[1]/255,
+      b = rgb[2]/255,
+      min = Math.min(r, g, b),
+      max = Math.max(r, g, b),
+      delta = max - min,
+      h, s, l;
+
+  if (max == min)
+    h = 0;
+  else if (r == max)
+    h = (g - b) / delta;
+  else if (g == max)
+    h = 2 + (b - r) / delta;
+  else if (b == max)
+    h = 4 + (r - g)/ delta;
+
+  h = Math.min(h * 60, 360);
+
+  if (h < 0)
+    h += 360;
+
+  l = (min + max) / 2;
+
+  if (max == min)
+    s = 0;
+  else if (l <= 0.5)
+    s = delta / (max + min);
+  else
+    s = delta / (2 - max - min);
+
+  return [h, s * 100, l * 100];
+}
+
+function rgb2hsv(rgb) {
+  var r = rgb[0],
+      g = rgb[1],
+      b = rgb[2],
+      min = Math.min(r, g, b),
+      max = Math.max(r, g, b),
+      delta = max - min,
+      h, s, v;
+
+  if (max == 0)
+    s = 0;
+  else
+    s = (delta/max * 1000)/10;
+
+  if (max == min)
+    h = 0;
+  else if (r == max)
+    h = (g - b) / delta;
+  else if (g == max)
+    h = 2 + (b - r) / delta;
+  else if (b == max)
+    h = 4 + (r - g) / delta;
+
+  h = Math.min(h * 60, 360);
+
+  if (h < 0)
+    h += 360;
+
+  v = ((max / 255) * 1000) / 10;
+
+  return [h, s, v];
+}
+
+function rgb2hwb(rgb) {
+  var r = rgb[0],
+      g = rgb[1],
+      b = rgb[2],
+      h = rgb2hsl(rgb)[0],
+      w = 1/255 * Math.min(r, Math.min(g, b)),
+      b = 1 - 1/255 * Math.max(r, Math.max(g, b));
+
+  return [h, w * 100, b * 100];
+}
+
+function rgb2cmyk(rgb) {
+  var r = rgb[0] / 255,
+      g = rgb[1] / 255,
+      b = rgb[2] / 255,
+      c, m, y, k;
+
+  k = Math.min(1 - r, 1 - g, 1 - b);
+  c = (1 - r - k) / (1 - k) || 0;
+  m = (1 - g - k) / (1 - k) || 0;
+  y = (1 - b - k) / (1 - k) || 0;
+  return [c * 100, m * 100, y * 100, k * 100];
+}
+
+function rgb2keyword(rgb) {
+  return reverseKeywords[JSON.stringify(rgb)];
+}
+
+function rgb2xyz(rgb) {
+  var r = rgb[0] / 255,
+      g = rgb[1] / 255,
+      b = rgb[2] / 255;
+
+  // assume sRGB
+  r = r > 0.04045 ? Math.pow(((r + 0.055) / 1.055), 2.4) : (r / 12.92);
+  g = g > 0.04045 ? Math.pow(((g + 0.055) / 1.055), 2.4) : (g / 12.92);
+  b = b > 0.04045 ? Math.pow(((b + 0.055) / 1.055), 2.4) : (b / 12.92);
+
+  var x = (r * 0.4124) + (g * 0.3576) + (b * 0.1805);
+  var y = (r * 0.2126) + (g * 0.7152) + (b * 0.0722);
+  var z = (r * 0.0193) + (g * 0.1192) + (b * 0.9505);
+
+  return [x * 100, y *100, z * 100];
+}
+
+function rgb2lab(rgb) {
+  var xyz = rgb2xyz(rgb),
+        x = xyz[0],
+        y = xyz[1],
+        z = xyz[2],
+        l, a, b;
+
+  x /= 95.047;
+  y /= 100;
+  z /= 108.883;
+
+  x = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x) + (16 / 116);
+  y = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + (16 / 116);
+  z = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + (16 / 116);
+
+  l = (116 * y) - 16;
+  a = 500 * (x - y);
+  b = 200 * (y - z);
+
+  return [l, a, b];
+}
+
+function rgb2lch(args) {
+  return lab2lch(rgb2lab(args));
+}
+
+function hsl2rgb(hsl) {
+  var h = hsl[0] / 360,
+      s = hsl[1] / 100,
+      l = hsl[2] / 100,
+      t1, t2, t3, rgb, val;
+
+  if (s == 0) {
+    val = l * 255;
+    return [val, val, val];
+  }
+
+  if (l < 0.5)
+    t2 = l * (1 + s);
+  else
+    t2 = l + s - l * s;
+  t1 = 2 * l - t2;
+
+  rgb = [0, 0, 0];
+  for (var i = 0; i < 3; i++) {
+    t3 = h + 1 / 3 * - (i - 1);
+    t3 < 0 && t3++;
+    t3 > 1 && t3--;
+
+    if (6 * t3 < 1)
+      val = t1 + (t2 - t1) * 6 * t3;
+    else if (2 * t3 < 1)
+      val = t2;
+    else if (3 * t3 < 2)
+      val = t1 + (t2 - t1) * (2 / 3 - t3) * 6;
+    else
+      val = t1;
+
+    rgb[i] = val * 255;
+  }
+
+  return rgb;
+}
+
+function hsl2hsv(hsl) {
+  var h = hsl[0],
+      s = hsl[1] / 100,
+      l = hsl[2] / 100,
+      sv, v;
+  l *= 2;
+  s *= (l <= 1) ? l : 2 - l;
+  v = (l + s) / 2;
+  sv = (2 * s) / (l + s);
+  return [h, sv * 100, v * 100];
+}
+
+function hsl2hwb(args) {
+  return rgb2hwb(hsl2rgb(args));
+}
+
+function hsl2cmyk(args) {
+  return rgb2cmyk(hsl2rgb(args));
+}
+
+function hsl2keyword(args) {
+  return rgb2keyword(hsl2rgb(args));
+}
+
+
+function hsv2rgb(hsv) {
+  var h = hsv[0] / 60,
+      s = hsv[1] / 100,
+      v = hsv[2] / 100,
+      hi = Math.floor(h) % 6;
+
+  var f = h - Math.floor(h),
+      p = 255 * v * (1 - s),
+      q = 255 * v * (1 - (s * f)),
+      t = 255 * v * (1 - (s * (1 - f))),
+      v = 255 * v;
+
+  switch(hi) {
+    case 0:
+      return [v, t, p];
+    case 1:
+      return [q, v, p];
+    case 2:
+      return [p, v, t];
+    case 3:
+      return [p, q, v];
+    case 4:
+      return [t, p, v];
+    case 5:
+      return [v, p, q];
+  }
+}
+
+function hsv2hsl(hsv) {
+  var h = hsv[0],
+      s = hsv[1] / 100,
+      v = hsv[2] / 100,
+      sl, l;
+
+  l = (2 - s) * v;
+  sl = s * v;
+  sl /= (l <= 1) ? l : 2 - l;
+  sl = sl || 0;
+  l /= 2;
+  return [h, sl * 100, l * 100];
+}
+
+function hsv2hwb(args) {
+  return rgb2hwb(hsv2rgb(args))
+}
+
+function hsv2cmyk(args) {
+  return rgb2cmyk(hsv2rgb(args));
+}
+
+function hsv2keyword(args) {
+  return rgb2keyword(hsv2rgb(args));
+}
+
+// http://dev.w3.org/csswg/css-color/#hwb-to-rgb
+function hwb2rgb(hwb) {
+  var h = hwb[0] / 360,
+      wh = hwb[1] / 100,
+      bl = hwb[2] / 100,
+      ratio = wh + bl,
+      i, v, f, n;
+
+  // wh + bl cant be > 1
+  if (ratio > 1) {
+    wh /= ratio;
+    bl /= ratio;
+  }
+
+  i = Math.floor(6 * h);
+  v = 1 - bl;
+  f = 6 * h - i;
+  if ((i & 0x01) != 0) {
+    f = 1 - f;
+  }
+  n = wh + f * (v - wh);  // linear interpolation
+
+  switch (i) {
+    default:
+    case 6:
+    case 0: r = v; g = n; b = wh; break;
+    case 1: r = n; g = v; b = wh; break;
+    case 2: r = wh; g = v; b = n; break;
+    case 3: r = wh; g = n; b = v; break;
+    case 4: r = n; g = wh; b = v; break;
+    case 5: r = v; g = wh; b = n; break;
+  }
+
+  return [r * 255, g * 255, b * 255];
+}
+
+function hwb2hsl(args) {
+  return rgb2hsl(hwb2rgb(args));
+}
+
+function hwb2hsv(args) {
+  return rgb2hsv(hwb2rgb(args));
+}
+
+function hwb2cmyk(args) {
+  return rgb2cmyk(hwb2rgb(args));
+}
+
+function hwb2keyword(args) {
+  return rgb2keyword(hwb2rgb(args));
+}
+
+function cmyk2rgb(cmyk) {
+  var c = cmyk[0] / 100,
+      m = cmyk[1] / 100,
+      y = cmyk[2] / 100,
+      k = cmyk[3] / 100,
+      r, g, b;
+
+  r = 1 - Math.min(1, c * (1 - k) + k);
+  g = 1 - Math.min(1, m * (1 - k) + k);
+  b = 1 - Math.min(1, y * (1 - k) + k);
+  return [r * 255, g * 255, b * 255];
+}
+
+function cmyk2hsl(args) {
+  return rgb2hsl(cmyk2rgb(args));
+}
+
+function cmyk2hsv(args) {
+  return rgb2hsv(cmyk2rgb(args));
+}
+
+function cmyk2hwb(args) {
+  return rgb2hwb(cmyk2rgb(args));
+}
+
+function cmyk2keyword(args) {
+  return rgb2keyword(cmyk2rgb(args));
+}
+
+
+function xyz2rgb(xyz) {
+  var x = xyz[0] / 100,
+      y = xyz[1] / 100,
+      z = xyz[2] / 100,
+      r, g, b;
+
+  r = (x * 3.2406) + (y * -1.5372) + (z * -0.4986);
+  g = (x * -0.9689) + (y * 1.8758) + (z * 0.0415);
+  b = (x * 0.0557) + (y * -0.2040) + (z * 1.0570);
+
+  // assume sRGB
+  r = r > 0.0031308 ? ((1.055 * Math.pow(r, 1.0 / 2.4)) - 0.055)
+    : r = (r * 12.92);
+
+  g = g > 0.0031308 ? ((1.055 * Math.pow(g, 1.0 / 2.4)) - 0.055)
+    : g = (g * 12.92);
+
+  b = b > 0.0031308 ? ((1.055 * Math.pow(b, 1.0 / 2.4)) - 0.055)
+    : b = (b * 12.92);
+
+  r = Math.min(Math.max(0, r), 1);
+  g = Math.min(Math.max(0, g), 1);
+  b = Math.min(Math.max(0, b), 1);
+
+  return [r * 255, g * 255, b * 255];
+}
+
+function xyz2lab(xyz) {
+  var x = xyz[0],
+      y = xyz[1],
+      z = xyz[2],
+      l, a, b;
+
+  x /= 95.047;
+  y /= 100;
+  z /= 108.883;
+
+  x = x > 0.008856 ? Math.pow(x, 1/3) : (7.787 * x) + (16 / 116);
+  y = y > 0.008856 ? Math.pow(y, 1/3) : (7.787 * y) + (16 / 116);
+  z = z > 0.008856 ? Math.pow(z, 1/3) : (7.787 * z) + (16 / 116);
+
+  l = (116 * y) - 16;
+  a = 500 * (x - y);
+  b = 200 * (y - z);
+
+  return [l, a, b];
+}
+
+function xyz2lch(args) {
+  return lab2lch(xyz2lab(args));
+}
+
+function lab2xyz(lab) {
+  var l = lab[0],
+      a = lab[1],
+      b = lab[2],
+      x, y, z, y2;
+
+  if (l <= 8) {
+    y = (l * 100) / 903.3;
+    y2 = (7.787 * (y / 100)) + (16 / 116);
+  } else {
+    y = 100 * Math.pow((l + 16) / 116, 3);
+    y2 = Math.pow(y / 100, 1/3);
+  }
+
+  x = x / 95.047 <= 0.008856 ? x = (95.047 * ((a / 500) + y2 - (16 / 116))) / 7.787 : 95.047 * Math.pow((a / 500) + y2, 3);
+
+  z = z / 108.883 <= 0.008859 ? z = (108.883 * (y2 - (b / 200) - (16 / 116))) / 7.787 : 108.883 * Math.pow(y2 - (b / 200), 3);
+
+  return [x, y, z];
+}
+
+function lab2lch(lab) {
+  var l = lab[0],
+      a = lab[1],
+      b = lab[2],
+      hr, h, c;
+
+  hr = Math.atan2(b, a);
+  h = hr * 360 / 2 / Math.PI;
+  if (h < 0) {
+    h += 360;
+  }
+  c = Math.sqrt(a * a + b * b);
+  return [l, c, h];
+}
+
+function lab2rgb(args) {
+  return xyz2rgb(lab2xyz(args));
+}
+
+function lch2lab(lch) {
+  var l = lch[0],
+      c = lch[1],
+      h = lch[2],
+      a, b, hr;
+
+  hr = h / 360 * 2 * Math.PI;
+  a = c * Math.cos(hr);
+  b = c * Math.sin(hr);
+  return [l, a, b];
+}
+
+function lch2xyz(args) {
+  return lab2xyz(lch2lab(args));
+}
+
+function lch2rgb(args) {
+  return lab2rgb(lch2lab(args));
+}
+
+function keyword2rgb(keyword) {
+  return cssKeywords[keyword];
+}
+
+function keyword2hsl(args) {
+  return rgb2hsl(keyword2rgb(args));
+}
+
+function keyword2hsv(args) {
+  return rgb2hsv(keyword2rgb(args));
+}
+
+function keyword2hwb(args) {
+  return rgb2hwb(keyword2rgb(args));
+}
+
+function keyword2cmyk(args) {
+  return rgb2cmyk(keyword2rgb(args));
+}
+
+function keyword2lab(args) {
+  return rgb2lab(keyword2rgb(args));
+}
+
+function keyword2xyz(args) {
+  return rgb2xyz(keyword2rgb(args));
+}
+
+var cssKeywords = {
+  aliceblue:  [240,248,255],
+  antiquewhite: [250,235,215],
+  aqua: [0,255,255],
+  aquamarine: [127,255,212],
+  azure:  [240,255,255],
+  beige:  [245,245,220],
+  bisque: [255,228,196],
+  black:  [0,0,0],
+  blanchedalmond: [255,235,205],
+  blue: [0,0,255],
+  blueviolet: [138,43,226],
+  brown:  [165,42,42],
+  burlywood:  [222,184,135],
+  cadetblue:  [95,158,160],
+  chartreuse: [127,255,0],
+  chocolate:  [210,105,30],
+  coral:  [255,127,80],
+  cornflowerblue: [100,149,237],
+  cornsilk: [255,248,220],
+  crimson:  [220,20,60],
+  cyan: [0,255,255],
+  darkblue: [0,0,139],
+  darkcyan: [0,139,139],
+  darkgoldenrod:  [184,134,11],
+  darkgray: [169,169,169],
+  darkgreen:  [0,100,0],
+  darkgrey: [169,169,169],
+  darkkhaki:  [189,183,107],
+  darkmagenta:  [139,0,139],
+  darkolivegreen: [85,107,47],
+  darkorange: [255,140,0],
+  darkorchid: [153,50,204],
+  darkred:  [139,0,0],
+  darksalmon: [233,150,122],
+  darkseagreen: [143,188,143],
+  darkslateblue:  [72,61,139],
+  darkslategray:  [47,79,79],
+  darkslategrey:  [47,79,79],
+  darkturquoise:  [0,206,209],
+  darkviolet: [148,0,211],
+  deeppink: [255,20,147],
+  deepskyblue:  [0,191,255],
+  dimgray:  [105,105,105],
+  dimgrey:  [105,105,105],
+  dodgerblue: [30,144,255],
+  firebrick:  [178,34,34],
+  floralwhite:  [255,250,240],
+  forestgreen:  [34,139,34],
+  fuchsia:  [255,0,255],
+  gainsboro:  [220,220,220],
+  ghostwhite: [248,248,255],
+  gold: [255,215,0],
+  goldenrod:  [218,165,32],
+  gray: [128,128,128],
+  green:  [0,128,0],
+  greenyellow:  [173,255,47],
+  grey: [128,128,128],
+  honeydew: [240,255,240],
+  hotpink:  [255,105,180],
+  indianred:  [205,92,92],
+  indigo: [75,0,130],
+  ivory:  [255,255,240],
+  khaki:  [240,230,140],
+  lavender: [230,230,250],
+  lavenderblush:  [255,240,245],
+  lawngreen:  [124,252,0],
+  lemonchiffon: [255,250,205],
+  lightblue:  [173,216,230],
+  lightcoral: [240,128,128],
+  lightcyan:  [224,255,255],
+  lightgoldenrodyellow: [250,250,210],
+  lightgray:  [211,211,211],
+  lightgreen: [144,238,144],
+  lightgrey:  [211,211,211],
+  lightpink:  [255,182,193],
+  lightsalmon:  [255,160,122],
+  lightseagreen:  [32,178,170],
+  lightskyblue: [135,206,250],
+  lightslategray: [119,136,153],
+  lightslategrey: [119,136,153],
+  lightsteelblue: [176,196,222],
+  lightyellow:  [255,255,224],
+  lime: [0,255,0],
+  limegreen:  [50,205,50],
+  linen:  [250,240,230],
+  magenta:  [255,0,255],
+  maroon: [128,0,0],
+  mediumaquamarine: [102,205,170],
+  mediumblue: [0,0,205],
+  mediumorchid: [186,85,211],
+  mediumpurple: [147,112,219],
+  mediumseagreen: [60,179,113],
+  mediumslateblue:  [123,104,238],
+  mediumspringgreen:  [0,250,154],
+  mediumturquoise:  [72,209,204],
+  mediumvioletred:  [199,21,133],
+  midnightblue: [25,25,112],
+  mintcream:  [245,255,250],
+  mistyrose:  [255,228,225],
+  moccasin: [255,228,181],
+  navajowhite:  [255,222,173],
+  navy: [0,0,128],
+  oldlace:  [253,245,230],
+  olive:  [128,128,0],
+  olivedrab:  [107,142,35],
+  orange: [255,165,0],
+  orangered:  [255,69,0],
+  orchid: [218,112,214],
+  palegoldenrod:  [238,232,170],
+  palegreen:  [152,251,152],
+  paleturquoise:  [175,238,238],
+  palevioletred:  [219,112,147],
+  papayawhip: [255,239,213],
+  peachpuff:  [255,218,185],
+  peru: [205,133,63],
+  pink: [255,192,203],
+  plum: [221,160,221],
+  powderblue: [176,224,230],
+  purple: [128,0,128],
+  rebeccapurple: [102, 51, 153],
+  red:  [255,0,0],
+  rosybrown:  [188,143,143],
+  royalblue:  [65,105,225],
+  saddlebrown:  [139,69,19],
+  salmon: [250,128,114],
+  sandybrown: [244,164,96],
+  seagreen: [46,139,87],
+  seashell: [255,245,238],
+  sienna: [160,82,45],
+  silver: [192,192,192],
+  skyblue:  [135,206,235],
+  slateblue:  [106,90,205],
+  slategray:  [112,128,144],
+  slategrey:  [112,128,144],
+  snow: [255,250,250],
+  springgreen:  [0,255,127],
+  steelblue:  [70,130,180],
+  tan:  [210,180,140],
+  teal: [0,128,128],
+  thistle:  [216,191,216],
+  tomato: [255,99,71],
+  turquoise:  [64,224,208],
+  violet: [238,130,238],
+  wheat:  [245,222,179],
+  white:  [255,255,255],
+  whitesmoke: [245,245,245],
+  yellow: [255,255,0],
+  yellowgreen:  [154,205,50]
+};
+
+var reverseKeywords = {};
+for (var key in cssKeywords) {
+  reverseKeywords[JSON.stringify(cssKeywords[key])] = key;
+}
+
+},{}],13:[function(require,module,exports){
+var conversions = require("./conversions");
+
+var convert = function() {
+   return new Converter();
+}
+
+for (var func in conversions) {
+  // export Raw versions
+  convert[func + "Raw"] =  (function(func) {
+    // accept array or plain args
+    return function(arg) {
+      if (typeof arg == "number")
+        arg = Array.prototype.slice.call(arguments);
+      return conversions[func](arg);
+    }
+  })(func);
+
+  var pair = /(\w+)2(\w+)/.exec(func),
+      from = pair[1],
+      to = pair[2];
+
+  // export rgb2hsl and ["rgb"]["hsl"]
+  convert[from] = convert[from] || {};
+
+  convert[from][to] = convert[func] = (function(func) { 
+    return function(arg) {
+      if (typeof arg == "number")
+        arg = Array.prototype.slice.call(arguments);
+      
+      var val = conversions[func](arg);
+      if (typeof val == "string" || val === undefined)
+        return val; // keyword
+
+      for (var i = 0; i < val.length; i++)
+        val[i] = Math.round(val[i]);
+      return val;
+    }
+  })(func);
+}
+
+
+/* Converter does lazy conversion and caching */
+var Converter = function() {
+   this.convs = {};
+};
+
+/* Either get the values for a space or
+  set the values for a space, depending on args */
+Converter.prototype.routeSpace = function(space, args) {
+   var values = args[0];
+   if (values === undefined) {
+      // color.rgb()
+      return this.getValues(space);
+   }
+   // color.rgb(10, 10, 10)
+   if (typeof values == "number") {
+      values = Array.prototype.slice.call(args);        
+   }
+
+   return this.setValues(space, values);
+};
+  
+/* Set the values for a space, invalidating cache */
+Converter.prototype.setValues = function(space, values) {
+   this.space = space;
+   this.convs = {};
+   this.convs[space] = values;
+   return this;
+};
+
+/* Get the values for a space. If there's already
+  a conversion for the space, fetch it, otherwise
+  compute it */
+Converter.prototype.getValues = function(space) {
+   var vals = this.convs[space];
+   if (!vals) {
+      var fspace = this.space,
+          from = this.convs[fspace];
+      vals = convert[fspace][space](from);
+
+      this.convs[space] = vals;
+   }
+  return vals;
+};
+
+["rgb", "hsl", "hsv", "cmyk", "keyword"].forEach(function(space) {
+   Converter.prototype[space] = function(vals) {
+      return this.routeSpace(space, arguments);
+   }
+});
+
+module.exports = convert;
+},{"./conversions":12}],14:[function(require,module,exports){
+/* MIT license */
+var colorNames = require('color-name');
+
+module.exports = {
+   getRgba: getRgba,
+   getHsla: getHsla,
+   getRgb: getRgb,
+   getHsl: getHsl,
+   getHwb: getHwb,
+   getAlpha: getAlpha,
+
+   hexString: hexString,
+   rgbString: rgbString,
+   rgbaString: rgbaString,
+   percentString: percentString,
+   percentaString: percentaString,
+   hslString: hslString,
+   hslaString: hslaString,
+   hwbString: hwbString,
+   keyword: keyword
+}
+
+function getRgba(string) {
+   if (!string) {
+      return;
+   }
+   var abbr =  /^#([a-fA-F0-9]{3})$/,
+       hex =  /^#([a-fA-F0-9]{6})$/,
+       rgba = /^rgba?\(\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*,\s*([+-]?\d+)\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)$/,
+       per = /^rgba?\(\s*([+-]?[\d\.]+)\%\s*,\s*([+-]?[\d\.]+)\%\s*,\s*([+-]?[\d\.]+)\%\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)$/,
+       keyword = /(\D+)/;
+
+   var rgb = [0, 0, 0],
+       a = 1,
+       match = string.match(abbr);
+   if (match) {
+      match = match[1];
+      for (var i = 0; i < rgb.length; i++) {
+         rgb[i] = parseInt(match[i] + match[i], 16);
+      }
+   }
+   else if (match = string.match(hex)) {
+      match = match[1];
+      for (var i = 0; i < rgb.length; i++) {
+         rgb[i] = parseInt(match.slice(i * 2, i * 2 + 2), 16);
+      }
+   }
+   else if (match = string.match(rgba)) {
+      for (var i = 0; i < rgb.length; i++) {
+         rgb[i] = parseInt(match[i + 1]);
+      }
+      a = parseFloat(match[4]);
+   }
+   else if (match = string.match(per)) {
+      for (var i = 0; i < rgb.length; i++) {
+         rgb[i] = Math.round(parseFloat(match[i + 1]) * 2.55);
+      }
+      a = parseFloat(match[4]);
+   }
+   else if (match = string.match(keyword)) {
+      if (match[1] == "transparent") {
+         return [0, 0, 0, 0];
+      }
+      rgb = colorNames[match[1]];
+      if (!rgb) {
+         return;
+      }
+   }
+
+   for (var i = 0; i < rgb.length; i++) {
+      rgb[i] = scale(rgb[i], 0, 255);
+   }
+   if (!a && a != 0) {
+      a = 1;
+   }
+   else {
+      a = scale(a, 0, 1);
+   }
+   rgb[3] = a;
+   return rgb;
+}
+
+function getHsla(string) {
+   if (!string) {
+      return;
+   }
+   var hsl = /^hsla?\(\s*([+-]?\d+)(?:deg)?\s*,\s*([+-]?[\d\.]+)%\s*,\s*([+-]?[\d\.]+)%\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)/;
+   var match = string.match(hsl);
+   if (match) {
+      var alpha = parseFloat(match[4]);
+      var h = scale(parseInt(match[1]), 0, 360),
+          s = scale(parseFloat(match[2]), 0, 100),
+          l = scale(parseFloat(match[3]), 0, 100),
+          a = scale(isNaN(alpha) ? 1 : alpha, 0, 1);
+      return [h, s, l, a];
+   }
+}
+
+function getHwb(string) {
+   if (!string) {
+      return;
+   }
+   var hwb = /^hwb\(\s*([+-]?\d+)(?:deg)?\s*,\s*([+-]?[\d\.]+)%\s*,\s*([+-]?[\d\.]+)%\s*(?:,\s*([+-]?[\d\.]+)\s*)?\)/;
+   var match = string.match(hwb);
+   if (match) {
+    var alpha = parseFloat(match[4]);
+      var h = scale(parseInt(match[1]), 0, 360),
+          w = scale(parseFloat(match[2]), 0, 100),
+          b = scale(parseFloat(match[3]), 0, 100),
+          a = scale(isNaN(alpha) ? 1 : alpha, 0, 1);
+      return [h, w, b, a];
+   }
+}
+
+function getRgb(string) {
+   var rgba = getRgba(string);
+   return rgba && rgba.slice(0, 3);
+}
+
+function getHsl(string) {
+  var hsla = getHsla(string);
+  return hsla && hsla.slice(0, 3);
+}
+
+function getAlpha(string) {
+   var vals = getRgba(string);
+   if (vals) {
+      return vals[3];
+   }
+   else if (vals = getHsla(string)) {
+      return vals[3];
+   }
+   else if (vals = getHwb(string)) {
+      return vals[3];
+   }
+}
+
+// generators
+function hexString(rgb) {
+   return "#" + hexDouble(rgb[0]) + hexDouble(rgb[1])
+              + hexDouble(rgb[2]);
+}
+
+function rgbString(rgba, alpha) {
+   if (alpha < 1 || (rgba[3] && rgba[3] < 1)) {
+      return rgbaString(rgba, alpha);
+   }
+   return "rgb(" + rgba[0] + ", " + rgba[1] + ", " + rgba[2] + ")";
+}
+
+function rgbaString(rgba, alpha) {
+   if (alpha === undefined) {
+      alpha = (rgba[3] !== undefined ? rgba[3] : 1);
+   }
+   return "rgba(" + rgba[0] + ", " + rgba[1] + ", " + rgba[2]
+           + ", " + alpha + ")";
+}
+
+function percentString(rgba, alpha) {
+   if (alpha < 1 || (rgba[3] && rgba[3] < 1)) {
+      return percentaString(rgba, alpha);
+   }
+   var r = Math.round(rgba[0]/255 * 100),
+       g = Math.round(rgba[1]/255 * 100),
+       b = Math.round(rgba[2]/255 * 100);
+
+   return "rgb(" + r + "%, " + g + "%, " + b + "%)";
+}
+
+function percentaString(rgba, alpha) {
+   var r = Math.round(rgba[0]/255 * 100),
+       g = Math.round(rgba[1]/255 * 100),
+       b = Math.round(rgba[2]/255 * 100);
+   return "rgba(" + r + "%, " + g + "%, " + b + "%, " + (alpha || rgba[3] || 1) + ")";
+}
+
+function hslString(hsla, alpha) {
+   if (alpha < 1 || (hsla[3] && hsla[3] < 1)) {
+      return hslaString(hsla, alpha);
+   }
+   return "hsl(" + hsla[0] + ", " + hsla[1] + "%, " + hsla[2] + "%)";
+}
+
+function hslaString(hsla, alpha) {
+   if (alpha === undefined) {
+      alpha = (hsla[3] !== undefined ? hsla[3] : 1);
+   }
+   return "hsla(" + hsla[0] + ", " + hsla[1] + "%, " + hsla[2] + "%, "
+           + alpha + ")";
+}
+
+// hwb is a bit different than rgb(a) & hsl(a) since there is no alpha specific syntax
+// (hwb have alpha optional & 1 is default value)
+function hwbString(hwb, alpha) {
+   if (alpha === undefined) {
+      alpha = (hwb[3] !== undefined ? hwb[3] : 1);
+   }
+   return "hwb(" + hwb[0] + ", " + hwb[1] + "%, " + hwb[2] + "%"
+           + (alpha !== undefined && alpha !== 1 ? ", " + alpha : "") + ")";
+}
+
+function keyword(rgb) {
+  return reverseNames[rgb.slice(0, 3)];
+}
+
+// helpers
+function scale(num, min, max) {
+   return Math.min(Math.max(min, num), max);
+}
+
+function hexDouble(num) {
+  var str = num.toString(16).toUpperCase();
+  return (str.length < 2) ? "0" + str : str;
+}
+
+
+//create a list of reverse color names
+var reverseNames = {};
+for (var name in colorNames) {
+   reverseNames[colorNames[name]] = name;
+}
+
+},{"color-name":15}],15:[function(require,module,exports){
+module.exports={
+	"aliceblue": [240, 248, 255],
+	"antiquewhite": [250, 235, 215],
+	"aqua": [0, 255, 255],
+	"aquamarine": [127, 255, 212],
+	"azure": [240, 255, 255],
+	"beige": [245, 245, 220],
+	"bisque": [255, 228, 196],
+	"black": [0, 0, 0],
+	"blanchedalmond": [255, 235, 205],
+	"blue": [0, 0, 255],
+	"blueviolet": [138, 43, 226],
+	"brown": [165, 42, 42],
+	"burlywood": [222, 184, 135],
+	"cadetblue": [95, 158, 160],
+	"chartreuse": [127, 255, 0],
+	"chocolate": [210, 105, 30],
+	"coral": [255, 127, 80],
+	"cornflowerblue": [100, 149, 237],
+	"cornsilk": [255, 248, 220],
+	"crimson": [220, 20, 60],
+	"cyan": [0, 255, 255],
+	"darkblue": [0, 0, 139],
+	"darkcyan": [0, 139, 139],
+	"darkgoldenrod": [184, 134, 11],
+	"darkgray": [169, 169, 169],
+	"darkgreen": [0, 100, 0],
+	"darkgrey": [169, 169, 169],
+	"darkkhaki": [189, 183, 107],
+	"darkmagenta": [139, 0, 139],
+	"darkolivegreen": [85, 107, 47],
+	"darkorange": [255, 140, 0],
+	"darkorchid": [153, 50, 204],
+	"darkred": [139, 0, 0],
+	"darksalmon": [233, 150, 122],
+	"darkseagreen": [143, 188, 143],
+	"darkslateblue": [72, 61, 139],
+	"darkslategray": [47, 79, 79],
+	"darkslategrey": [47, 79, 79],
+	"darkturquoise": [0, 206, 209],
+	"darkviolet": [148, 0, 211],
+	"deeppink": [255, 20, 147],
+	"deepskyblue": [0, 191, 255],
+	"dimgray": [105, 105, 105],
+	"dimgrey": [105, 105, 105],
+	"dodgerblue": [30, 144, 255],
+	"firebrick": [178, 34, 34],
+	"floralwhite": [255, 250, 240],
+	"forestgreen": [34, 139, 34],
+	"fuchsia": [255, 0, 255],
+	"gainsboro": [220, 220, 220],
+	"ghostwhite": [248, 248, 255],
+	"gold": [255, 215, 0],
+	"goldenrod": [218, 165, 32],
+	"gray": [128, 128, 128],
+	"green": [0, 128, 0],
+	"greenyellow": [173, 255, 47],
+	"grey": [128, 128, 128],
+	"honeydew": [240, 255, 240],
+	"hotpink": [255, 105, 180],
+	"indianred": [205, 92, 92],
+	"indigo": [75, 0, 130],
+	"ivory": [255, 255, 240],
+	"khaki": [240, 230, 140],
+	"lavender": [230, 230, 250],
+	"lavenderblush": [255, 240, 245],
+	"lawngreen": [124, 252, 0],
+	"lemonchiffon": [255, 250, 205],
+	"lightblue": [173, 216, 230],
+	"lightcoral": [240, 128, 128],
+	"lightcyan": [224, 255, 255],
+	"lightgoldenrodyellow": [250, 250, 210],
+	"lightgray": [211, 211, 211],
+	"lightgreen": [144, 238, 144],
+	"lightgrey": [211, 211, 211],
+	"lightpink": [255, 182, 193],
+	"lightsalmon": [255, 160, 122],
+	"lightseagreen": [32, 178, 170],
+	"lightskyblue": [135, 206, 250],
+	"lightslategray": [119, 136, 153],
+	"lightslategrey": [119, 136, 153],
+	"lightsteelblue": [176, 196, 222],
+	"lightyellow": [255, 255, 224],
+	"lime": [0, 255, 0],
+	"limegreen": [50, 205, 50],
+	"linen": [250, 240, 230],
+	"magenta": [255, 0, 255],
+	"maroon": [128, 0, 0],
+	"mediumaquamarine": [102, 205, 170],
+	"mediumblue": [0, 0, 205],
+	"mediumorchid": [186, 85, 211],
+	"mediumpurple": [147, 112, 219],
+	"mediumseagreen": [60, 179, 113],
+	"mediumslateblue": [123, 104, 238],
+	"mediumspringgreen": [0, 250, 154],
+	"mediumturquoise": [72, 209, 204],
+	"mediumvioletred": [199, 21, 133],
+	"midnightblue": [25, 25, 112],
+	"mintcream": [245, 255, 250],
+	"mistyrose": [255, 228, 225],
+	"moccasin": [255, 228, 181],
+	"navajowhite": [255, 222, 173],
+	"navy": [0, 0, 128],
+	"oldlace": [253, 245, 230],
+	"olive": [128, 128, 0],
+	"olivedrab": [107, 142, 35],
+	"orange": [255, 165, 0],
+	"orangered": [255, 69, 0],
+	"orchid": [218, 112, 214],
+	"palegoldenrod": [238, 232, 170],
+	"palegreen": [152, 251, 152],
+	"paleturquoise": [175, 238, 238],
+	"palevioletred": [219, 112, 147],
+	"papayawhip": [255, 239, 213],
+	"peachpuff": [255, 218, 185],
+	"peru": [205, 133, 63],
+	"pink": [255, 192, 203],
+	"plum": [221, 160, 221],
+	"powderblue": [176, 224, 230],
+	"purple": [128, 0, 128],
+	"rebeccapurple": [102, 51, 153],
+	"red": [255, 0, 0],
+	"rosybrown": [188, 143, 143],
+	"royalblue": [65, 105, 225],
+	"saddlebrown": [139, 69, 19],
+	"salmon": [250, 128, 114],
+	"sandybrown": [244, 164, 96],
+	"seagreen": [46, 139, 87],
+	"seashell": [255, 245, 238],
+	"sienna": [160, 82, 45],
+	"silver": [192, 192, 192],
+	"skyblue": [135, 206, 235],
+	"slateblue": [106, 90, 205],
+	"slategray": [112, 128, 144],
+	"slategrey": [112, 128, 144],
+	"snow": [255, 250, 250],
+	"springgreen": [0, 255, 127],
+	"steelblue": [70, 130, 180],
+	"tan": [210, 180, 140],
+	"teal": [0, 128, 128],
+	"thistle": [216, 191, 216],
+	"tomato": [255, 99, 71],
+	"turquoise": [64, 224, 208],
+	"violet": [238, 130, 238],
+	"wheat": [245, 222, 179],
+	"white": [255, 255, 255],
+	"whitesmoke": [245, 245, 245],
+	"yellow": [255, 255, 0],
+	"yellowgreen": [154, 205, 50]
+}
+},{}],16:[function(require,module,exports){
 var dsv = require('dsv'),
     sexagesimal = require('sexagesimal');
 
@@ -2390,12 +3985,12 @@ module.exports = {
     toPolygon: toPolygon
 };
 
-},{"dsv":12,"sexagesimal":13}],12:[function(require,module,exports){
+},{"dsv":17,"sexagesimal":18}],17:[function(require,module,exports){
 
 
 module.exports = new Function("dsv.version = \"0.0.3\";\n\ndsv.tsv = dsv(\"\\t\");\ndsv.csv = dsv(\",\");\n\nfunction dsv(delimiter) {\n  var dsv = {},\n      reFormat = new RegExp(\"[\\\"\" + delimiter + \"\\n]\"),\n      delimiterCode = delimiter.charCodeAt(0);\n\n  dsv.parse = function(text, f) {\n    var o;\n    return dsv.parseRows(text, function(row, i) {\n      if (o) return o(row, i - 1);\n      var a = new Function(\"d\", \"return {\" + row.map(function(name, i) {\n        return JSON.stringify(name) + \": d[\" + i + \"]\";\n      }).join(\",\") + \"}\");\n      o = f ? function(row, i) { return f(a(row), i); } : a;\n    });\n  };\n\n  dsv.parseRows = function(text, f) {\n    var EOL = {}, // sentinel value for end-of-line\n        EOF = {}, // sentinel value for end-of-file\n        rows = [], // output rows\n        N = text.length,\n        I = 0, // current character index\n        n = 0, // the current line number\n        t, // the current token\n        eol; // is the current token followed by EOL?\n\n    function token() {\n      if (I >= N) return EOF; // special case: end of file\n      if (eol) return eol = false, EOL; // special case: end of line\n\n      // special case: quotes\n      var j = I;\n      if (text.charCodeAt(j) === 34) {\n        var i = j;\n        while (i++ < N) {\n          if (text.charCodeAt(i) === 34) {\n            if (text.charCodeAt(i + 1) !== 34) break;\n            ++i;\n          }\n        }\n        I = i + 2;\n        var c = text.charCodeAt(i + 1);\n        if (c === 13) {\n          eol = true;\n          if (text.charCodeAt(i + 2) === 10) ++I;\n        } else if (c === 10) {\n          eol = true;\n        }\n        return text.substring(j + 1, i).replace(/\"\"/g, \"\\\"\");\n      }\n\n      // common case: find next delimiter or newline\n      while (I < N) {\n        var c = text.charCodeAt(I++), k = 1;\n        if (c === 10) eol = true; // \\n\n        else if (c === 13) { eol = true; if (text.charCodeAt(I) === 10) ++I, ++k; } // \\r|\\r\\n\n        else if (c !== delimiterCode) continue;\n        return text.substring(j, I - k);\n      }\n\n      // special case: last token before EOF\n      return text.substring(j);\n    }\n\n    while ((t = token()) !== EOF) {\n      var a = [];\n      while (t !== EOL && t !== EOF) {\n        a.push(t);\n        t = token();\n      }\n      if (f && !(a = f(a, n++))) continue;\n      rows.push(a);\n    }\n\n    return rows;\n  };\n\n  dsv.format = function(rows) {\n    if (Array.isArray(rows[0])) return dsv.formatRows(rows); // deprecated; use formatRows\n    var fieldSet = {}, fields = [];\n\n    // Compute unique fields in order of discovery.\n    rows.forEach(function(row) {\n      for (var field in row) {\n        if (!(field in fieldSet)) {\n          fields.push(fieldSet[field] = field);\n        }\n      }\n    });\n\n    return [fields.map(formatValue).join(delimiter)].concat(rows.map(function(row) {\n      return fields.map(function(field) {\n        return formatValue(row[field]);\n      }).join(delimiter);\n    })).join(\"\\n\");\n  };\n\n  dsv.formatRows = function(rows) {\n    return rows.map(formatRow).join(\"\\n\");\n  };\n\n  function formatRow(row) {\n    return row.map(formatValue).join(delimiter);\n  }\n\n  function formatValue(text) {\n    return reFormat.test(text) ? \"\\\"\" + text.replace(/\\\"/g, \"\\\"\\\"\") + \"\\\"\" : text;\n  }\n\n  return dsv;\n}\n" + ";return dsv")();
 
-},{}],13:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 module.exports = element;
 module.exports.pair = pair;
 module.exports.format = format;
@@ -2463,7 +4058,7 @@ function swapdim(a, b, dim) {
     if (dim == 'W' || dim == 'E') return [b, a];
 }
 
-},{}],14:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 /* FileSaver.js
  * A saveAs() FileSaver implementation.
  * 2014-12-17
@@ -2709,7 +4304,7 @@ if (typeof module !== "undefined" && module.exports) {
   });
 }
 
-},{}],15:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -2756,7 +4351,7 @@ var BrowserSupportCore = {
 
 module.exports = BrowserSupportCore;
 
-},{"./getVendorPrefixedName":52}],16:[function(require,module,exports){
+},{"./getVendorPrefixedName":57}],21:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -2897,7 +4492,7 @@ onMove,
 
 module.exports = DOMMouseMoveTracker;
 
-},{"./EventListener":17,"./cancelAnimationFramePolyfill":45,"./requestAnimationFramePolyfill":62}],17:[function(require,module,exports){
+},{"./EventListener":22,"./cancelAnimationFramePolyfill":50,"./requestAnimationFramePolyfill":67}],22:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -2980,7 +4575,7 @@ var EventListener = {
 module.exports = EventListener;
 
 }).call(this,require('_process'))
-},{"./emptyFunction":51,"_process":10}],18:[function(require,module,exports){
+},{"./emptyFunction":56,"_process":10}],23:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -3025,7 +4620,7 @@ var ExecutionEnvironment = {
 
 module.exports = ExecutionEnvironment;
 
-},{}],19:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -4053,7 +5648,7 @@ var HorizontalScrollbar = React.createClass({displayName: "HorizontalScrollbar",
 
 module.exports = FixedDataTable;
 
-},{"./FixedDataTableBufferedRows.react":20,"./FixedDataTableColumnResizeHandle.react":25,"./FixedDataTableHelper":26,"./FixedDataTableRow.react":28,"./FixedDataTableScrollHelper":30,"./FixedDataTableWidthHelper":31,"./Locale":37,"./React":39,"./ReactComponentWithPureRenderMixin":40,"./ReactWheelHandler":41,"./Scrollbar.react":42,"./cloneWithProps":47,"./cx":49,"./debounceCore":50,"./emptyFunction":51,"./invariant":53,"./shallowEqual":63,"./translateDOMPositionXY":64}],20:[function(require,module,exports){
+},{"./FixedDataTableBufferedRows.react":25,"./FixedDataTableColumnResizeHandle.react":30,"./FixedDataTableHelper":31,"./FixedDataTableRow.react":33,"./FixedDataTableScrollHelper":35,"./FixedDataTableWidthHelper":36,"./Locale":42,"./React":44,"./ReactComponentWithPureRenderMixin":45,"./ReactWheelHandler":46,"./Scrollbar.react":47,"./cloneWithProps":52,"./cx":54,"./debounceCore":55,"./emptyFunction":56,"./invariant":58,"./shallowEqual":68,"./translateDOMPositionXY":69}],25:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -4216,7 +5811,7 @@ var FixedDataTableBufferedRows = React.createClass({displayName: "FixedDataTable
 
 module.exports = FixedDataTableBufferedRows;
 
-},{"./FixedDataTableRow.react":28,"./FixedDataTableRowBuffer":29,"./React":39,"./cx":49,"./emptyFunction":51,"./joinClasses":56}],21:[function(require,module,exports){
+},{"./FixedDataTableRow.react":33,"./FixedDataTableRowBuffer":34,"./React":44,"./cx":54,"./emptyFunction":56,"./joinClasses":61}],26:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -4434,7 +6029,7 @@ var FixedDataTableCell = React.createClass({displayName: "FixedDataTableCell",
 
 module.exports = FixedDataTableCell;
 
-},{"./ImmutableObject":33,"./React":39,"./cloneWithProps":47,"./cx":49,"./joinClasses":56}],22:[function(require,module,exports){
+},{"./ImmutableObject":38,"./React":44,"./cloneWithProps":52,"./cx":54,"./joinClasses":61}],27:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -4644,7 +6239,7 @@ var FixedDataTableCellGroup = React.createClass({displayName: "FixedDataTableCel
 
 module.exports = FixedDataTableCellGroup;
 
-},{"./FixedDataTableCell.react":21,"./FixedDataTableHelper":26,"./ImmutableObject":33,"./React":39,"./ReactComponentWithPureRenderMixin":40,"./cx":49,"./translateDOMPositionXY":64}],23:[function(require,module,exports){
+},{"./FixedDataTableCell.react":26,"./FixedDataTableHelper":31,"./ImmutableObject":38,"./React":44,"./ReactComponentWithPureRenderMixin":45,"./cx":54,"./translateDOMPositionXY":69}],28:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -4799,7 +6394,7 @@ var FixedDataTableColumn = React.createClass({displayName: "FixedDataTableColumn
 module.exports = FixedDataTableColumn;
 
 }).call(this,require('_process'))
-},{"./React":39,"_process":10}],24:[function(require,module,exports){
+},{"./React":44,"_process":10}],29:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -4876,7 +6471,7 @@ var FixedDataTableColumnGroup = React.createClass({displayName: "FixedDataTableC
 module.exports = FixedDataTableColumnGroup;
 
 }).call(this,require('_process'))
-},{"./React":39,"_process":10}],25:[function(require,module,exports){
+},{"./React":44,"_process":10}],30:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -5044,7 +6639,7 @@ var FixedDataTableColumnResizeHandle = React.createClass({displayName: "FixedDat
 
 module.exports = FixedDataTableColumnResizeHandle;
 
-},{"./DOMMouseMoveTracker":16,"./Locale":37,"./React":39,"./ReactComponentWithPureRenderMixin":40,"./clamp":46,"./cx":49}],26:[function(require,module,exports){
+},{"./DOMMouseMoveTracker":21,"./Locale":42,"./React":44,"./ReactComponentWithPureRenderMixin":45,"./clamp":51,"./cx":54}],31:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -5150,7 +6745,7 @@ var FixedDataTableHelper = {
 
 module.exports = FixedDataTableHelper;
 
-},{"./FixedDataTableColumn.react":23,"./FixedDataTableColumnGroup.react":24,"./Locale":37,"./React":39,"./cloneWithProps":47}],27:[function(require,module,exports){
+},{"./FixedDataTableColumn.react":28,"./FixedDataTableColumnGroup.react":29,"./Locale":42,"./React":44,"./cloneWithProps":52}],32:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -5192,7 +6787,7 @@ FixedDataTableRoot.version = '0.1.2';
 module.exports = FixedDataTableRoot;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":18,"./FixedDataTable.react":19,"./FixedDataTableColumn.react":23,"./FixedDataTableColumnGroup.react":24,"_process":10}],28:[function(require,module,exports){
+},{"./ExecutionEnvironment":23,"./FixedDataTable.react":24,"./FixedDataTableColumn.react":28,"./FixedDataTableColumnGroup.react":29,"_process":10}],33:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -5435,7 +7030,7 @@ var FixedDataTableRow = React.createClass({displayName: "FixedDataTableRow",
 
 module.exports = FixedDataTableRow;
 
-},{"./FixedDataTableCellGroup.react":22,"./FixedDataTableHelper":26,"./React":39,"./ReactComponentWithPureRenderMixin":40,"./cx":49,"./joinClasses":56,"./translateDOMPositionXY":64}],29:[function(require,module,exports){
+},{"./FixedDataTableCellGroup.react":27,"./FixedDataTableHelper":31,"./React":44,"./ReactComponentWithPureRenderMixin":45,"./cx":54,"./joinClasses":61,"./translateDOMPositionXY":69}],34:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -5596,7 +7191,7 @@ rowIndex,
 
 module.exports = FixedDataTableRowBuffer;
 
-},{"./IntegerBufferSet":35,"./clamp":46,"./invariant":53}],30:[function(require,module,exports){
+},{"./IntegerBufferSet":40,"./clamp":51,"./invariant":58}],35:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -5862,7 +7457,7 @@ firstRowIndex,
 
 module.exports = FixedDataTableScrollHelper;
 
-},{"./PrefixIntervalTree":38,"./clamp":46}],31:[function(require,module,exports){
+},{"./PrefixIntervalTree":43,"./clamp":51}],36:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -6016,7 +7611,7 @@ var FixedDataTableWidthHelper = {
 
 module.exports = FixedDataTableWidthHelper;
 
-},{"./React":39,"./cloneWithProps":47}],32:[function(require,module,exports){
+},{"./React":44,"./cloneWithProps":52}],37:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -6172,7 +7767,7 @@ function defaultComparator(a, b) {
 
 module.exports = Heap;
 
-},{}],33:[function(require,module,exports){
+},{}],38:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -6356,7 +7951,7 @@ function _setDeep(obj, put) {
 module.exports = ImmutableObject;
 
 }).call(this,require('_process'))
-},{"./ImmutableValue":34,"./invariant":53,"./keyOf":58,"./mergeHelpers":59,"_process":10}],34:[function(require,module,exports){
+},{"./ImmutableValue":39,"./invariant":58,"./keyOf":63,"./mergeHelpers":64,"_process":10}],39:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -6485,7 +8080,7 @@ ImmutableValue._DONT_EVER_TYPE_THIS_SECRET_KEY = Math.random();
 
 module.exports = ImmutableValue;
 
-},{"./invariant":53,"./isNode":55,"./keyOf":58}],35:[function(require,module,exports){
+},{"./invariant":58,"./isNode":60,"./keyOf":63}],40:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -6669,7 +8264,7 @@ lowValue,
 
 module.exports = IntegerBufferSet;
 
-},{"./Heap":32,"./invariant":53}],36:[function(require,module,exports){
+},{"./Heap":37,"./invariant":58}],41:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -6706,7 +8301,7 @@ module.exports = {
   NUMPAD_9: 105
 };
 
-},{}],37:[function(require,module,exports){
+},{}],42:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -6728,7 +8323,7 @@ var Locale = {
 
 module.exports = Locale;
 
-},{}],38:[function(require,module,exports){
+},{}],43:[function(require,module,exports){
 (function (global){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -6888,7 +8483,7 @@ nodeIndex,
 module.exports = PrefixIntervalTree;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],39:[function(require,module,exports){
+},{}],44:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -6902,7 +8497,7 @@ module.exports = PrefixIntervalTree;
 
 module.exports = require('react');
 
-},{"react":240}],40:[function(require,module,exports){
+},{"react":245}],45:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -6916,7 +8511,7 @@ module.exports = require('react');
 
 module.exports = require('react/lib/ReactComponentWithPureRenderMixin');
 
-},{"react/lib/ReactComponentWithPureRenderMixin":118}],41:[function(require,module,exports){
+},{"react/lib/ReactComponentWithPureRenderMixin":123}],46:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -6990,7 +8585,7 @@ onWheel,
 
 module.exports = ReactWheelHandler;
 
-},{"./normalizeWheel":61,"./requestAnimationFramePolyfill":62}],42:[function(require,module,exports){
+},{"./normalizeWheel":66,"./requestAnimationFramePolyfill":67}],47:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -7471,7 +9066,7 @@ Scrollbar.SIZE = parseInt(cssVar('scrollbar-size'), 10);
 
 module.exports = Scrollbar;
 
-},{"./DOMMouseMoveTracker":16,"./Keys":36,"./React":39,"./ReactComponentWithPureRenderMixin":40,"./ReactWheelHandler":41,"./cssVar":48,"./cx":49,"./emptyFunction":51,"./translateDOMPositionXY":64}],43:[function(require,module,exports){
+},{"./DOMMouseMoveTracker":21,"./Keys":41,"./React":44,"./ReactComponentWithPureRenderMixin":45,"./ReactWheelHandler":46,"./cssVar":53,"./cx":54,"./emptyFunction":56,"./translateDOMPositionXY":69}],48:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -7760,7 +9355,7 @@ var UserAgent_DEPRECATED = {
 
 module.exports = UserAgent_DEPRECATED;
 
-},{}],44:[function(require,module,exports){
+},{}],49:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -7792,7 +9387,7 @@ function camelize(string) {
 
 module.exports = camelize;
 
-},{}],45:[function(require,module,exports){
+},{}],50:[function(require,module,exports){
 (function (global){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -7820,7 +9415,7 @@ var cancelAnimationFrame =
 module.exports = cancelAnimationFrame;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],46:[function(require,module,exports){
+},{}],51:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -7851,7 +9446,7 @@ function clamp(min, value, max) {
 
 module.exports = clamp;
 
-},{}],47:[function(require,module,exports){
+},{}],52:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -7865,7 +9460,7 @@ module.exports = clamp;
 
 module.exports = require('react/lib/cloneWithProps');
 
-},{"react/lib/cloneWithProps":192}],48:[function(require,module,exports){
+},{"react/lib/cloneWithProps":197}],53:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -7907,7 +9502,7 @@ cssVar.CSS_VARS = CSS_VARS;
 
 module.exports = cssVar;
 
-},{}],49:[function(require,module,exports){
+},{}],54:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -7961,7 +9556,7 @@ function cx(classNames) {
 
 module.exports = cx;
 
-},{}],50:[function(require,module,exports){
+},{}],55:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8022,7 +9617,7 @@ function debounce(func, wait, context, setTimeoutFunc, clearTimeoutFunc) {
 
 module.exports = debounce;
 
-},{}],51:[function(require,module,exports){
+},{}],56:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8056,7 +9651,7 @@ emptyFunction.thatReturnsArgument = function(arg) { return arg; };
 
 module.exports = emptyFunction;
 
-},{}],52:[function(require,module,exports){
+},{}],57:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8114,7 +9709,7 @@ function getVendorPrefixedName(property) {
 
 module.exports = getVendorPrefixedName;
 
-},{"./ExecutionEnvironment":18,"./camelize":44,"./invariant":53}],53:[function(require,module,exports){
+},{"./ExecutionEnvironment":23,"./camelize":49,"./invariant":58}],58:[function(require,module,exports){
 (function (process){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -8171,7 +9766,7 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 module.exports = invariant;
 
 }).call(this,require('_process'))
-},{"_process":10}],54:[function(require,module,exports){
+},{"_process":10}],59:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8236,7 +9831,7 @@ function isEventSupported(eventNameSuffix, capture) {
 
 module.exports = isEventSupported;
 
-},{"./ExecutionEnvironment":18}],55:[function(require,module,exports){
+},{"./ExecutionEnvironment":23}],60:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8264,7 +9859,7 @@ function isNode(object) {
 
 module.exports = isNode;
 
-},{}],56:[function(require,module,exports){
+},{}],61:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8305,7 +9900,7 @@ function joinClasses(className/*, ... */) {
 
 module.exports = joinClasses;
 
-},{}],57:[function(require,module,exports){
+},{}],62:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8358,7 +9953,7 @@ var keyMirror = function(obj) {
 
 module.exports = keyMirror;
 
-},{"./invariant":53}],58:[function(require,module,exports){
+},{"./invariant":58}],63:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8394,7 +9989,7 @@ var keyOf = function(oneKeyObj) {
 
 module.exports = keyOf;
 
-},{}],59:[function(require,module,exports){
+},{}],64:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8536,7 +10131,7 @@ var mergeHelpers = {
 
 module.exports = mergeHelpers;
 
-},{"./invariant":53,"./keyMirror":57}],60:[function(require,module,exports){
+},{"./invariant":58,"./keyMirror":62}],65:[function(require,module,exports){
 (function (global){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -8559,7 +10154,7 @@ var nativeRequestAnimationFrame =
 module.exports = nativeRequestAnimationFrame;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],61:[function(require,module,exports){
+},{}],66:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8742,7 +10337,7 @@ normalizeWheel.getEventType = function() /*string*/ {
 
 module.exports = normalizeWheel;
 
-},{"./UserAgent_DEPRECATED":43,"./isEventSupported":54}],62:[function(require,module,exports){
+},{"./UserAgent_DEPRECATED":48,"./isEventSupported":59}],67:[function(require,module,exports){
 (function (global){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -8781,7 +10376,7 @@ requestAnimationFrame(emptyFunction);
 module.exports = requestAnimationFrame;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./emptyFunction":51,"./nativeRequestAnimationFrame":60}],63:[function(require,module,exports){
+},{"./emptyFunction":56,"./nativeRequestAnimationFrame":65}],68:[function(require,module,exports){
 /**
  * Copyright (c) 2015, Facebook, Inc.
  * All rights reserved.
@@ -8825,7 +10420,7 @@ function shallowEqual(objA, objB) {
 
 module.exports = shallowEqual;
 
-},{}],64:[function(require,module,exports){
+},{}],69:[function(require,module,exports){
 (function (global){
 /**
  * Copyright (c) 2015, Facebook, Inc.
@@ -8877,10 +10472,10 @@ var translateDOMPositionXY = (function() {
 module.exports = translateDOMPositionXY;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{"./BrowserSupportCore":15,"./getVendorPrefixedName":52}],65:[function(require,module,exports){
+},{"./BrowserSupportCore":20,"./getVendorPrefixedName":57}],70:[function(require,module,exports){
 module.exports = require('./internal/FixedDataTableRoot');
 
-},{"./internal/FixedDataTableRoot":27}],66:[function(require,module,exports){
+},{"./internal/FixedDataTableRoot":32}],71:[function(require,module,exports){
 /**
  * Copyright (c) 2014, Facebook, Inc.
  * All rights reserved.
@@ -8892,7 +10487,7 @@ module.exports = require('./internal/FixedDataTableRoot');
 
 module.exports.Dispatcher = require('./lib/Dispatcher')
 
-},{"./lib/Dispatcher":67}],67:[function(require,module,exports){
+},{"./lib/Dispatcher":72}],72:[function(require,module,exports){
 /*
  * Copyright (c) 2014, Facebook, Inc.
  * All rights reserved.
@@ -9144,7 +10739,7 @@ var _prefix = 'ID_';
 
 module.exports = Dispatcher;
 
-},{"./invariant":68}],68:[function(require,module,exports){
+},{"./invariant":73}],73:[function(require,module,exports){
 /**
  * Copyright (c) 2014, Facebook, Inc.
  * All rights reserved.
@@ -9199,7 +10794,7 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 
 module.exports = invariant;
 
-},{}],69:[function(require,module,exports){
+},{}],74:[function(require,module,exports){
 module.exports = normalize;
 
 var types = {
@@ -9244,7 +10839,7 @@ function normalize(gj) {
     }
 }
 
-},{}],70:[function(require,module,exports){
+},{}],75:[function(require,module,exports){
 var jsonlint = require('jsonlint-lines');
 
 /**
@@ -9576,7 +11171,7 @@ function hint(str) {
 
 module.exports.hint = hint;
 
-},{"jsonlint-lines":71}],71:[function(require,module,exports){
+},{"jsonlint-lines":76}],76:[function(require,module,exports){
 (function (process){
 /* parser generated by jison 0.4.6 */
 /*
@@ -10233,7 +11828,7 @@ if (typeof module !== 'undefined' && require.main === module) {
 }
 }
 }).call(this,require('_process'))
-},{"_process":10,"fs":2,"path":9}],72:[function(require,module,exports){
+},{"_process":10,"fs":2,"path":9}],77:[function(require,module,exports){
 /**
  * Copyright 2013-2014 Facebook, Inc.
  *
@@ -10288,7 +11883,7 @@ var keyMirror = function(obj) {
 
 module.exports = keyMirror;
 
-},{}],73:[function(require,module,exports){
+},{}],78:[function(require,module,exports){
 /*!
  * numeral.js
  * version : 1.5.3
@@ -10969,7 +12564,7 @@ module.exports = keyMirror;
     }
 }).call(this);
 
-},{}],74:[function(require,module,exports){
+},{}],79:[function(require,module,exports){
 'use strict';
 
 function ToObject(val) {
@@ -10997,7 +12592,7 @@ module.exports = Object.assign || function (target, source) {
 	return to;
 };
 
-},{}],75:[function(require,module,exports){
+},{}],80:[function(require,module,exports){
 var _ = require("./lodash.custom.js");
 var rewind = require("geojson-rewind");
 
@@ -11934,7 +13529,7 @@ osmtogeojson.toGeojson = osmtogeojson;
 
 module.exports = osmtogeojson;
 
-},{"./lodash.custom.js":76,"./polygon_features.json":80,"geojson-rewind":77}],76:[function(require,module,exports){
+},{"./lodash.custom.js":81,"./polygon_features.json":85,"geojson-rewind":82}],81:[function(require,module,exports){
 (function (global){
 /**
  * @license
@@ -13732,7 +15327,7 @@ module.exports = osmtogeojson;
 }.call(this));
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],77:[function(require,module,exports){
+},{}],82:[function(require,module,exports){
 var geojsonArea = require('geojson-area');
 
 module.exports = rewind;
@@ -13783,7 +15378,7 @@ function cw(_) {
     return geojsonArea.ring(_) >= 0;
 }
 
-},{"geojson-area":78}],78:[function(require,module,exports){
+},{"geojson-area":83}],83:[function(require,module,exports){
 var wgs84 = require('wgs84');
 
 module.exports.geometry = geometry;
@@ -13849,12 +15444,12 @@ function rad(_) {
     return _ * Math.PI / 180;
 }
 
-},{"wgs84":79}],79:[function(require,module,exports){
+},{"wgs84":84}],84:[function(require,module,exports){
 module.exports.RADIUS = 6378137;
 module.exports.FLATTENING = 1/298.257223563;
 module.exports.POLAR_RADIUS = 6356752.3142;
 
-},{}],80:[function(require,module,exports){
+},{}],85:[function(require,module,exports){
 module.exports={
     "building": true,
     "highway": {
@@ -13938,7 +15533,7 @@ module.exports={
     "golf": true
 }
 
-},{}],81:[function(require,module,exports){
+},{}],86:[function(require,module,exports){
 module.exports = function (data) {
     var lines = data.split('\n'),
                 isNameLine = true,
@@ -14004,7 +15599,7 @@ module.exports = function (data) {
     return gj;
 };
 
-},{}],82:[function(require,module,exports){
+},{}],87:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14031,7 +15626,7 @@ var AutoFocusMixin = {
 
 module.exports = AutoFocusMixin;
 
-},{"./focusNode":203}],83:[function(require,module,exports){
+},{"./focusNode":208}],88:[function(require,module,exports){
 /**
  * Copyright 2013-2015 Facebook, Inc.
  * All rights reserved.
@@ -14526,7 +16121,7 @@ var BeforeInputEventPlugin = {
 
 module.exports = BeforeInputEventPlugin;
 
-},{"./EventConstants":95,"./EventPropagators":100,"./ExecutionEnvironment":101,"./FallbackCompositionState":102,"./SyntheticCompositionEvent":176,"./SyntheticInputEvent":180,"./keyOf":226}],84:[function(require,module,exports){
+},{"./EventConstants":100,"./EventPropagators":105,"./ExecutionEnvironment":106,"./FallbackCompositionState":107,"./SyntheticCompositionEvent":181,"./SyntheticInputEvent":185,"./keyOf":231}],89:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -14647,7 +16242,7 @@ var CSSProperty = {
 
 module.exports = CSSProperty;
 
-},{}],85:[function(require,module,exports){
+},{}],90:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -14829,7 +16424,7 @@ var CSSPropertyOperations = {
 module.exports = CSSPropertyOperations;
 
 }).call(this,require('_process'))
-},{"./CSSProperty":84,"./ExecutionEnvironment":101,"./camelizeStyleName":191,"./dangerousStyleValue":197,"./hyphenateStyleName":217,"./memoizeStringOnly":228,"./warning":239,"_process":10}],86:[function(require,module,exports){
+},{"./CSSProperty":89,"./ExecutionEnvironment":106,"./camelizeStyleName":196,"./dangerousStyleValue":202,"./hyphenateStyleName":222,"./memoizeStringOnly":233,"./warning":244,"_process":10}],91:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -14929,7 +16524,7 @@ PooledClass.addPoolingTo(CallbackQueue);
 module.exports = CallbackQueue;
 
 }).call(this,require('_process'))
-},{"./Object.assign":107,"./PooledClass":108,"./invariant":219,"_process":10}],87:[function(require,module,exports){
+},{"./Object.assign":112,"./PooledClass":113,"./invariant":224,"_process":10}],92:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -15311,7 +16906,7 @@ var ChangeEventPlugin = {
 
 module.exports = ChangeEventPlugin;
 
-},{"./EventConstants":95,"./EventPluginHub":97,"./EventPropagators":100,"./ExecutionEnvironment":101,"./ReactUpdates":170,"./SyntheticEvent":178,"./isEventSupported":220,"./isTextInputElement":222,"./keyOf":226}],88:[function(require,module,exports){
+},{"./EventConstants":100,"./EventPluginHub":102,"./EventPropagators":105,"./ExecutionEnvironment":106,"./ReactUpdates":175,"./SyntheticEvent":183,"./isEventSupported":225,"./isTextInputElement":227,"./keyOf":231}],93:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -15336,7 +16931,7 @@ var ClientReactRootIndex = {
 
 module.exports = ClientReactRootIndex;
 
-},{}],89:[function(require,module,exports){
+},{}],94:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -15474,7 +17069,7 @@ var DOMChildrenOperations = {
 module.exports = DOMChildrenOperations;
 
 }).call(this,require('_process'))
-},{"./Danger":92,"./ReactMultiChildUpdateTypes":154,"./invariant":219,"./setTextContent":234,"_process":10}],90:[function(require,module,exports){
+},{"./Danger":97,"./ReactMultiChildUpdateTypes":159,"./invariant":224,"./setTextContent":239,"_process":10}],95:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -15773,7 +17368,7 @@ var DOMProperty = {
 module.exports = DOMProperty;
 
 }).call(this,require('_process'))
-},{"./invariant":219,"_process":10}],91:[function(require,module,exports){
+},{"./invariant":224,"_process":10}],96:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -15965,7 +17560,7 @@ var DOMPropertyOperations = {
 module.exports = DOMPropertyOperations;
 
 }).call(this,require('_process'))
-},{"./DOMProperty":90,"./quoteAttributeValueForBrowser":232,"./warning":239,"_process":10}],92:[function(require,module,exports){
+},{"./DOMProperty":95,"./quoteAttributeValueForBrowser":237,"./warning":244,"_process":10}],97:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -16152,7 +17747,7 @@ var Danger = {
 module.exports = Danger;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":101,"./createNodesFromMarkup":196,"./emptyFunction":198,"./getMarkupWrap":211,"./invariant":219,"_process":10}],93:[function(require,module,exports){
+},{"./ExecutionEnvironment":106,"./createNodesFromMarkup":201,"./emptyFunction":203,"./getMarkupWrap":216,"./invariant":224,"_process":10}],98:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16191,7 +17786,7 @@ var DefaultEventPluginOrder = [
 
 module.exports = DefaultEventPluginOrder;
 
-},{"./keyOf":226}],94:[function(require,module,exports){
+},{"./keyOf":231}],99:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16331,7 +17926,7 @@ var EnterLeaveEventPlugin = {
 
 module.exports = EnterLeaveEventPlugin;
 
-},{"./EventConstants":95,"./EventPropagators":100,"./ReactMount":152,"./SyntheticMouseEvent":182,"./keyOf":226}],95:[function(require,module,exports){
+},{"./EventConstants":100,"./EventPropagators":105,"./ReactMount":157,"./SyntheticMouseEvent":187,"./keyOf":231}],100:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -16403,7 +17998,7 @@ var EventConstants = {
 
 module.exports = EventConstants;
 
-},{"./keyMirror":225}],96:[function(require,module,exports){
+},{"./keyMirror":230}],101:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -16493,7 +18088,7 @@ var EventListener = {
 module.exports = EventListener;
 
 }).call(this,require('_process'))
-},{"./emptyFunction":198,"_process":10}],97:[function(require,module,exports){
+},{"./emptyFunction":203,"_process":10}],102:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -16771,7 +18366,7 @@ var EventPluginHub = {
 module.exports = EventPluginHub;
 
 }).call(this,require('_process'))
-},{"./EventPluginRegistry":98,"./EventPluginUtils":99,"./accumulateInto":188,"./forEachAccumulated":204,"./invariant":219,"_process":10}],98:[function(require,module,exports){
+},{"./EventPluginRegistry":103,"./EventPluginUtils":104,"./accumulateInto":193,"./forEachAccumulated":209,"./invariant":224,"_process":10}],103:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -17051,7 +18646,7 @@ var EventPluginRegistry = {
 module.exports = EventPluginRegistry;
 
 }).call(this,require('_process'))
-},{"./invariant":219,"_process":10}],99:[function(require,module,exports){
+},{"./invariant":224,"_process":10}],104:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -17272,7 +18867,7 @@ var EventPluginUtils = {
 module.exports = EventPluginUtils;
 
 }).call(this,require('_process'))
-},{"./EventConstants":95,"./invariant":219,"_process":10}],100:[function(require,module,exports){
+},{"./EventConstants":100,"./invariant":224,"_process":10}],105:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -17414,7 +19009,7 @@ var EventPropagators = {
 module.exports = EventPropagators;
 
 }).call(this,require('_process'))
-},{"./EventConstants":95,"./EventPluginHub":97,"./accumulateInto":188,"./forEachAccumulated":204,"_process":10}],101:[function(require,module,exports){
+},{"./EventConstants":100,"./EventPluginHub":102,"./accumulateInto":193,"./forEachAccumulated":209,"_process":10}],106:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -17458,7 +19053,7 @@ var ExecutionEnvironment = {
 
 module.exports = ExecutionEnvironment;
 
-},{}],102:[function(require,module,exports){
+},{}],107:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -17549,7 +19144,7 @@ PooledClass.addPoolingTo(FallbackCompositionState);
 
 module.exports = FallbackCompositionState;
 
-},{"./Object.assign":107,"./PooledClass":108,"./getTextContentAccessor":214}],103:[function(require,module,exports){
+},{"./Object.assign":112,"./PooledClass":113,"./getTextContentAccessor":219}],108:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -17754,7 +19349,7 @@ var HTMLDOMPropertyConfig = {
 
 module.exports = HTMLDOMPropertyConfig;
 
-},{"./DOMProperty":90,"./ExecutionEnvironment":101}],104:[function(require,module,exports){
+},{"./DOMProperty":95,"./ExecutionEnvironment":106}],109:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -17910,7 +19505,7 @@ var LinkedValueUtils = {
 module.exports = LinkedValueUtils;
 
 }).call(this,require('_process'))
-},{"./ReactPropTypes":161,"./invariant":219,"_process":10}],105:[function(require,module,exports){
+},{"./ReactPropTypes":166,"./invariant":224,"_process":10}],110:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -17967,7 +19562,7 @@ var LocalEventTrapMixin = {
 module.exports = LocalEventTrapMixin;
 
 }).call(this,require('_process'))
-},{"./ReactBrowserEventEmitter":111,"./accumulateInto":188,"./forEachAccumulated":204,"./invariant":219,"_process":10}],106:[function(require,module,exports){
+},{"./ReactBrowserEventEmitter":116,"./accumulateInto":193,"./forEachAccumulated":209,"./invariant":224,"_process":10}],111:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -18025,7 +19620,7 @@ var MobileSafariClickEventPlugin = {
 
 module.exports = MobileSafariClickEventPlugin;
 
-},{"./EventConstants":95,"./emptyFunction":198}],107:[function(require,module,exports){
+},{"./EventConstants":100,"./emptyFunction":203}],112:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -18074,7 +19669,7 @@ function assign(target, sources) {
 
 module.exports = assign;
 
-},{}],108:[function(require,module,exports){
+},{}],113:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -18190,7 +19785,7 @@ var PooledClass = {
 module.exports = PooledClass;
 
 }).call(this,require('_process'))
-},{"./invariant":219,"_process":10}],109:[function(require,module,exports){
+},{"./invariant":224,"_process":10}],114:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -18342,7 +19937,7 @@ React.version = '0.13.1';
 module.exports = React;
 
 }).call(this,require('_process'))
-},{"./EventPluginUtils":99,"./ExecutionEnvironment":101,"./Object.assign":107,"./ReactChildren":113,"./ReactClass":114,"./ReactComponent":115,"./ReactContext":120,"./ReactCurrentOwner":121,"./ReactDOM":122,"./ReactDOMTextComponent":133,"./ReactDefaultInjection":136,"./ReactElement":139,"./ReactElementValidator":140,"./ReactInstanceHandles":148,"./ReactMount":152,"./ReactPerf":157,"./ReactPropTypes":161,"./ReactReconciler":164,"./ReactServerRendering":167,"./findDOMNode":201,"./onlyChild":229,"_process":10}],110:[function(require,module,exports){
+},{"./EventPluginUtils":104,"./ExecutionEnvironment":106,"./Object.assign":112,"./ReactChildren":118,"./ReactClass":119,"./ReactComponent":120,"./ReactContext":125,"./ReactCurrentOwner":126,"./ReactDOM":127,"./ReactDOMTextComponent":138,"./ReactDefaultInjection":141,"./ReactElement":144,"./ReactElementValidator":145,"./ReactInstanceHandles":153,"./ReactMount":157,"./ReactPerf":162,"./ReactPropTypes":166,"./ReactReconciler":169,"./ReactServerRendering":172,"./findDOMNode":206,"./onlyChild":234,"_process":10}],115:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -18373,7 +19968,7 @@ var ReactBrowserComponentMixin = {
 
 module.exports = ReactBrowserComponentMixin;
 
-},{"./findDOMNode":201}],111:[function(require,module,exports){
+},{"./findDOMNode":206}],116:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -18726,7 +20321,7 @@ var ReactBrowserEventEmitter = assign({}, ReactEventEmitterMixin, {
 
 module.exports = ReactBrowserEventEmitter;
 
-},{"./EventConstants":95,"./EventPluginHub":97,"./EventPluginRegistry":98,"./Object.assign":107,"./ReactEventEmitterMixin":143,"./ViewportMetrics":187,"./isEventSupported":220}],112:[function(require,module,exports){
+},{"./EventConstants":100,"./EventPluginHub":102,"./EventPluginRegistry":103,"./Object.assign":112,"./ReactEventEmitterMixin":148,"./ViewportMetrics":192,"./isEventSupported":225}],117:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -18853,7 +20448,7 @@ var ReactChildReconciler = {
 
 module.exports = ReactChildReconciler;
 
-},{"./ReactReconciler":164,"./flattenChildren":202,"./instantiateReactComponent":218,"./shouldUpdateReactComponent":236}],113:[function(require,module,exports){
+},{"./ReactReconciler":169,"./flattenChildren":207,"./instantiateReactComponent":223,"./shouldUpdateReactComponent":241}],118:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -19006,7 +20601,7 @@ var ReactChildren = {
 module.exports = ReactChildren;
 
 }).call(this,require('_process'))
-},{"./PooledClass":108,"./ReactFragment":145,"./traverseAllChildren":238,"./warning":239,"_process":10}],114:[function(require,module,exports){
+},{"./PooledClass":113,"./ReactFragment":150,"./traverseAllChildren":243,"./warning":244,"_process":10}],119:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -19952,7 +21547,7 @@ var ReactClass = {
 module.exports = ReactClass;
 
 }).call(this,require('_process'))
-},{"./Object.assign":107,"./ReactComponent":115,"./ReactCurrentOwner":121,"./ReactElement":139,"./ReactErrorUtils":142,"./ReactInstanceMap":149,"./ReactLifeCycle":150,"./ReactPropTypeLocationNames":159,"./ReactPropTypeLocations":160,"./ReactUpdateQueue":169,"./invariant":219,"./keyMirror":225,"./keyOf":226,"./warning":239,"_process":10}],115:[function(require,module,exports){
+},{"./Object.assign":112,"./ReactComponent":120,"./ReactCurrentOwner":126,"./ReactElement":144,"./ReactErrorUtils":147,"./ReactInstanceMap":154,"./ReactLifeCycle":155,"./ReactPropTypeLocationNames":164,"./ReactPropTypeLocations":165,"./ReactUpdateQueue":174,"./invariant":224,"./keyMirror":230,"./keyOf":231,"./warning":244,"_process":10}],120:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -20088,7 +21683,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = ReactComponent;
 
 }).call(this,require('_process'))
-},{"./ReactUpdateQueue":169,"./invariant":219,"./warning":239,"_process":10}],116:[function(require,module,exports){
+},{"./ReactUpdateQueue":174,"./invariant":224,"./warning":244,"_process":10}],121:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20135,7 +21730,7 @@ var ReactComponentBrowserEnvironment = {
 
 module.exports = ReactComponentBrowserEnvironment;
 
-},{"./ReactDOMIDOperations":126,"./ReactMount":152}],117:[function(require,module,exports){
+},{"./ReactDOMIDOperations":131,"./ReactMount":157}],122:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -20196,7 +21791,7 @@ var ReactComponentEnvironment = {
 module.exports = ReactComponentEnvironment;
 
 }).call(this,require('_process'))
-},{"./invariant":219,"_process":10}],118:[function(require,module,exports){
+},{"./invariant":224,"_process":10}],123:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -20245,7 +21840,7 @@ var ReactComponentWithPureRenderMixin = {
 
 module.exports = ReactComponentWithPureRenderMixin;
 
-},{"./shallowEqual":235}],119:[function(require,module,exports){
+},{"./shallowEqual":240}],124:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -21135,7 +22730,7 @@ var ReactCompositeComponent = {
 module.exports = ReactCompositeComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":107,"./ReactComponentEnvironment":117,"./ReactContext":120,"./ReactCurrentOwner":121,"./ReactElement":139,"./ReactElementValidator":140,"./ReactInstanceMap":149,"./ReactLifeCycle":150,"./ReactNativeComponent":155,"./ReactPerf":157,"./ReactPropTypeLocationNames":159,"./ReactPropTypeLocations":160,"./ReactReconciler":164,"./ReactUpdates":170,"./emptyObject":199,"./invariant":219,"./shouldUpdateReactComponent":236,"./warning":239,"_process":10}],120:[function(require,module,exports){
+},{"./Object.assign":112,"./ReactComponentEnvironment":122,"./ReactContext":125,"./ReactCurrentOwner":126,"./ReactElement":144,"./ReactElementValidator":145,"./ReactInstanceMap":154,"./ReactLifeCycle":155,"./ReactNativeComponent":160,"./ReactPerf":162,"./ReactPropTypeLocationNames":164,"./ReactPropTypeLocations":165,"./ReactReconciler":169,"./ReactUpdates":175,"./emptyObject":204,"./invariant":224,"./shouldUpdateReactComponent":241,"./warning":244,"_process":10}],125:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -21213,7 +22808,7 @@ var ReactContext = {
 module.exports = ReactContext;
 
 }).call(this,require('_process'))
-},{"./Object.assign":107,"./emptyObject":199,"./warning":239,"_process":10}],121:[function(require,module,exports){
+},{"./Object.assign":112,"./emptyObject":204,"./warning":244,"_process":10}],126:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21247,7 +22842,7 @@ var ReactCurrentOwner = {
 
 module.exports = ReactCurrentOwner;
 
-},{}],122:[function(require,module,exports){
+},{}],127:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -21425,7 +23020,7 @@ var ReactDOM = mapObject({
 module.exports = ReactDOM;
 
 }).call(this,require('_process'))
-},{"./ReactElement":139,"./ReactElementValidator":140,"./mapObject":227,"_process":10}],123:[function(require,module,exports){
+},{"./ReactElement":144,"./ReactElementValidator":145,"./mapObject":232,"_process":10}],128:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -21489,7 +23084,7 @@ var ReactDOMButton = ReactClass.createClass({
 
 module.exports = ReactDOMButton;
 
-},{"./AutoFocusMixin":82,"./ReactBrowserComponentMixin":110,"./ReactClass":114,"./ReactElement":139,"./keyMirror":225}],124:[function(require,module,exports){
+},{"./AutoFocusMixin":87,"./ReactBrowserComponentMixin":115,"./ReactClass":119,"./ReactElement":144,"./keyMirror":230}],129:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -21995,7 +23590,7 @@ ReactDOMComponent.injection = {
 module.exports = ReactDOMComponent;
 
 }).call(this,require('_process'))
-},{"./CSSPropertyOperations":85,"./DOMProperty":90,"./DOMPropertyOperations":91,"./Object.assign":107,"./ReactBrowserEventEmitter":111,"./ReactComponentBrowserEnvironment":116,"./ReactMount":152,"./ReactMultiChild":153,"./ReactPerf":157,"./escapeTextContentForBrowser":200,"./invariant":219,"./isEventSupported":220,"./keyOf":226,"./warning":239,"_process":10}],125:[function(require,module,exports){
+},{"./CSSPropertyOperations":90,"./DOMProperty":95,"./DOMPropertyOperations":96,"./Object.assign":112,"./ReactBrowserEventEmitter":116,"./ReactComponentBrowserEnvironment":121,"./ReactMount":157,"./ReactMultiChild":158,"./ReactPerf":162,"./escapeTextContentForBrowser":205,"./invariant":224,"./isEventSupported":225,"./keyOf":231,"./warning":244,"_process":10}],130:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22044,7 +23639,7 @@ var ReactDOMForm = ReactClass.createClass({
 
 module.exports = ReactDOMForm;
 
-},{"./EventConstants":95,"./LocalEventTrapMixin":105,"./ReactBrowserComponentMixin":110,"./ReactClass":114,"./ReactElement":139}],126:[function(require,module,exports){
+},{"./EventConstants":100,"./LocalEventTrapMixin":110,"./ReactBrowserComponentMixin":115,"./ReactClass":119,"./ReactElement":144}],131:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22212,7 +23807,7 @@ ReactPerf.measureMethods(ReactDOMIDOperations, 'ReactDOMIDOperations', {
 module.exports = ReactDOMIDOperations;
 
 }).call(this,require('_process'))
-},{"./CSSPropertyOperations":85,"./DOMChildrenOperations":89,"./DOMPropertyOperations":91,"./ReactMount":152,"./ReactPerf":157,"./invariant":219,"./setInnerHTML":233,"_process":10}],127:[function(require,module,exports){
+},{"./CSSPropertyOperations":90,"./DOMChildrenOperations":94,"./DOMPropertyOperations":96,"./ReactMount":157,"./ReactPerf":162,"./invariant":224,"./setInnerHTML":238,"_process":10}],132:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22257,7 +23852,7 @@ var ReactDOMIframe = ReactClass.createClass({
 
 module.exports = ReactDOMIframe;
 
-},{"./EventConstants":95,"./LocalEventTrapMixin":105,"./ReactBrowserComponentMixin":110,"./ReactClass":114,"./ReactElement":139}],128:[function(require,module,exports){
+},{"./EventConstants":100,"./LocalEventTrapMixin":110,"./ReactBrowserComponentMixin":115,"./ReactClass":119,"./ReactElement":144}],133:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22303,7 +23898,7 @@ var ReactDOMImg = ReactClass.createClass({
 
 module.exports = ReactDOMImg;
 
-},{"./EventConstants":95,"./LocalEventTrapMixin":105,"./ReactBrowserComponentMixin":110,"./ReactClass":114,"./ReactElement":139}],129:[function(require,module,exports){
+},{"./EventConstants":100,"./LocalEventTrapMixin":110,"./ReactBrowserComponentMixin":115,"./ReactClass":119,"./ReactElement":144}],134:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22480,7 +24075,7 @@ var ReactDOMInput = ReactClass.createClass({
 module.exports = ReactDOMInput;
 
 }).call(this,require('_process'))
-},{"./AutoFocusMixin":82,"./DOMPropertyOperations":91,"./LinkedValueUtils":104,"./Object.assign":107,"./ReactBrowserComponentMixin":110,"./ReactClass":114,"./ReactElement":139,"./ReactMount":152,"./ReactUpdates":170,"./invariant":219,"_process":10}],130:[function(require,module,exports){
+},{"./AutoFocusMixin":87,"./DOMPropertyOperations":96,"./LinkedValueUtils":109,"./Object.assign":112,"./ReactBrowserComponentMixin":115,"./ReactClass":119,"./ReactElement":144,"./ReactMount":157,"./ReactUpdates":175,"./invariant":224,"_process":10}],135:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -22532,7 +24127,7 @@ var ReactDOMOption = ReactClass.createClass({
 module.exports = ReactDOMOption;
 
 }).call(this,require('_process'))
-},{"./ReactBrowserComponentMixin":110,"./ReactClass":114,"./ReactElement":139,"./warning":239,"_process":10}],131:[function(require,module,exports){
+},{"./ReactBrowserComponentMixin":115,"./ReactClass":119,"./ReactElement":144,"./warning":244,"_process":10}],136:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22710,7 +24305,7 @@ var ReactDOMSelect = ReactClass.createClass({
 
 module.exports = ReactDOMSelect;
 
-},{"./AutoFocusMixin":82,"./LinkedValueUtils":104,"./Object.assign":107,"./ReactBrowserComponentMixin":110,"./ReactClass":114,"./ReactElement":139,"./ReactUpdates":170}],132:[function(require,module,exports){
+},{"./AutoFocusMixin":87,"./LinkedValueUtils":109,"./Object.assign":112,"./ReactBrowserComponentMixin":115,"./ReactClass":119,"./ReactElement":144,"./ReactUpdates":175}],137:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -22923,7 +24518,7 @@ var ReactDOMSelection = {
 
 module.exports = ReactDOMSelection;
 
-},{"./ExecutionEnvironment":101,"./getNodeForCharacterOffset":212,"./getTextContentAccessor":214}],133:[function(require,module,exports){
+},{"./ExecutionEnvironment":106,"./getNodeForCharacterOffset":217,"./getTextContentAccessor":219}],138:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23040,7 +24635,7 @@ assign(ReactDOMTextComponent.prototype, {
 
 module.exports = ReactDOMTextComponent;
 
-},{"./DOMPropertyOperations":91,"./Object.assign":107,"./ReactComponentBrowserEnvironment":116,"./ReactDOMComponent":124,"./escapeTextContentForBrowser":200}],134:[function(require,module,exports){
+},{"./DOMPropertyOperations":96,"./Object.assign":112,"./ReactComponentBrowserEnvironment":121,"./ReactDOMComponent":129,"./escapeTextContentForBrowser":205}],139:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -23180,7 +24775,7 @@ var ReactDOMTextarea = ReactClass.createClass({
 module.exports = ReactDOMTextarea;
 
 }).call(this,require('_process'))
-},{"./AutoFocusMixin":82,"./DOMPropertyOperations":91,"./LinkedValueUtils":104,"./Object.assign":107,"./ReactBrowserComponentMixin":110,"./ReactClass":114,"./ReactElement":139,"./ReactUpdates":170,"./invariant":219,"./warning":239,"_process":10}],135:[function(require,module,exports){
+},{"./AutoFocusMixin":87,"./DOMPropertyOperations":96,"./LinkedValueUtils":109,"./Object.assign":112,"./ReactBrowserComponentMixin":115,"./ReactClass":119,"./ReactElement":144,"./ReactUpdates":175,"./invariant":224,"./warning":244,"_process":10}],140:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23253,7 +24848,7 @@ var ReactDefaultBatchingStrategy = {
 
 module.exports = ReactDefaultBatchingStrategy;
 
-},{"./Object.assign":107,"./ReactUpdates":170,"./Transaction":186,"./emptyFunction":198}],136:[function(require,module,exports){
+},{"./Object.assign":112,"./ReactUpdates":175,"./Transaction":191,"./emptyFunction":203}],141:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -23412,7 +25007,7 @@ module.exports = {
 };
 
 }).call(this,require('_process'))
-},{"./BeforeInputEventPlugin":83,"./ChangeEventPlugin":87,"./ClientReactRootIndex":88,"./DefaultEventPluginOrder":93,"./EnterLeaveEventPlugin":94,"./ExecutionEnvironment":101,"./HTMLDOMPropertyConfig":103,"./MobileSafariClickEventPlugin":106,"./ReactBrowserComponentMixin":110,"./ReactClass":114,"./ReactComponentBrowserEnvironment":116,"./ReactDOMButton":123,"./ReactDOMComponent":124,"./ReactDOMForm":125,"./ReactDOMIDOperations":126,"./ReactDOMIframe":127,"./ReactDOMImg":128,"./ReactDOMInput":129,"./ReactDOMOption":130,"./ReactDOMSelect":131,"./ReactDOMTextComponent":133,"./ReactDOMTextarea":134,"./ReactDefaultBatchingStrategy":135,"./ReactDefaultPerf":137,"./ReactElement":139,"./ReactEventListener":144,"./ReactInjection":146,"./ReactInstanceHandles":148,"./ReactMount":152,"./ReactReconcileTransaction":163,"./SVGDOMPropertyConfig":171,"./SelectEventPlugin":172,"./ServerReactRootIndex":173,"./SimpleEventPlugin":174,"./createFullPageComponent":195,"_process":10}],137:[function(require,module,exports){
+},{"./BeforeInputEventPlugin":88,"./ChangeEventPlugin":92,"./ClientReactRootIndex":93,"./DefaultEventPluginOrder":98,"./EnterLeaveEventPlugin":99,"./ExecutionEnvironment":106,"./HTMLDOMPropertyConfig":108,"./MobileSafariClickEventPlugin":111,"./ReactBrowserComponentMixin":115,"./ReactClass":119,"./ReactComponentBrowserEnvironment":121,"./ReactDOMButton":128,"./ReactDOMComponent":129,"./ReactDOMForm":130,"./ReactDOMIDOperations":131,"./ReactDOMIframe":132,"./ReactDOMImg":133,"./ReactDOMInput":134,"./ReactDOMOption":135,"./ReactDOMSelect":136,"./ReactDOMTextComponent":138,"./ReactDOMTextarea":139,"./ReactDefaultBatchingStrategy":140,"./ReactDefaultPerf":142,"./ReactElement":144,"./ReactEventListener":149,"./ReactInjection":151,"./ReactInstanceHandles":153,"./ReactMount":157,"./ReactReconcileTransaction":168,"./SVGDOMPropertyConfig":176,"./SelectEventPlugin":177,"./ServerReactRootIndex":178,"./SimpleEventPlugin":179,"./createFullPageComponent":200,"_process":10}],142:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23678,7 +25273,7 @@ var ReactDefaultPerf = {
 
 module.exports = ReactDefaultPerf;
 
-},{"./DOMProperty":90,"./ReactDefaultPerfAnalysis":138,"./ReactMount":152,"./ReactPerf":157,"./performanceNow":231}],138:[function(require,module,exports){
+},{"./DOMProperty":95,"./ReactDefaultPerfAnalysis":143,"./ReactMount":157,"./ReactPerf":162,"./performanceNow":236}],143:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -23884,7 +25479,7 @@ var ReactDefaultPerfAnalysis = {
 
 module.exports = ReactDefaultPerfAnalysis;
 
-},{"./Object.assign":107}],139:[function(require,module,exports){
+},{"./Object.assign":112}],144:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -24192,7 +25787,7 @@ ReactElement.isValidElement = function(object) {
 module.exports = ReactElement;
 
 }).call(this,require('_process'))
-},{"./Object.assign":107,"./ReactContext":120,"./ReactCurrentOwner":121,"./warning":239,"_process":10}],140:[function(require,module,exports){
+},{"./Object.assign":112,"./ReactContext":125,"./ReactCurrentOwner":126,"./warning":244,"_process":10}],145:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -24657,7 +26252,7 @@ var ReactElementValidator = {
 module.exports = ReactElementValidator;
 
 }).call(this,require('_process'))
-},{"./ReactCurrentOwner":121,"./ReactElement":139,"./ReactFragment":145,"./ReactNativeComponent":155,"./ReactPropTypeLocationNames":159,"./ReactPropTypeLocations":160,"./getIteratorFn":210,"./invariant":219,"./warning":239,"_process":10}],141:[function(require,module,exports){
+},{"./ReactCurrentOwner":126,"./ReactElement":144,"./ReactFragment":150,"./ReactNativeComponent":160,"./ReactPropTypeLocationNames":164,"./ReactPropTypeLocations":165,"./getIteratorFn":215,"./invariant":224,"./warning":244,"_process":10}],146:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -24752,7 +26347,7 @@ var ReactEmptyComponent = {
 module.exports = ReactEmptyComponent;
 
 }).call(this,require('_process'))
-},{"./ReactElement":139,"./ReactInstanceMap":149,"./invariant":219,"_process":10}],142:[function(require,module,exports){
+},{"./ReactElement":144,"./ReactInstanceMap":154,"./invariant":224,"_process":10}],147:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24784,7 +26379,7 @@ var ReactErrorUtils = {
 
 module.exports = ReactErrorUtils;
 
-},{}],143:[function(require,module,exports){
+},{}],148:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -24834,7 +26429,7 @@ var ReactEventEmitterMixin = {
 
 module.exports = ReactEventEmitterMixin;
 
-},{"./EventPluginHub":97}],144:[function(require,module,exports){
+},{"./EventPluginHub":102}],149:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -25017,7 +26612,7 @@ var ReactEventListener = {
 
 module.exports = ReactEventListener;
 
-},{"./EventListener":96,"./ExecutionEnvironment":101,"./Object.assign":107,"./PooledClass":108,"./ReactInstanceHandles":148,"./ReactMount":152,"./ReactUpdates":170,"./getEventTarget":209,"./getUnboundedScrollPosition":215}],145:[function(require,module,exports){
+},{"./EventListener":101,"./ExecutionEnvironment":106,"./Object.assign":112,"./PooledClass":113,"./ReactInstanceHandles":153,"./ReactMount":157,"./ReactUpdates":175,"./getEventTarget":214,"./getUnboundedScrollPosition":220}],150:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2015, Facebook, Inc.
@@ -25202,7 +26797,7 @@ var ReactFragment = {
 module.exports = ReactFragment;
 
 }).call(this,require('_process'))
-},{"./ReactElement":139,"./warning":239,"_process":10}],146:[function(require,module,exports){
+},{"./ReactElement":144,"./warning":244,"_process":10}],151:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -25244,7 +26839,7 @@ var ReactInjection = {
 
 module.exports = ReactInjection;
 
-},{"./DOMProperty":90,"./EventPluginHub":97,"./ReactBrowserEventEmitter":111,"./ReactClass":114,"./ReactComponentEnvironment":117,"./ReactDOMComponent":124,"./ReactEmptyComponent":141,"./ReactNativeComponent":155,"./ReactPerf":157,"./ReactRootIndex":166,"./ReactUpdates":170}],147:[function(require,module,exports){
+},{"./DOMProperty":95,"./EventPluginHub":102,"./ReactBrowserEventEmitter":116,"./ReactClass":119,"./ReactComponentEnvironment":122,"./ReactDOMComponent":129,"./ReactEmptyComponent":146,"./ReactNativeComponent":160,"./ReactPerf":162,"./ReactRootIndex":171,"./ReactUpdates":175}],152:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -25379,7 +26974,7 @@ var ReactInputSelection = {
 
 module.exports = ReactInputSelection;
 
-},{"./ReactDOMSelection":132,"./containsNode":193,"./focusNode":203,"./getActiveElement":205}],148:[function(require,module,exports){
+},{"./ReactDOMSelection":137,"./containsNode":198,"./focusNode":208,"./getActiveElement":210}],153:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -25715,7 +27310,7 @@ var ReactInstanceHandles = {
 module.exports = ReactInstanceHandles;
 
 }).call(this,require('_process'))
-},{"./ReactRootIndex":166,"./invariant":219,"_process":10}],149:[function(require,module,exports){
+},{"./ReactRootIndex":171,"./invariant":224,"_process":10}],154:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -25764,7 +27359,7 @@ var ReactInstanceMap = {
 
 module.exports = ReactInstanceMap;
 
-},{}],150:[function(require,module,exports){
+},{}],155:[function(require,module,exports){
 /**
  * Copyright 2015, Facebook, Inc.
  * All rights reserved.
@@ -25801,7 +27396,7 @@ var ReactLifeCycle = {
 
 module.exports = ReactLifeCycle;
 
-},{}],151:[function(require,module,exports){
+},{}],156:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -25849,7 +27444,7 @@ var ReactMarkupChecksum = {
 
 module.exports = ReactMarkupChecksum;
 
-},{"./adler32":189}],152:[function(require,module,exports){
+},{"./adler32":194}],157:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -26740,7 +28335,7 @@ ReactPerf.measureMethods(ReactMount, 'ReactMount', {
 module.exports = ReactMount;
 
 }).call(this,require('_process'))
-},{"./DOMProperty":90,"./ReactBrowserEventEmitter":111,"./ReactCurrentOwner":121,"./ReactElement":139,"./ReactElementValidator":140,"./ReactEmptyComponent":141,"./ReactInstanceHandles":148,"./ReactInstanceMap":149,"./ReactMarkupChecksum":151,"./ReactPerf":157,"./ReactReconciler":164,"./ReactUpdateQueue":169,"./ReactUpdates":170,"./containsNode":193,"./emptyObject":199,"./getReactRootElementInContainer":213,"./instantiateReactComponent":218,"./invariant":219,"./setInnerHTML":233,"./shouldUpdateReactComponent":236,"./warning":239,"_process":10}],153:[function(require,module,exports){
+},{"./DOMProperty":95,"./ReactBrowserEventEmitter":116,"./ReactCurrentOwner":126,"./ReactElement":144,"./ReactElementValidator":145,"./ReactEmptyComponent":146,"./ReactInstanceHandles":153,"./ReactInstanceMap":154,"./ReactMarkupChecksum":156,"./ReactPerf":162,"./ReactReconciler":169,"./ReactUpdateQueue":174,"./ReactUpdates":175,"./containsNode":198,"./emptyObject":204,"./getReactRootElementInContainer":218,"./instantiateReactComponent":223,"./invariant":224,"./setInnerHTML":238,"./shouldUpdateReactComponent":241,"./warning":244,"_process":10}],158:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -27170,7 +28765,7 @@ var ReactMultiChild = {
 
 module.exports = ReactMultiChild;
 
-},{"./ReactChildReconciler":112,"./ReactComponentEnvironment":117,"./ReactMultiChildUpdateTypes":154,"./ReactReconciler":164}],154:[function(require,module,exports){
+},{"./ReactChildReconciler":117,"./ReactComponentEnvironment":122,"./ReactMultiChildUpdateTypes":159,"./ReactReconciler":169}],159:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -27203,7 +28798,7 @@ var ReactMultiChildUpdateTypes = keyMirror({
 
 module.exports = ReactMultiChildUpdateTypes;
 
-},{"./keyMirror":225}],155:[function(require,module,exports){
+},{"./keyMirror":230}],160:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -27310,7 +28905,7 @@ var ReactNativeComponent = {
 module.exports = ReactNativeComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":107,"./invariant":219,"_process":10}],156:[function(require,module,exports){
+},{"./Object.assign":112,"./invariant":224,"_process":10}],161:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -27422,7 +29017,7 @@ var ReactOwner = {
 module.exports = ReactOwner;
 
 }).call(this,require('_process'))
-},{"./invariant":219,"_process":10}],157:[function(require,module,exports){
+},{"./invariant":224,"_process":10}],162:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -27526,7 +29121,7 @@ function _noMeasure(objName, fnName, func) {
 module.exports = ReactPerf;
 
 }).call(this,require('_process'))
-},{"_process":10}],158:[function(require,module,exports){
+},{"_process":10}],163:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -27636,7 +29231,7 @@ var ReactPropTransferer = {
 
 module.exports = ReactPropTransferer;
 
-},{"./Object.assign":107,"./emptyFunction":198,"./joinClasses":224}],159:[function(require,module,exports){
+},{"./Object.assign":112,"./emptyFunction":203,"./joinClasses":229}],164:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -27664,7 +29259,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = ReactPropTypeLocationNames;
 
 }).call(this,require('_process'))
-},{"_process":10}],160:[function(require,module,exports){
+},{"_process":10}],165:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -27688,7 +29283,7 @@ var ReactPropTypeLocations = keyMirror({
 
 module.exports = ReactPropTypeLocations;
 
-},{"./keyMirror":225}],161:[function(require,module,exports){
+},{"./keyMirror":230}],166:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -28037,7 +29632,7 @@ function getPreciseType(propValue) {
 
 module.exports = ReactPropTypes;
 
-},{"./ReactElement":139,"./ReactFragment":145,"./ReactPropTypeLocationNames":159,"./emptyFunction":198}],162:[function(require,module,exports){
+},{"./ReactElement":144,"./ReactFragment":150,"./ReactPropTypeLocationNames":164,"./emptyFunction":203}],167:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -28093,7 +29688,7 @@ PooledClass.addPoolingTo(ReactPutListenerQueue);
 
 module.exports = ReactPutListenerQueue;
 
-},{"./Object.assign":107,"./PooledClass":108,"./ReactBrowserEventEmitter":111}],163:[function(require,module,exports){
+},{"./Object.assign":112,"./PooledClass":113,"./ReactBrowserEventEmitter":116}],168:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -28269,7 +29864,7 @@ PooledClass.addPoolingTo(ReactReconcileTransaction);
 
 module.exports = ReactReconcileTransaction;
 
-},{"./CallbackQueue":86,"./Object.assign":107,"./PooledClass":108,"./ReactBrowserEventEmitter":111,"./ReactInputSelection":147,"./ReactPutListenerQueue":162,"./Transaction":186}],164:[function(require,module,exports){
+},{"./CallbackQueue":91,"./Object.assign":112,"./PooledClass":113,"./ReactBrowserEventEmitter":116,"./ReactInputSelection":152,"./ReactPutListenerQueue":167,"./Transaction":191}],169:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -28393,7 +29988,7 @@ var ReactReconciler = {
 module.exports = ReactReconciler;
 
 }).call(this,require('_process'))
-},{"./ReactElementValidator":140,"./ReactRef":165,"_process":10}],165:[function(require,module,exports){
+},{"./ReactElementValidator":145,"./ReactRef":170,"_process":10}],170:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -28464,7 +30059,7 @@ ReactRef.detachRefs = function(instance, element) {
 
 module.exports = ReactRef;
 
-},{"./ReactOwner":156}],166:[function(require,module,exports){
+},{"./ReactOwner":161}],171:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -28495,7 +30090,7 @@ var ReactRootIndex = {
 
 module.exports = ReactRootIndex;
 
-},{}],167:[function(require,module,exports){
+},{}],172:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -28577,7 +30172,7 @@ module.exports = {
 };
 
 }).call(this,require('_process'))
-},{"./ReactElement":139,"./ReactInstanceHandles":148,"./ReactMarkupChecksum":151,"./ReactServerRenderingTransaction":168,"./emptyObject":199,"./instantiateReactComponent":218,"./invariant":219,"_process":10}],168:[function(require,module,exports){
+},{"./ReactElement":144,"./ReactInstanceHandles":153,"./ReactMarkupChecksum":156,"./ReactServerRenderingTransaction":173,"./emptyObject":204,"./instantiateReactComponent":223,"./invariant":224,"_process":10}],173:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -28690,7 +30285,7 @@ PooledClass.addPoolingTo(ReactServerRenderingTransaction);
 
 module.exports = ReactServerRenderingTransaction;
 
-},{"./CallbackQueue":86,"./Object.assign":107,"./PooledClass":108,"./ReactPutListenerQueue":162,"./Transaction":186,"./emptyFunction":198}],169:[function(require,module,exports){
+},{"./CallbackQueue":91,"./Object.assign":112,"./PooledClass":113,"./ReactPutListenerQueue":167,"./Transaction":191,"./emptyFunction":203}],174:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2015, Facebook, Inc.
@@ -28989,7 +30584,7 @@ var ReactUpdateQueue = {
 module.exports = ReactUpdateQueue;
 
 }).call(this,require('_process'))
-},{"./Object.assign":107,"./ReactCurrentOwner":121,"./ReactElement":139,"./ReactInstanceMap":149,"./ReactLifeCycle":150,"./ReactUpdates":170,"./invariant":219,"./warning":239,"_process":10}],170:[function(require,module,exports){
+},{"./Object.assign":112,"./ReactCurrentOwner":126,"./ReactElement":144,"./ReactInstanceMap":154,"./ReactLifeCycle":155,"./ReactUpdates":175,"./invariant":224,"./warning":244,"_process":10}],175:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -29271,7 +30866,7 @@ var ReactUpdates = {
 module.exports = ReactUpdates;
 
 }).call(this,require('_process'))
-},{"./CallbackQueue":86,"./Object.assign":107,"./PooledClass":108,"./ReactCurrentOwner":121,"./ReactPerf":157,"./ReactReconciler":164,"./Transaction":186,"./invariant":219,"./warning":239,"_process":10}],171:[function(require,module,exports){
+},{"./CallbackQueue":91,"./Object.assign":112,"./PooledClass":113,"./ReactCurrentOwner":126,"./ReactPerf":162,"./ReactReconciler":169,"./Transaction":191,"./invariant":224,"./warning":244,"_process":10}],176:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -29363,7 +30958,7 @@ var SVGDOMPropertyConfig = {
 
 module.exports = SVGDOMPropertyConfig;
 
-},{"./DOMProperty":90}],172:[function(require,module,exports){
+},{"./DOMProperty":95}],177:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -29558,7 +31153,7 @@ var SelectEventPlugin = {
 
 module.exports = SelectEventPlugin;
 
-},{"./EventConstants":95,"./EventPropagators":100,"./ReactInputSelection":147,"./SyntheticEvent":178,"./getActiveElement":205,"./isTextInputElement":222,"./keyOf":226,"./shallowEqual":235}],173:[function(require,module,exports){
+},{"./EventConstants":100,"./EventPropagators":105,"./ReactInputSelection":152,"./SyntheticEvent":183,"./getActiveElement":210,"./isTextInputElement":227,"./keyOf":231,"./shallowEqual":240}],178:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -29589,7 +31184,7 @@ var ServerReactRootIndex = {
 
 module.exports = ServerReactRootIndex;
 
-},{}],174:[function(require,module,exports){
+},{}],179:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -30017,7 +31612,7 @@ var SimpleEventPlugin = {
 module.exports = SimpleEventPlugin;
 
 }).call(this,require('_process'))
-},{"./EventConstants":95,"./EventPluginUtils":99,"./EventPropagators":100,"./SyntheticClipboardEvent":175,"./SyntheticDragEvent":177,"./SyntheticEvent":178,"./SyntheticFocusEvent":179,"./SyntheticKeyboardEvent":181,"./SyntheticMouseEvent":182,"./SyntheticTouchEvent":183,"./SyntheticUIEvent":184,"./SyntheticWheelEvent":185,"./getEventCharCode":206,"./invariant":219,"./keyOf":226,"./warning":239,"_process":10}],175:[function(require,module,exports){
+},{"./EventConstants":100,"./EventPluginUtils":104,"./EventPropagators":105,"./SyntheticClipboardEvent":180,"./SyntheticDragEvent":182,"./SyntheticEvent":183,"./SyntheticFocusEvent":184,"./SyntheticKeyboardEvent":186,"./SyntheticMouseEvent":187,"./SyntheticTouchEvent":188,"./SyntheticUIEvent":189,"./SyntheticWheelEvent":190,"./getEventCharCode":211,"./invariant":224,"./keyOf":231,"./warning":244,"_process":10}],180:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30062,7 +31657,7 @@ SyntheticEvent.augmentClass(SyntheticClipboardEvent, ClipboardEventInterface);
 
 module.exports = SyntheticClipboardEvent;
 
-},{"./SyntheticEvent":178}],176:[function(require,module,exports){
+},{"./SyntheticEvent":183}],181:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30107,7 +31702,7 @@ SyntheticEvent.augmentClass(
 
 module.exports = SyntheticCompositionEvent;
 
-},{"./SyntheticEvent":178}],177:[function(require,module,exports){
+},{"./SyntheticEvent":183}],182:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30146,7 +31741,7 @@ SyntheticMouseEvent.augmentClass(SyntheticDragEvent, DragEventInterface);
 
 module.exports = SyntheticDragEvent;
 
-},{"./SyntheticMouseEvent":182}],178:[function(require,module,exports){
+},{"./SyntheticMouseEvent":187}],183:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30312,7 +31907,7 @@ PooledClass.addPoolingTo(SyntheticEvent, PooledClass.threeArgumentPooler);
 
 module.exports = SyntheticEvent;
 
-},{"./Object.assign":107,"./PooledClass":108,"./emptyFunction":198,"./getEventTarget":209}],179:[function(require,module,exports){
+},{"./Object.assign":112,"./PooledClass":113,"./emptyFunction":203,"./getEventTarget":214}],184:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30351,7 +31946,7 @@ SyntheticUIEvent.augmentClass(SyntheticFocusEvent, FocusEventInterface);
 
 module.exports = SyntheticFocusEvent;
 
-},{"./SyntheticUIEvent":184}],180:[function(require,module,exports){
+},{"./SyntheticUIEvent":189}],185:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30397,7 +31992,7 @@ SyntheticEvent.augmentClass(
 
 module.exports = SyntheticInputEvent;
 
-},{"./SyntheticEvent":178}],181:[function(require,module,exports){
+},{"./SyntheticEvent":183}],186:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30484,7 +32079,7 @@ SyntheticUIEvent.augmentClass(SyntheticKeyboardEvent, KeyboardEventInterface);
 
 module.exports = SyntheticKeyboardEvent;
 
-},{"./SyntheticUIEvent":184,"./getEventCharCode":206,"./getEventKey":207,"./getEventModifierState":208}],182:[function(require,module,exports){
+},{"./SyntheticUIEvent":189,"./getEventCharCode":211,"./getEventKey":212,"./getEventModifierState":213}],187:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30565,7 +32160,7 @@ SyntheticUIEvent.augmentClass(SyntheticMouseEvent, MouseEventInterface);
 
 module.exports = SyntheticMouseEvent;
 
-},{"./SyntheticUIEvent":184,"./ViewportMetrics":187,"./getEventModifierState":208}],183:[function(require,module,exports){
+},{"./SyntheticUIEvent":189,"./ViewportMetrics":192,"./getEventModifierState":213}],188:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30613,7 +32208,7 @@ SyntheticUIEvent.augmentClass(SyntheticTouchEvent, TouchEventInterface);
 
 module.exports = SyntheticTouchEvent;
 
-},{"./SyntheticUIEvent":184,"./getEventModifierState":208}],184:[function(require,module,exports){
+},{"./SyntheticUIEvent":189,"./getEventModifierState":213}],189:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30675,7 +32270,7 @@ SyntheticEvent.augmentClass(SyntheticUIEvent, UIEventInterface);
 
 module.exports = SyntheticUIEvent;
 
-},{"./SyntheticEvent":178,"./getEventTarget":209}],185:[function(require,module,exports){
+},{"./SyntheticEvent":183,"./getEventTarget":214}],190:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -30736,7 +32331,7 @@ SyntheticMouseEvent.augmentClass(SyntheticWheelEvent, WheelEventInterface);
 
 module.exports = SyntheticWheelEvent;
 
-},{"./SyntheticMouseEvent":182}],186:[function(require,module,exports){
+},{"./SyntheticMouseEvent":187}],191:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -30977,7 +32572,7 @@ var Transaction = {
 module.exports = Transaction;
 
 }).call(this,require('_process'))
-},{"./invariant":219,"_process":10}],187:[function(require,module,exports){
+},{"./invariant":224,"_process":10}],192:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31006,7 +32601,7 @@ var ViewportMetrics = {
 
 module.exports = ViewportMetrics;
 
-},{}],188:[function(require,module,exports){
+},{}],193:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -31072,7 +32667,7 @@ function accumulateInto(current, next) {
 module.exports = accumulateInto;
 
 }).call(this,require('_process'))
-},{"./invariant":219,"_process":10}],189:[function(require,module,exports){
+},{"./invariant":224,"_process":10}],194:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31106,7 +32701,7 @@ function adler32(data) {
 
 module.exports = adler32;
 
-},{}],190:[function(require,module,exports){
+},{}],195:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31138,7 +32733,7 @@ function camelize(string) {
 
 module.exports = camelize;
 
-},{}],191:[function(require,module,exports){
+},{}],196:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -31180,7 +32775,7 @@ function camelizeStyleName(string) {
 
 module.exports = camelizeStyleName;
 
-},{"./camelize":190}],192:[function(require,module,exports){
+},{"./camelize":195}],197:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -31239,7 +32834,7 @@ function cloneWithProps(child, props) {
 module.exports = cloneWithProps;
 
 }).call(this,require('_process'))
-},{"./ReactElement":139,"./ReactPropTransferer":158,"./keyOf":226,"./warning":239,"_process":10}],193:[function(require,module,exports){
+},{"./ReactElement":144,"./ReactPropTransferer":163,"./keyOf":231,"./warning":244,"_process":10}],198:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31283,7 +32878,7 @@ function containsNode(outerNode, innerNode) {
 
 module.exports = containsNode;
 
-},{"./isTextNode":223}],194:[function(require,module,exports){
+},{"./isTextNode":228}],199:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31369,7 +32964,7 @@ function createArrayFromMixed(obj) {
 
 module.exports = createArrayFromMixed;
 
-},{"./toArray":237}],195:[function(require,module,exports){
+},{"./toArray":242}],200:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -31431,7 +33026,7 @@ function createFullPageComponent(tag) {
 module.exports = createFullPageComponent;
 
 }).call(this,require('_process'))
-},{"./ReactClass":114,"./ReactElement":139,"./invariant":219,"_process":10}],196:[function(require,module,exports){
+},{"./ReactClass":119,"./ReactElement":144,"./invariant":224,"_process":10}],201:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -31521,7 +33116,7 @@ function createNodesFromMarkup(markup, handleScript) {
 module.exports = createNodesFromMarkup;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":101,"./createArrayFromMixed":194,"./getMarkupWrap":211,"./invariant":219,"_process":10}],197:[function(require,module,exports){
+},{"./ExecutionEnvironment":106,"./createArrayFromMixed":199,"./getMarkupWrap":216,"./invariant":224,"_process":10}],202:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31579,7 +33174,7 @@ function dangerousStyleValue(name, value) {
 
 module.exports = dangerousStyleValue;
 
-},{"./CSSProperty":84}],198:[function(require,module,exports){
+},{"./CSSProperty":89}],203:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31613,7 +33208,7 @@ emptyFunction.thatReturnsArgument = function(arg) { return arg; };
 
 module.exports = emptyFunction;
 
-},{}],199:[function(require,module,exports){
+},{}],204:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -31637,7 +33232,7 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = emptyObject;
 
 }).call(this,require('_process'))
-},{"_process":10}],200:[function(require,module,exports){
+},{"_process":10}],205:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31677,7 +33272,7 @@ function escapeTextContentForBrowser(text) {
 
 module.exports = escapeTextContentForBrowser;
 
-},{}],201:[function(require,module,exports){
+},{}],206:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -31750,7 +33345,7 @@ function findDOMNode(componentOrElement) {
 module.exports = findDOMNode;
 
 }).call(this,require('_process'))
-},{"./ReactCurrentOwner":121,"./ReactInstanceMap":149,"./ReactMount":152,"./invariant":219,"./isNode":221,"./warning":239,"_process":10}],202:[function(require,module,exports){
+},{"./ReactCurrentOwner":126,"./ReactInstanceMap":154,"./ReactMount":157,"./invariant":224,"./isNode":226,"./warning":244,"_process":10}],207:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -31808,7 +33403,7 @@ function flattenChildren(children) {
 module.exports = flattenChildren;
 
 }).call(this,require('_process'))
-},{"./traverseAllChildren":238,"./warning":239,"_process":10}],203:[function(require,module,exports){
+},{"./traverseAllChildren":243,"./warning":244,"_process":10}],208:[function(require,module,exports){
 /**
  * Copyright 2014-2015, Facebook, Inc.
  * All rights reserved.
@@ -31837,7 +33432,7 @@ function focusNode(node) {
 
 module.exports = focusNode;
 
-},{}],204:[function(require,module,exports){
+},{}],209:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31868,7 +33463,7 @@ var forEachAccumulated = function(arr, cb, scope) {
 
 module.exports = forEachAccumulated;
 
-},{}],205:[function(require,module,exports){
+},{}],210:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31897,7 +33492,7 @@ function getActiveElement() /*?DOMElement*/ {
 
 module.exports = getActiveElement;
 
-},{}],206:[function(require,module,exports){
+},{}],211:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -31949,7 +33544,7 @@ function getEventCharCode(nativeEvent) {
 
 module.exports = getEventCharCode;
 
-},{}],207:[function(require,module,exports){
+},{}],212:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32054,7 +33649,7 @@ function getEventKey(nativeEvent) {
 
 module.exports = getEventKey;
 
-},{"./getEventCharCode":206}],208:[function(require,module,exports){
+},{"./getEventCharCode":211}],213:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32101,7 +33696,7 @@ function getEventModifierState(nativeEvent) {
 
 module.exports = getEventModifierState;
 
-},{}],209:[function(require,module,exports){
+},{}],214:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32132,7 +33727,7 @@ function getEventTarget(nativeEvent) {
 
 module.exports = getEventTarget;
 
-},{}],210:[function(require,module,exports){
+},{}],215:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32176,7 +33771,7 @@ function getIteratorFn(maybeIterable) {
 
 module.exports = getIteratorFn;
 
-},{}],211:[function(require,module,exports){
+},{}],216:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -32293,7 +33888,7 @@ function getMarkupWrap(nodeName) {
 module.exports = getMarkupWrap;
 
 }).call(this,require('_process'))
-},{"./ExecutionEnvironment":101,"./invariant":219,"_process":10}],212:[function(require,module,exports){
+},{"./ExecutionEnvironment":106,"./invariant":224,"_process":10}],217:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32368,7 +33963,7 @@ function getNodeForCharacterOffset(root, offset) {
 
 module.exports = getNodeForCharacterOffset;
 
-},{}],213:[function(require,module,exports){
+},{}],218:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32403,7 +33998,7 @@ function getReactRootElementInContainer(container) {
 
 module.exports = getReactRootElementInContainer;
 
-},{}],214:[function(require,module,exports){
+},{}],219:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32440,7 +34035,7 @@ function getTextContentAccessor() {
 
 module.exports = getTextContentAccessor;
 
-},{"./ExecutionEnvironment":101}],215:[function(require,module,exports){
+},{"./ExecutionEnvironment":106}],220:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32480,7 +34075,7 @@ function getUnboundedScrollPosition(scrollable) {
 
 module.exports = getUnboundedScrollPosition;
 
-},{}],216:[function(require,module,exports){
+},{}],221:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32513,7 +34108,7 @@ function hyphenate(string) {
 
 module.exports = hyphenate;
 
-},{}],217:[function(require,module,exports){
+},{}],222:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32554,7 +34149,7 @@ function hyphenateStyleName(string) {
 
 module.exports = hyphenateStyleName;
 
-},{"./hyphenate":216}],218:[function(require,module,exports){
+},{"./hyphenate":221}],223:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -32691,7 +34286,7 @@ function instantiateReactComponent(node, parentCompositeType) {
 module.exports = instantiateReactComponent;
 
 }).call(this,require('_process'))
-},{"./Object.assign":107,"./ReactCompositeComponent":119,"./ReactEmptyComponent":141,"./ReactNativeComponent":155,"./invariant":219,"./warning":239,"_process":10}],219:[function(require,module,exports){
+},{"./Object.assign":112,"./ReactCompositeComponent":124,"./ReactEmptyComponent":146,"./ReactNativeComponent":160,"./invariant":224,"./warning":244,"_process":10}],224:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -32748,7 +34343,7 @@ var invariant = function(condition, format, a, b, c, d, e, f) {
 module.exports = invariant;
 
 }).call(this,require('_process'))
-},{"_process":10}],220:[function(require,module,exports){
+},{"_process":10}],225:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32813,7 +34408,7 @@ function isEventSupported(eventNameSuffix, capture) {
 
 module.exports = isEventSupported;
 
-},{"./ExecutionEnvironment":101}],221:[function(require,module,exports){
+},{"./ExecutionEnvironment":106}],226:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32840,7 +34435,7 @@ function isNode(object) {
 
 module.exports = isNode;
 
-},{}],222:[function(require,module,exports){
+},{}],227:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32883,7 +34478,7 @@ function isTextInputElement(elem) {
 
 module.exports = isTextInputElement;
 
-},{}],223:[function(require,module,exports){
+},{}],228:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32908,7 +34503,7 @@ function isTextNode(object) {
 
 module.exports = isTextNode;
 
-},{"./isNode":221}],224:[function(require,module,exports){
+},{"./isNode":226}],229:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -32949,7 +34544,7 @@ function joinClasses(className/*, ... */) {
 
 module.exports = joinClasses;
 
-},{}],225:[function(require,module,exports){
+},{}],230:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -33004,7 +34599,7 @@ var keyMirror = function(obj) {
 module.exports = keyMirror;
 
 }).call(this,require('_process'))
-},{"./invariant":219,"_process":10}],226:[function(require,module,exports){
+},{"./invariant":224,"_process":10}],231:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33040,7 +34635,7 @@ var keyOf = function(oneKeyObj) {
 
 module.exports = keyOf;
 
-},{}],227:[function(require,module,exports){
+},{}],232:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33093,7 +34688,7 @@ function mapObject(object, callback, context) {
 
 module.exports = mapObject;
 
-},{}],228:[function(require,module,exports){
+},{}],233:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33126,7 +34721,7 @@ function memoizeStringOnly(callback) {
 
 module.exports = memoizeStringOnly;
 
-},{}],229:[function(require,module,exports){
+},{}],234:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -33166,7 +34761,7 @@ function onlyChild(children) {
 module.exports = onlyChild;
 
 }).call(this,require('_process'))
-},{"./ReactElement":139,"./invariant":219,"_process":10}],230:[function(require,module,exports){
+},{"./ReactElement":144,"./invariant":224,"_process":10}],235:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33194,7 +34789,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = performance || {};
 
-},{"./ExecutionEnvironment":101}],231:[function(require,module,exports){
+},{"./ExecutionEnvironment":106}],236:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33222,7 +34817,7 @@ var performanceNow = performance.now.bind(performance);
 
 module.exports = performanceNow;
 
-},{"./performance":230}],232:[function(require,module,exports){
+},{"./performance":235}],237:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33250,7 +34845,7 @@ function quoteAttributeValueForBrowser(value) {
 
 module.exports = quoteAttributeValueForBrowser;
 
-},{"./escapeTextContentForBrowser":200}],233:[function(require,module,exports){
+},{"./escapeTextContentForBrowser":205}],238:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33339,7 +34934,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = setInnerHTML;
 
-},{"./ExecutionEnvironment":101}],234:[function(require,module,exports){
+},{"./ExecutionEnvironment":106}],239:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33381,7 +34976,7 @@ if (ExecutionEnvironment.canUseDOM) {
 
 module.exports = setTextContent;
 
-},{"./ExecutionEnvironment":101,"./escapeTextContentForBrowser":200,"./setInnerHTML":233}],235:[function(require,module,exports){
+},{"./ExecutionEnvironment":106,"./escapeTextContentForBrowser":205,"./setInnerHTML":238}],240:[function(require,module,exports){
 /**
  * Copyright 2013-2015, Facebook, Inc.
  * All rights reserved.
@@ -33425,7 +35020,7 @@ function shallowEqual(objA, objB) {
 
 module.exports = shallowEqual;
 
-},{}],236:[function(require,module,exports){
+},{}],241:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -33529,7 +35124,7 @@ function shouldUpdateReactComponent(prevElement, nextElement) {
 module.exports = shouldUpdateReactComponent;
 
 }).call(this,require('_process'))
-},{"./warning":239,"_process":10}],237:[function(require,module,exports){
+},{"./warning":244,"_process":10}],242:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -33601,7 +35196,7 @@ function toArray(obj) {
 module.exports = toArray;
 
 }).call(this,require('_process'))
-},{"./invariant":219,"_process":10}],238:[function(require,module,exports){
+},{"./invariant":224,"_process":10}],243:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2013-2015, Facebook, Inc.
@@ -33854,7 +35449,7 @@ function traverseAllChildren(children, callback, traverseContext) {
 module.exports = traverseAllChildren;
 
 }).call(this,require('_process'))
-},{"./ReactElement":139,"./ReactFragment":145,"./ReactInstanceHandles":148,"./getIteratorFn":210,"./invariant":219,"./warning":239,"_process":10}],239:[function(require,module,exports){
+},{"./ReactElement":144,"./ReactFragment":150,"./ReactInstanceHandles":153,"./getIteratorFn":215,"./invariant":224,"./warning":244,"_process":10}],244:[function(require,module,exports){
 (function (process){
 /**
  * Copyright 2014-2015, Facebook, Inc.
@@ -33917,10 +35512,10 @@ if ("production" !== process.env.NODE_ENV) {
 module.exports = warning;
 
 }).call(this,require('_process'))
-},{"./emptyFunction":198,"_process":10}],240:[function(require,module,exports){
+},{"./emptyFunction":203,"_process":10}],245:[function(require,module,exports){
 module.exports = require('./lib/React');
 
-},{"./lib/React":109}],241:[function(require,module,exports){
+},{"./lib/React":114}],246:[function(require,module,exports){
 (function (process){
 var toGeoJSON = (function() {
     'use strict';
@@ -34277,7 +35872,7 @@ var toGeoJSON = (function() {
 if (typeof module !== 'undefined') module.exports = toGeoJSON;
 
 }).call(this,require('_process'))
-},{"_process":10,"xmldom":3}],242:[function(require,module,exports){
+},{"_process":10,"xmldom":3}],247:[function(require,module,exports){
 !function() {
   var topojson = {
     version: "1.6.18",
@@ -34813,7 +36408,7 @@ if (typeof module !== 'undefined') module.exports = toGeoJSON;
   else this.topojson = topojson;
 }();
 
-},{}],243:[function(require,module,exports){
+},{}],248:[function(require,module,exports){
 var geometryArea = require('geojson-area').geometry;
 
 /**
@@ -34877,7 +36472,7 @@ module.exports = function(_) {
     }
 };
 
-},{"geojson-area":244}],244:[function(require,module,exports){
+},{"geojson-area":249}],249:[function(require,module,exports){
 var wgs84 = require('wgs84');
 
 module.exports.geometry = geometry;
@@ -34953,9 +36548,9 @@ function rad(_) {
     return _ * Math.PI / 180;
 }
 
-},{"wgs84":245}],245:[function(require,module,exports){
-arguments[4][79][0].apply(exports,arguments)
-},{"dup":79}],246:[function(require,module,exports){
+},{"wgs84":250}],250:[function(require,module,exports){
+arguments[4][84][0].apply(exports,arguments)
+},{"dup":84}],251:[function(require,module,exports){
 //http://en.wikipedia.org/wiki/Haversine_formula
 //http://www.movable-type.co.uk/scripts/latlong.html
 
@@ -35026,7 +36621,7 @@ function toDeg(radian) {
     return radian * 180 / Math.PI;
 }
 
-},{}],247:[function(require,module,exports){
+},{}],252:[function(require,module,exports){
 /**
  * Combines a {@link FeatureCollection} of {@link Point}, {@link LineString}, or {@link Polygon} features into {@link MultiPoint}, {@link MultiLineString}, or {@link MultiPolygon} features.
  *
@@ -35106,7 +36701,7 @@ function pluckCoods(multi){
   });
 }
 
-},{}],248:[function(require,module,exports){
+},{}],253:[function(require,module,exports){
 var featureCollection = require('turf-featurecollection');
 var each = require('turf-meta').coordEach;
 var point = require('turf-point');
@@ -35152,7 +36747,7 @@ module.exports = function(layer) {
   return featureCollection(points);
 };
 
-},{"turf-featurecollection":249,"turf-meta":250,"turf-point":251}],249:[function(require,module,exports){
+},{"turf-featurecollection":254,"turf-meta":255,"turf-point":256}],254:[function(require,module,exports){
 /**
  * Takes one or more {@link Feature|Features} and creates a {@link FeatureCollection}
  *
@@ -35178,7 +36773,7 @@ module.exports = function(features){
   };
 };
 
-},{}],250:[function(require,module,exports){
+},{}],255:[function(require,module,exports){
 /**
  * Lazily iterate over coordinates in any GeoJSON object, similar to
  * Array.forEach.
@@ -35318,7 +36913,7 @@ function propReduce(layer, callback, memo) {
 }
 module.exports.propReduce = propReduce;
 
-},{}],251:[function(require,module,exports){
+},{}],256:[function(require,module,exports){
 /**
  * Takes coordinates and properties (optional) and returns a new {@link Point} feature.
  *
@@ -35350,7 +36945,7 @@ module.exports = function(coordinates, properties) {
   };
 };
 
-},{}],252:[function(require,module,exports){
+},{}],257:[function(require,module,exports){
 /**
  * Takes a {@link GeoJSON} object of any type and flips all of its coordinates
  * from `[x, y]` to `[y, x]`.
@@ -35438,7 +37033,7 @@ function flip3(coords) {
       for(var k = 0; k < coords[i][j].length; k++) coords[i][j][k].reverse();
 }
 
-},{}],253:[function(require,module,exports){
+},{}],258:[function(require,module,exports){
 var point = require('turf-point');
 var polygon = require('turf-polygon');
 var distance = require('turf-distance');
@@ -35546,7 +37141,7 @@ function hexagon(center, radius) {
   vertices.push(vertices[0]);
   return polygon([vertices]);
 }
-},{"turf-distance":254,"turf-featurecollection":256,"turf-point":257,"turf-polygon":258}],254:[function(require,module,exports){
+},{"turf-distance":259,"turf-featurecollection":261,"turf-point":262,"turf-polygon":263}],259:[function(require,module,exports){
 var invariant = require('turf-invariant');
 //http://en.wikipedia.org/wiki/Haversine_formula
 //http://www.movable-type.co.uk/scripts/latlong.html
@@ -35637,7 +37232,7 @@ function toRad(degree) {
   return degree * Math.PI / 180;
 }
 
-},{"turf-invariant":255}],255:[function(require,module,exports){
+},{"turf-invariant":260}],260:[function(require,module,exports){
 module.exports.geojsonType = geojsonType;
 module.exports.collectionOf = collectionOf;
 module.exports.featureOf = featureOf;
@@ -35705,11 +37300,11 @@ function collectionOf(value, type, name) {
     }
 }
 
-},{}],256:[function(require,module,exports){
-arguments[4][249][0].apply(exports,arguments)
-},{"dup":249}],257:[function(require,module,exports){
-arguments[4][251][0].apply(exports,arguments)
-},{"dup":251}],258:[function(require,module,exports){
+},{}],261:[function(require,module,exports){
+arguments[4][254][0].apply(exports,arguments)
+},{"dup":254}],262:[function(require,module,exports){
+arguments[4][256][0].apply(exports,arguments)
+},{"dup":256}],263:[function(require,module,exports){
 /**
  * Takes an array of LinearRings and optionally an {@link Object} with properties and returns a GeoJSON {@link Polygon} feature.
  *
@@ -35764,7 +37359,7 @@ module.exports = function(coordinates, properties){
   return polygon;
 };
 
-},{}],259:[function(require,module,exports){
+},{}],264:[function(require,module,exports){
 /**
  * Takes a {@link Polygon} feature and returns a {@link FeatureCollection} of {@link Point} features at all self-intersections.
  *
@@ -35874,13 +37469,13 @@ function lineIntersects(line1StartX, line1StartY, line1EndX, line1EndY, line2Sta
   }
 }
 
-},{"turf-featurecollection":260,"turf-point":261,"turf-polygon":262}],260:[function(require,module,exports){
-arguments[4][249][0].apply(exports,arguments)
-},{"dup":249}],261:[function(require,module,exports){
-arguments[4][251][0].apply(exports,arguments)
-},{"dup":251}],262:[function(require,module,exports){
-arguments[4][258][0].apply(exports,arguments)
-},{"dup":258}],263:[function(require,module,exports){
+},{"turf-featurecollection":265,"turf-point":266,"turf-polygon":267}],265:[function(require,module,exports){
+arguments[4][254][0].apply(exports,arguments)
+},{"dup":254}],266:[function(require,module,exports){
+arguments[4][256][0].apply(exports,arguments)
+},{"dup":256}],267:[function(require,module,exports){
+arguments[4][263][0].apply(exports,arguments)
+},{"dup":263}],268:[function(require,module,exports){
 var clone = require('clone');
 var union = require('turf-union');
 
@@ -35949,7 +37544,7 @@ module.exports = function(polygons, done){
   return merged;
 };
 
-},{"clone":264,"turf-union":265}],264:[function(require,module,exports){
+},{"clone":269,"turf-union":270}],269:[function(require,module,exports){
 (function (Buffer){
 'use strict';
 
@@ -36097,7 +37692,7 @@ clone.clonePrototype = function(parent) {
 };
 
 }).call(this,require("buffer").Buffer)
-},{"buffer":4}],265:[function(require,module,exports){
+},{"buffer":4}],270:[function(require,module,exports){
 // look here for help http://svn.osgeo.org/grass/grass/branches/releasebranch_6_4/vector/v.overlay/main.c
 //must be array of polygons
 
@@ -36172,12 +37767,12 @@ module.exports = function(poly1, poly2){
   };
 }
 
-},{"jsts":266}],266:[function(require,module,exports){
+},{"jsts":271}],271:[function(require,module,exports){
 require('javascript.util');
 var jsts = require('./lib/jsts');
 module.exports = jsts
 
-},{"./lib/jsts":267,"javascript.util":269}],267:[function(require,module,exports){
+},{"./lib/jsts":272,"javascript.util":274}],272:[function(require,module,exports){
 /* The JSTS Topology Suite is a collection of JavaScript classes that
 implement the fundamental operations required to validate a given
 geo-spatial data set to a known topological specification.
@@ -37887,7 +39482,7 @@ return true;if(this.isBoundaryPoint(li,bdyNodes[1]))
 return true;return false;}else{for(var i=bdyNodes.iterator();i.hasNext();){var node=i.next();var pt=node.getCoordinate();if(li.isIntersection(pt))
 return true;}
 return false;}};})();
-},{}],268:[function(require,module,exports){
+},{}],273:[function(require,module,exports){
 (function (global){
 /*
   javascript.util is a port of selected parts of java.util to JavaScript which
@@ -37933,10 +39528,10 @@ L.prototype.iterator=L.prototype.f;function N(a){this.l=a}f("$jscomp.scope.Itera
 r,global.javascript.util.Set=x,global.javascript.util.SortedMap=A,global.javascript.util.SortedSet=B,global.javascript.util.Stack=C,global.javascript.util.TreeMap=H,global.javascript.util.TreeSet=L);}).call(this);
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
-},{}],269:[function(require,module,exports){
+},{}],274:[function(require,module,exports){
 require('./dist/javascript.util-node.min.js');
 
-},{"./dist/javascript.util-node.min.js":268}],270:[function(require,module,exports){
+},{"./dist/javascript.util-node.min.js":273}],275:[function(require,module,exports){
 var ss = require('simple-statistics');
 
 /**
@@ -38018,7 +39613,7 @@ module.exports = function(fc, field, percentiles){
   return quantiles;
 };
 
-},{"simple-statistics":271}],271:[function(require,module,exports){
+},{"simple-statistics":276}],276:[function(require,module,exports){
 /* global module */
 // # simple-statistics
 //
@@ -39589,7 +41184,7 @@ module.exports = function(fc, field, percentiles){
 
 })(this);
 
-},{}],272:[function(require,module,exports){
+},{}],277:[function(require,module,exports){
 var simplify = require('simplify-js');
 
 /**
@@ -39682,7 +41277,7 @@ function simpleFeature (geom, properties) {
   };
 }
 
-},{"simplify-js":273}],273:[function(require,module,exports){
+},{"simplify-js":278}],278:[function(require,module,exports){
 /*
  (c) 2013, Vladimir Agafonkin
  Simplify.js, a high-performance JS polyline simplification library
@@ -39815,7 +41410,7 @@ else window.simplify = simplify;
 
 })();
 
-},{}],274:[function(require,module,exports){
+},{}],279:[function(require,module,exports){
 /**
  * Turf is a modular GIS engine written in JavaScript. It performs geospatial
  * processing tasks with GeoJSON data and can be run on a server or in a browser.
@@ -39887,7 +41482,7 @@ module.exports = {
   hexGrid: require('turf-hex-grid')
 };
 
-},{"turf-aggregate":275,"turf-along":276,"turf-area":243,"turf-average":277,"turf-bbox-polygon":278,"turf-bearing":246,"turf-bezier":279,"turf-buffer":281,"turf-center":286,"turf-centroid":287,"turf-combine":247,"turf-concave":289,"turf-convex":290,"turf-count":320,"turf-destination":321,"turf-deviation":322,"turf-distance":324,"turf-envelope":326,"turf-erase":327,"turf-explode":248,"turf-extent":332,"turf-featurecollection":334,"turf-filter":335,"turf-flip":252,"turf-hex-grid":253,"turf-inside":336,"turf-intersect":337,"turf-isolines":343,"turf-jenks":345,"turf-kinks":259,"turf-line-distance":347,"turf-line-slice":348,"turf-linestring":349,"turf-max":350,"turf-median":351,"turf-merge":263,"turf-midpoint":352,"turf-min":353,"turf-nearest":354,"turf-planepoint":355,"turf-point":359,"turf-point-grid":356,"turf-point-on-line":357,"turf-point-on-surface":358,"turf-polygon":360,"turf-quantile":270,"turf-random":361,"turf-reclass":363,"turf-remove":364,"turf-sample":365,"turf-simplify":272,"turf-size":366,"turf-square":368,"turf-square-grid":367,"turf-sum":369,"turf-tag":370,"turf-tin":371,"turf-triangle-grid":372,"turf-union":373,"turf-variance":378,"turf-within":380}],275:[function(require,module,exports){
+},{"turf-aggregate":280,"turf-along":281,"turf-area":248,"turf-average":282,"turf-bbox-polygon":283,"turf-bearing":251,"turf-bezier":284,"turf-buffer":286,"turf-center":291,"turf-centroid":292,"turf-combine":252,"turf-concave":294,"turf-convex":295,"turf-count":325,"turf-destination":326,"turf-deviation":327,"turf-distance":329,"turf-envelope":331,"turf-erase":332,"turf-explode":253,"turf-extent":337,"turf-featurecollection":339,"turf-filter":340,"turf-flip":257,"turf-hex-grid":258,"turf-inside":341,"turf-intersect":342,"turf-isolines":348,"turf-jenks":350,"turf-kinks":264,"turf-line-distance":352,"turf-line-slice":353,"turf-linestring":354,"turf-max":355,"turf-median":356,"turf-merge":268,"turf-midpoint":357,"turf-min":358,"turf-nearest":359,"turf-planepoint":360,"turf-point":364,"turf-point-grid":361,"turf-point-on-line":362,"turf-point-on-surface":363,"turf-polygon":365,"turf-quantile":275,"turf-random":366,"turf-reclass":368,"turf-remove":369,"turf-sample":370,"turf-simplify":277,"turf-size":371,"turf-square":373,"turf-square-grid":372,"turf-sum":374,"turf-tag":375,"turf-tin":376,"turf-triangle-grid":377,"turf-union":378,"turf-variance":383,"turf-within":385}],280:[function(require,module,exports){
 var average = require('turf-average');
 var sum = require('turf-sum');
 var median = require('turf-median');
@@ -40086,7 +41681,7 @@ function isAggregationOperation(operation) {
     operation === 'count';
 }
 
-},{"turf-average":277,"turf-count":320,"turf-deviation":322,"turf-max":350,"turf-median":351,"turf-min":353,"turf-sum":369,"turf-variance":378}],276:[function(require,module,exports){
+},{"turf-average":282,"turf-count":325,"turf-deviation":327,"turf-max":355,"turf-median":356,"turf-min":358,"turf-sum":374,"turf-variance":383}],281:[function(require,module,exports){
 var distance = require('turf-distance');
 var point = require('turf-point');
 var bearing = require('turf-bearing');
@@ -40152,7 +41747,7 @@ module.exports = function (line, dist, units) {
   return point(coords[coords.length - 1]);
 }
 
-},{"turf-bearing":246,"turf-destination":321,"turf-distance":324,"turf-point":359}],277:[function(require,module,exports){
+},{"turf-bearing":251,"turf-destination":326,"turf-distance":329,"turf-point":364}],282:[function(require,module,exports){
 var inside = require('turf-inside');
 
 /**
@@ -40283,7 +41878,7 @@ function average(values) {
   return sum / values.length;
 }
 
-},{"turf-inside":336}],278:[function(require,module,exports){
+},{"turf-inside":341}],283:[function(require,module,exports){
 var polygon = require('turf-polygon');
 
 /**
@@ -40317,7 +41912,7 @@ module.exports = function(bbox){
   return poly;
 }
 
-},{"turf-polygon":360}],279:[function(require,module,exports){
+},{"turf-polygon":365}],284:[function(require,module,exports){
 var linestring = require('turf-linestring');
 var Spline = require('./spline.js');
 
@@ -40386,7 +41981,7 @@ module.exports = function(line, resolution, sharpness){
   return lineOut;
 };
 
-},{"./spline.js":280,"turf-linestring":349}],280:[function(require,module,exports){
+},{"./spline.js":285,"turf-linestring":354}],285:[function(require,module,exports){
  /**
    * BezierSpline
    * http://leszekr.github.com/
@@ -40525,7 +42120,7 @@ var Spline = function(options){
 
   module.exports = Spline;
 
-},{}],281:[function(require,module,exports){
+},{}],286:[function(require,module,exports){
 // http://stackoverflow.com/questions/839899/how-do-i-calculate-a-point-on-a-circles-circumference
 // radians = degrees * (pi/180)
 // https://github.com/bjornharrtell/jsts/blob/master/examples/buffer.html
@@ -40621,15 +42216,15 @@ var bufferOp = function(feature, radius){
   return buffered;
 }
 
-},{"jsts":282,"turf-combine":247,"turf-featurecollection":334,"turf-polygon":360}],282:[function(require,module,exports){
-arguments[4][266][0].apply(exports,arguments)
-},{"./lib/jsts":283,"dup":266,"javascript.util":285}],283:[function(require,module,exports){
-arguments[4][267][0].apply(exports,arguments)
-},{"dup":267}],284:[function(require,module,exports){
-arguments[4][268][0].apply(exports,arguments)
-},{"dup":268}],285:[function(require,module,exports){
-arguments[4][269][0].apply(exports,arguments)
-},{"./dist/javascript.util-node.min.js":284,"dup":269}],286:[function(require,module,exports){
+},{"jsts":287,"turf-combine":252,"turf-featurecollection":339,"turf-polygon":365}],287:[function(require,module,exports){
+arguments[4][271][0].apply(exports,arguments)
+},{"./lib/jsts":288,"dup":271,"javascript.util":290}],288:[function(require,module,exports){
+arguments[4][272][0].apply(exports,arguments)
+},{"dup":272}],289:[function(require,module,exports){
+arguments[4][273][0].apply(exports,arguments)
+},{"dup":273}],290:[function(require,module,exports){
+arguments[4][274][0].apply(exports,arguments)
+},{"./dist/javascript.util-node.min.js":289,"dup":274}],291:[function(require,module,exports){
 var extent = require('turf-extent'),
     point = require('turf-point');
 
@@ -40753,7 +42348,7 @@ module.exports = function(layer, done){
   return point([x, y]);
 };
 
-},{"turf-extent":332,"turf-point":359}],287:[function(require,module,exports){
+},{"turf-extent":337,"turf-point":364}],292:[function(require,module,exports){
 var each = require('turf-meta').coordEach;
 var point = require('turf-point');
 
@@ -40801,9 +42396,9 @@ module.exports = function(features){
   return point([xSum / len, ySum / len]);
 };
 
-},{"turf-meta":288,"turf-point":359}],288:[function(require,module,exports){
-arguments[4][250][0].apply(exports,arguments)
-},{"dup":250}],289:[function(require,module,exports){
+},{"turf-meta":293,"turf-point":364}],293:[function(require,module,exports){
+arguments[4][255][0].apply(exports,arguments)
+},{"dup":255}],294:[function(require,module,exports){
 // 1. run tin on points
 // 2. calculate lenth of all edges and area of all triangles
 // 3. remove triangles that fail the max length test
@@ -40913,7 +42508,7 @@ module.exports = function(points, maxEdge, units) {
   return t.merge(tinPolys);
 };
 
-},{"turf-distance":324,"turf-merge":263,"turf-point":359,"turf-tin":371}],290:[function(require,module,exports){
+},{"turf-distance":329,"turf-merge":268,"turf-point":364,"turf-tin":376}],295:[function(require,module,exports){
 var each = require('turf-meta').coordEach,
     convexHull = require('convex-hull'),
     polygon = require('turf-polygon');
@@ -41002,7 +42597,7 @@ module.exports = function(fc) {
   return polygon([ring]);
 };
 
-},{"convex-hull":291,"turf-meta":319,"turf-polygon":360}],291:[function(require,module,exports){
+},{"convex-hull":296,"turf-meta":324,"turf-polygon":365}],296:[function(require,module,exports){
 "use strict"
 
 var convexHull1d = require('./lib/ch1d')
@@ -41028,7 +42623,7 @@ function convexHull(points) {
   }
   return convexHullnd(points, d)
 }
-},{"./lib/ch1d":292,"./lib/ch2d":293,"./lib/chnd":294}],292:[function(require,module,exports){
+},{"./lib/ch1d":297,"./lib/ch2d":298,"./lib/chnd":299}],297:[function(require,module,exports){
 "use strict"
 
 module.exports = convexHull1d
@@ -41052,7 +42647,7 @@ function convexHull1d(points) {
     return [[lo]]
   }
 }
-},{}],293:[function(require,module,exports){
+},{}],298:[function(require,module,exports){
 'use strict'
 
 module.exports = convexHull2D
@@ -41075,7 +42670,7 @@ function convexHull2D(points) {
   return edges
 }
 
-},{"monotone-convex-hull-2d":312}],294:[function(require,module,exports){
+},{"monotone-convex-hull-2d":317}],299:[function(require,module,exports){
 'use strict'
 
 module.exports = convexHullnD
@@ -41136,7 +42731,7 @@ function convexHullnD(points, d) {
     return invPermute(nhull, ah)
   }
 }
-},{"affine-hull":295,"incremental-convex-hull":302}],295:[function(require,module,exports){
+},{"affine-hull":300,"incremental-convex-hull":307}],300:[function(require,module,exports){
 'use strict'
 
 module.exports = affineHull
@@ -41188,7 +42783,7 @@ function affineHull(points) {
   }
   return index
 }
-},{"robust-orientation":301}],296:[function(require,module,exports){
+},{"robust-orientation":306}],301:[function(require,module,exports){
 "use strict"
 
 module.exports = fastTwoSum
@@ -41206,7 +42801,7 @@ function fastTwoSum(a, b, result) {
 	}
 	return [ar+br, x]
 }
-},{}],297:[function(require,module,exports){
+},{}],302:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -41257,7 +42852,7 @@ function scaleLinearExpansion(e, scale) {
   g.length = count
   return g
 }
-},{"two-product":300,"two-sum":296}],298:[function(require,module,exports){
+},{"two-product":305,"two-sum":301}],303:[function(require,module,exports){
 "use strict"
 
 module.exports = robustSubtract
@@ -41414,7 +43009,7 @@ function robustSubtract(e, f) {
   g.length = count
   return g
 }
-},{}],299:[function(require,module,exports){
+},{}],304:[function(require,module,exports){
 "use strict"
 
 module.exports = linearExpansionSum
@@ -41571,7 +43166,7 @@ function linearExpansionSum(e, f) {
   g.length = count
   return g
 }
-},{}],300:[function(require,module,exports){
+},{}],305:[function(require,module,exports){
 "use strict"
 
 module.exports = twoProduct
@@ -41605,7 +43200,7 @@ function twoProduct(a, b, result) {
 
   return [ y, x ]
 }
-},{}],301:[function(require,module,exports){
+},{}],306:[function(require,module,exports){
 "use strict"
 
 var twoProduct = require("two-product")
@@ -41796,7 +43391,7 @@ function generateOrientationProc() {
 }
 
 generateOrientationProc()
-},{"robust-scale":297,"robust-subtract":298,"robust-sum":299,"two-product":300}],302:[function(require,module,exports){
+},{"robust-scale":302,"robust-subtract":303,"robust-sum":304,"two-product":305}],307:[function(require,module,exports){
 "use strict"
 
 //High level idea:
@@ -42243,19 +43838,19 @@ function incrementalConvexHull(points, randomSearch) {
   //Extract boundary cells
   return triangles.boundary()
 }
-},{"robust-orientation":308,"simplicial-complex":311}],303:[function(require,module,exports){
-arguments[4][296][0].apply(exports,arguments)
-},{"dup":296}],304:[function(require,module,exports){
-arguments[4][297][0].apply(exports,arguments)
-},{"dup":297,"two-product":307,"two-sum":303}],305:[function(require,module,exports){
-arguments[4][298][0].apply(exports,arguments)
-},{"dup":298}],306:[function(require,module,exports){
-arguments[4][299][0].apply(exports,arguments)
-},{"dup":299}],307:[function(require,module,exports){
-arguments[4][300][0].apply(exports,arguments)
-},{"dup":300}],308:[function(require,module,exports){
+},{"robust-orientation":313,"simplicial-complex":316}],308:[function(require,module,exports){
 arguments[4][301][0].apply(exports,arguments)
-},{"dup":301,"robust-scale":304,"robust-subtract":305,"robust-sum":306,"two-product":307}],309:[function(require,module,exports){
+},{"dup":301}],309:[function(require,module,exports){
+arguments[4][302][0].apply(exports,arguments)
+},{"dup":302,"two-product":312,"two-sum":308}],310:[function(require,module,exports){
+arguments[4][303][0].apply(exports,arguments)
+},{"dup":303}],311:[function(require,module,exports){
+arguments[4][304][0].apply(exports,arguments)
+},{"dup":304}],312:[function(require,module,exports){
+arguments[4][305][0].apply(exports,arguments)
+},{"dup":305}],313:[function(require,module,exports){
+arguments[4][306][0].apply(exports,arguments)
+},{"dup":306,"robust-scale":309,"robust-subtract":310,"robust-sum":311,"two-product":312}],314:[function(require,module,exports){
 /**
  * Bit twiddling hacks for JavaScript.
  *
@@ -42461,7 +44056,7 @@ exports.nextCombination = function(v) {
 }
 
 
-},{}],310:[function(require,module,exports){
+},{}],315:[function(require,module,exports){
 "use strict"; "use restrict";
 
 module.exports = UnionFind;
@@ -42524,7 +44119,7 @@ proto.link = function(x, y) {
     ++ranks[xr];
   }
 }
-},{}],311:[function(require,module,exports){
+},{}],316:[function(require,module,exports){
 "use strict"; "use restrict";
 
 var bits      = require("bit-twiddle")
@@ -42868,7 +44463,7 @@ function connectedComponents(cells, vertex_count) {
 }
 exports.connectedComponents = connectedComponents
 
-},{"bit-twiddle":309,"union-find":310}],312:[function(require,module,exports){
+},{"bit-twiddle":314,"union-find":315}],317:[function(require,module,exports){
 'use strict'
 
 module.exports = monotoneConvexHull2D
@@ -42950,21 +44545,21 @@ function monotoneConvexHull2D(points) {
   //Return result
   return result
 }
-},{"robust-orientation":318}],313:[function(require,module,exports){
-arguments[4][296][0].apply(exports,arguments)
-},{"dup":296}],314:[function(require,module,exports){
-arguments[4][297][0].apply(exports,arguments)
-},{"dup":297,"two-product":317,"two-sum":313}],315:[function(require,module,exports){
-arguments[4][298][0].apply(exports,arguments)
-},{"dup":298}],316:[function(require,module,exports){
-arguments[4][299][0].apply(exports,arguments)
-},{"dup":299}],317:[function(require,module,exports){
-arguments[4][300][0].apply(exports,arguments)
-},{"dup":300}],318:[function(require,module,exports){
+},{"robust-orientation":323}],318:[function(require,module,exports){
 arguments[4][301][0].apply(exports,arguments)
-},{"dup":301,"robust-scale":314,"robust-subtract":315,"robust-sum":316,"two-product":317}],319:[function(require,module,exports){
-arguments[4][250][0].apply(exports,arguments)
-},{"dup":250}],320:[function(require,module,exports){
+},{"dup":301}],319:[function(require,module,exports){
+arguments[4][302][0].apply(exports,arguments)
+},{"dup":302,"two-product":322,"two-sum":318}],320:[function(require,module,exports){
+arguments[4][303][0].apply(exports,arguments)
+},{"dup":303}],321:[function(require,module,exports){
+arguments[4][304][0].apply(exports,arguments)
+},{"dup":304}],322:[function(require,module,exports){
+arguments[4][305][0].apply(exports,arguments)
+},{"dup":305}],323:[function(require,module,exports){
+arguments[4][306][0].apply(exports,arguments)
+},{"dup":306,"robust-scale":319,"robust-subtract":320,"robust-sum":321,"two-product":322}],324:[function(require,module,exports){
+arguments[4][255][0].apply(exports,arguments)
+},{"dup":255}],325:[function(require,module,exports){
 var inside = require('turf-inside');
 
 /**
@@ -43062,7 +44657,7 @@ module.exports = function(polyFC, ptFC, outField, done){
   return polyFC;
 };
 
-},{"turf-inside":336}],321:[function(require,module,exports){
+},{"turf-inside":341}],326:[function(require,module,exports){
 //http://en.wikipedia.org/wiki/Haversine_formula
 //http://www.movable-type.co.uk/scripts/latlong.html
 var point = require('turf-point');
@@ -43140,7 +44735,7 @@ function toDeg(rad) {
     return rad * 180 / Math.PI;
 }
 
-},{"turf-point":359}],322:[function(require,module,exports){
+},{"turf-point":364}],327:[function(require,module,exports){
 var ss = require('simple-statistics');
 var inside = require('turf-inside');
 
@@ -43272,13 +44867,13 @@ module.exports = function(polyFC, ptFC, inField, outField, done){
   return polyFC;
 }
 
-},{"simple-statistics":323,"turf-inside":336}],323:[function(require,module,exports){
-arguments[4][271][0].apply(exports,arguments)
-},{"dup":271}],324:[function(require,module,exports){
-arguments[4][254][0].apply(exports,arguments)
-},{"dup":254,"turf-invariant":325}],325:[function(require,module,exports){
-arguments[4][255][0].apply(exports,arguments)
-},{"dup":255}],326:[function(require,module,exports){
+},{"simple-statistics":328,"turf-inside":341}],328:[function(require,module,exports){
+arguments[4][276][0].apply(exports,arguments)
+},{"dup":276}],329:[function(require,module,exports){
+arguments[4][259][0].apply(exports,arguments)
+},{"dup":259,"turf-invariant":330}],330:[function(require,module,exports){
+arguments[4][260][0].apply(exports,arguments)
+},{"dup":260}],331:[function(require,module,exports){
 var extent = require('turf-extent');
 var bboxPolygon = require('turf-bbox-polygon');
 
@@ -43341,7 +44936,7 @@ module.exports = function(features, done){
   return poly;
 }
 
-},{"turf-bbox-polygon":278,"turf-extent":332}],327:[function(require,module,exports){
+},{"turf-bbox-polygon":283,"turf-extent":337}],332:[function(require,module,exports){
 // depend on jsts for now https://github.com/bjornharrtell/jsts/blob/master/examples/overlay.html
 var jsts = require('jsts');
 
@@ -43439,15 +45034,15 @@ module.exports = function(p1, p2, done){
   }
 };
 
-},{"jsts":328}],328:[function(require,module,exports){
-arguments[4][266][0].apply(exports,arguments)
-},{"./lib/jsts":329,"dup":266,"javascript.util":331}],329:[function(require,module,exports){
-arguments[4][267][0].apply(exports,arguments)
-},{"dup":267}],330:[function(require,module,exports){
-arguments[4][268][0].apply(exports,arguments)
-},{"dup":268}],331:[function(require,module,exports){
-arguments[4][269][0].apply(exports,arguments)
-},{"./dist/javascript.util-node.min.js":330,"dup":269}],332:[function(require,module,exports){
+},{"jsts":333}],333:[function(require,module,exports){
+arguments[4][271][0].apply(exports,arguments)
+},{"./lib/jsts":334,"dup":271,"javascript.util":336}],334:[function(require,module,exports){
+arguments[4][272][0].apply(exports,arguments)
+},{"dup":272}],335:[function(require,module,exports){
+arguments[4][273][0].apply(exports,arguments)
+},{"dup":273}],336:[function(require,module,exports){
+arguments[4][274][0].apply(exports,arguments)
+},{"./dist/javascript.util-node.min.js":335,"dup":274}],337:[function(require,module,exports){
 var each = require('turf-meta').coordEach;
 
 /**
@@ -43517,11 +45112,11 @@ module.exports = function(layer) {
     return extent;
 };
 
-},{"turf-meta":333}],333:[function(require,module,exports){
-arguments[4][250][0].apply(exports,arguments)
-},{"dup":250}],334:[function(require,module,exports){
-arguments[4][249][0].apply(exports,arguments)
-},{"dup":249}],335:[function(require,module,exports){
+},{"turf-meta":338}],338:[function(require,module,exports){
+arguments[4][255][0].apply(exports,arguments)
+},{"dup":255}],339:[function(require,module,exports){
+arguments[4][254][0].apply(exports,arguments)
+},{"dup":254}],340:[function(require,module,exports){
 var featureCollection = require('turf-featurecollection');
 
 /**
@@ -43614,7 +45209,7 @@ module.exports = function(collection, key, val) {
   return newFC;
 };
 
-},{"turf-featurecollection":334}],336:[function(require,module,exports){
+},{"turf-featurecollection":339}],341:[function(require,module,exports){
 // http://en.wikipedia.org/wiki/Even%E2%80%93odd_rule
 // modified from: https://github.com/substack/point-in-polygon/blob/master/index.js
 // which was modified from http://www.ecse.rpi.edu/Homepages/wrf/Research/Short_Notes/pnpoly.html
@@ -43720,7 +45315,7 @@ function inRing (pt, ring) {
 }
 
 
-},{}],337:[function(require,module,exports){
+},{}],342:[function(require,module,exports){
 // depend on jsts for now https://github.com/bjornharrtell/jsts/blob/master/examples/overlay.html
 var jsts = require('jsts');
 var featurecollection = require('turf-featurecollection');
@@ -43785,15 +45380,15 @@ module.exports = function(poly1, poly2){
   }
 };
 
-},{"jsts":338,"turf-featurecollection":334}],338:[function(require,module,exports){
-arguments[4][266][0].apply(exports,arguments)
-},{"./lib/jsts":339,"dup":266,"javascript.util":341}],339:[function(require,module,exports){
-arguments[4][267][0].apply(exports,arguments)
-},{"dup":267}],340:[function(require,module,exports){
-arguments[4][268][0].apply(exports,arguments)
-},{"dup":268}],341:[function(require,module,exports){
-arguments[4][269][0].apply(exports,arguments)
-},{"./dist/javascript.util-node.min.js":340,"dup":269}],342:[function(require,module,exports){
+},{"jsts":343,"turf-featurecollection":339}],343:[function(require,module,exports){
+arguments[4][271][0].apply(exports,arguments)
+},{"./lib/jsts":344,"dup":271,"javascript.util":346}],344:[function(require,module,exports){
+arguments[4][272][0].apply(exports,arguments)
+},{"dup":272}],345:[function(require,module,exports){
+arguments[4][273][0].apply(exports,arguments)
+},{"dup":273}],346:[function(require,module,exports){
+arguments[4][274][0].apply(exports,arguments)
+},{"./dist/javascript.util-node.min.js":345,"dup":274}],347:[function(require,module,exports){
 /**
  * Copyright (c) 2010, Jason Davies.
  *
@@ -44309,7 +45904,7 @@ arguments[4][269][0].apply(exports,arguments)
     }
   }
 
-},{}],343:[function(require,module,exports){
+},{}],348:[function(require,module,exports){
 //https://github.com/jasondavies/conrec.js
 //http://stackoverflow.com/questions/263305/drawing-a-topographical-map
 var tin = require('turf-tin');
@@ -44410,7 +46005,7 @@ module.exports = function(points, z, resolution, breaks, done){
 
 
 
-},{"./conrec":342,"turf-extent":332,"turf-featurecollection":334,"turf-grid":344,"turf-inside":336,"turf-linestring":349,"turf-planepoint":355,"turf-square":368,"turf-tin":371}],344:[function(require,module,exports){
+},{"./conrec":347,"turf-extent":337,"turf-featurecollection":339,"turf-grid":349,"turf-inside":341,"turf-linestring":354,"turf-planepoint":360,"turf-square":373,"turf-tin":376}],349:[function(require,module,exports){
 var point = require('turf-point');
 
 /**
@@ -44449,7 +46044,7 @@ module.exports = function(extents, depth) {
   return fc;
 }
 
-},{"turf-point":359}],345:[function(require,module,exports){
+},{"turf-point":364}],350:[function(require,module,exports){
 var ss = require('simple-statistics');
 
 /**
@@ -44531,9 +46126,9 @@ module.exports = function(fc, field, num){
   return breaks;
 };
 
-},{"simple-statistics":346}],346:[function(require,module,exports){
-arguments[4][271][0].apply(exports,arguments)
-},{"dup":271}],347:[function(require,module,exports){
+},{"simple-statistics":351}],351:[function(require,module,exports){
+arguments[4][276][0].apply(exports,arguments)
+},{"dup":276}],352:[function(require,module,exports){
 var distance = require('turf-distance');
 var point = require('turf-point');
 
@@ -44582,7 +46177,7 @@ module.exports = function (line, units) {
   return travelled;
 }
 
-},{"turf-distance":324,"turf-point":359}],348:[function(require,module,exports){
+},{"turf-distance":329,"turf-point":364}],353:[function(require,module,exports){
 var distance = require('turf-distance');
 var point = require('turf-point');
 var linestring = require('turf-linestring');
@@ -44765,7 +46360,7 @@ function lineIntersects(line1StartX, line1StartY, line1EndX, line1EndY, line2Sta
   }
 }
 
-},{"turf-bearing":246,"turf-destination":321,"turf-distance":324,"turf-linestring":349,"turf-point":359}],349:[function(require,module,exports){
+},{"turf-bearing":251,"turf-destination":326,"turf-distance":329,"turf-linestring":354,"turf-point":364}],354:[function(require,module,exports){
 /**
  * Creates a {@link LineString} {@link Feature} based on a
  * coordinate array. Properties can be added optionally.
@@ -44808,7 +46403,7 @@ module.exports = function(coordinates, properties){
   };
 };
 
-},{}],350:[function(require,module,exports){
+},{}],355:[function(require,module,exports){
 var inside = require('turf-inside');
 
 /**
@@ -44946,7 +46541,7 @@ function max(x) {
     return value;
 }
 
-},{"turf-inside":336}],351:[function(require,module,exports){
+},{"turf-inside":341}],356:[function(require,module,exports){
 var inside = require('turf-inside');
 
 /**
@@ -45094,7 +46689,7 @@ function median(x) {
     }
 }
 
-},{"turf-inside":336}],352:[function(require,module,exports){
+},{"turf-inside":341}],357:[function(require,module,exports){
 // http://cs.selu.edu/~rbyrd/math/midpoint/
 // ((x1+x2)/2), ((y1+y2)/2)
 var point = require('turf-point');
@@ -45154,7 +46749,7 @@ module.exports = function(point1, point2) {
   return point([midX, midY]);
 };
 
-},{"turf-point":359}],353:[function(require,module,exports){
+},{"turf-point":364}],358:[function(require,module,exports){
 var inside = require('turf-inside');
 
 /**
@@ -45292,7 +46887,7 @@ function min(x) {
     return value;
 }
 
-},{"turf-inside":336}],354:[function(require,module,exports){
+},{"turf-inside":341}],359:[function(require,module,exports){
 var distance = require('turf-distance');
 
 /**
@@ -45375,7 +46970,7 @@ module.exports = function(targetPoint, points){
   return nearestPoint;
 }
 
-},{"turf-distance":324}],355:[function(require,module,exports){
+},{"turf-distance":329}],360:[function(require,module,exports){
 /**
  * Takes a triangular plane as a {@link Polygon} feature
  * and a {@link Point} feature within that triangle and returns the z-value
@@ -45450,7 +47045,7 @@ module.exports = function(point, triangle){
   return z;
 };
 
-},{}],356:[function(require,module,exports){
+},{}],361:[function(require,module,exports){
 var point = require('turf-point');
 var featurecollection = require('turf-featurecollection');
 var distance = require('turf-distance');
@@ -45490,7 +47085,7 @@ module.exports = function (bbox, cell, units) {
   
   return fc;
 }
-},{"turf-distance":324,"turf-featurecollection":334,"turf-point":359}],357:[function(require,module,exports){
+},{"turf-distance":329,"turf-featurecollection":339,"turf-point":364}],362:[function(require,module,exports){
 var distance = require('turf-distance');
 var point = require('turf-point');
 var linestring = require('turf-linestring');
@@ -45655,7 +47250,7 @@ function lineIntersects(line1StartX, line1StartY, line1EndX, line1EndY, line2Sta
   }
 }
 
-},{"turf-bearing":246,"turf-destination":321,"turf-distance":324,"turf-linestring":349,"turf-point":359}],358:[function(require,module,exports){
+},{"turf-bearing":251,"turf-destination":326,"turf-distance":329,"turf-linestring":354,"turf-point":364}],363:[function(require,module,exports){
 var featureCollection = require('turf-featurecollection');
 var centroid = require('turf-center');
 var distance = require('turf-distance');
@@ -45806,11 +47401,11 @@ function pointOnSegment (x, y, x1, y1, x2, y2) {
   }
 }
 
-},{"turf-center":286,"turf-distance":324,"turf-explode":248,"turf-featurecollection":334,"turf-inside":336}],359:[function(require,module,exports){
-arguments[4][251][0].apply(exports,arguments)
-},{"dup":251}],360:[function(require,module,exports){
-arguments[4][258][0].apply(exports,arguments)
-},{"dup":258}],361:[function(require,module,exports){
+},{"turf-center":291,"turf-distance":329,"turf-explode":253,"turf-featurecollection":339,"turf-inside":341}],364:[function(require,module,exports){
+arguments[4][256][0].apply(exports,arguments)
+},{"dup":256}],365:[function(require,module,exports){
+arguments[4][263][0].apply(exports,arguments)
+},{"dup":263}],366:[function(require,module,exports){
 var random = require('geojson-random');
 
 /**
@@ -45864,7 +47459,7 @@ module.exports = function(type, count, options) {
     }
 };
 
-},{"geojson-random":362}],362:[function(require,module,exports){
+},{"geojson-random":367}],367:[function(require,module,exports){
 module.exports = function() {
     throw new Error('call .point() or .polygon() instead');
 };
@@ -45969,7 +47564,7 @@ function collection(f) {
     };
 }
 
-},{}],363:[function(require,module,exports){
+},{}],368:[function(require,module,exports){
 var featurecollection = require('turf-featurecollection');
 var reclass = require('./index.js');
 
@@ -46066,7 +47661,7 @@ module.exports = function(fc, inField, outField, translations, done){
   return reclassed;
 };
 
-},{"./index.js":363,"turf-featurecollection":334}],364:[function(require,module,exports){
+},{"./index.js":368,"turf-featurecollection":339}],369:[function(require,module,exports){
 var featureCollection = require('turf-featurecollection');
 
 /**
@@ -46167,7 +47762,7 @@ module.exports = function(collection, key, val) {
   return newFC;
 };
 
-},{"turf-featurecollection":334}],365:[function(require,module,exports){
+},{"turf-featurecollection":339}],370:[function(require,module,exports){
 // http://stackoverflow.com/questions/11935175/sampling-a-random-subset-from-an-array
 var featureCollection = require('turf-featurecollection');
 
@@ -46204,7 +47799,7 @@ function getRandomSubarray(arr, size) {
   return shuffled.slice(min);
 }
 
-},{"turf-featurecollection":334}],366:[function(require,module,exports){
+},{"turf-featurecollection":339}],371:[function(require,module,exports){
 /**
  * Takes a bounding box and returns a new bounding box with a size expanded or contracted
  * by a factor of X.
@@ -46246,7 +47841,7 @@ module.exports = function(bbox, factor){
   return sized;
 }
 
-},{}],367:[function(require,module,exports){
+},{}],372:[function(require,module,exports){
 var featurecollection = require('turf-featurecollection');
 var point = require('turf-point');
 var polygon = require('turf-polygon');
@@ -46298,7 +47893,7 @@ module.exports = function (bbox, cell, units) {
   return fc;
 }
 
-},{"turf-distance":324,"turf-featurecollection":334,"turf-point":359,"turf-polygon":360}],368:[function(require,module,exports){
+},{"turf-distance":329,"turf-featurecollection":339,"turf-point":364,"turf-polygon":365}],373:[function(require,module,exports){
 var midpoint = require('turf-midpoint');
 var point = require('turf-point');
 var distance = require('turf-distance');
@@ -46353,7 +47948,7 @@ module.exports = function(bbox){
 }
 
 
-},{"turf-distance":324,"turf-midpoint":352,"turf-point":359}],369:[function(require,module,exports){
+},{"turf-distance":329,"turf-midpoint":357,"turf-point":364}],374:[function(require,module,exports){
 var inside = require('turf-inside');
 
 /**
@@ -46489,7 +48084,7 @@ function sum(x) {
     return value;
 }
 
-},{"turf-inside":336}],370:[function(require,module,exports){
+},{"turf-inside":341}],375:[function(require,module,exports){
 var inside = require('turf-inside');
 
 /**
@@ -46547,7 +48142,7 @@ module.exports = function(points, polygons, field, outField){
   return points;
 };
 
-},{"turf-inside":336}],371:[function(require,module,exports){
+},{"turf-inside":341}],376:[function(require,module,exports){
 //http://en.wikipedia.org/wiki/Delaunay_triangulation
 //https://github.com/ironwallaby/delaunay
 var polygon = require('turf-polygon');
@@ -46790,7 +48385,7 @@ function triangulate(vertices) {
   return closed;
 }
 
-},{"turf-featurecollection":334,"turf-polygon":360}],372:[function(require,module,exports){
+},{"turf-featurecollection":339,"turf-polygon":365}],377:[function(require,module,exports){
 var featurecollection = require('turf-featurecollection');
 var point = require('turf-point');
 var polygon = require('turf-polygon');
@@ -46898,7 +48493,7 @@ module.exports = function (bbox, cell, units) {
 };
 
 
-},{"turf-distance":324,"turf-featurecollection":334,"turf-point":359,"turf-polygon":360}],373:[function(require,module,exports){
+},{"turf-distance":329,"turf-featurecollection":339,"turf-point":364,"turf-polygon":365}],378:[function(require,module,exports){
 // look here for help http://svn.osgeo.org/grass/grass/branches/releasebranch_6_4/vector/v.overlay/main.c
 //must be array of polygons
 
@@ -46973,15 +48568,15 @@ module.exports = function(poly1, poly2){
   };
 }
 
-},{"jsts":374}],374:[function(require,module,exports){
-arguments[4][266][0].apply(exports,arguments)
-},{"./lib/jsts":375,"dup":266,"javascript.util":377}],375:[function(require,module,exports){
-arguments[4][267][0].apply(exports,arguments)
-},{"dup":267}],376:[function(require,module,exports){
-arguments[4][268][0].apply(exports,arguments)
-},{"dup":268}],377:[function(require,module,exports){
-arguments[4][269][0].apply(exports,arguments)
-},{"./dist/javascript.util-node.min.js":376,"dup":269}],378:[function(require,module,exports){
+},{"jsts":379}],379:[function(require,module,exports){
+arguments[4][271][0].apply(exports,arguments)
+},{"./lib/jsts":380,"dup":271,"javascript.util":382}],380:[function(require,module,exports){
+arguments[4][272][0].apply(exports,arguments)
+},{"dup":272}],381:[function(require,module,exports){
+arguments[4][273][0].apply(exports,arguments)
+},{"dup":273}],382:[function(require,module,exports){
+arguments[4][274][0].apply(exports,arguments)
+},{"./dist/javascript.util-node.min.js":381,"dup":274}],383:[function(require,module,exports){
 var ss = require('simple-statistics');
 var inside = require('turf-inside');
 
@@ -47110,9 +48705,9 @@ module.exports = function (polyFC, ptFC, inField, outField) {
   return polyFC;
 };
 
-},{"simple-statistics":379,"turf-inside":336}],379:[function(require,module,exports){
-arguments[4][271][0].apply(exports,arguments)
-},{"dup":271}],380:[function(require,module,exports){
+},{"simple-statistics":384,"turf-inside":341}],384:[function(require,module,exports){
+arguments[4][276][0].apply(exports,arguments)
+},{"dup":276}],385:[function(require,module,exports){
 var inside = require('turf-inside');
 var featureCollection = require('turf-featurecollection');
 
@@ -47210,10 +48805,10 @@ module.exports = function(ptFC, polyFC){
   return pointsWithin;
 };
 
-},{"turf-featurecollection":334,"turf-inside":336}],381:[function(require,module,exports){
+},{"turf-featurecollection":339,"turf-inside":341}],386:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.2.597",
+  "version": "0.2.730",
   "private": true,
   "scripts": {
     "start": "node ./bin/www"
@@ -47221,6 +48816,7 @@ module.exports={
   "dependencies": {
     "body-parser": "~1.8.1",
     "brfs": "^1.4.0",
+    "color": "^0.8.0",
     "cookie-parser": "~1.3.3",
     "csv2geojson": "^4.0.0",
     "debug": "~2.0.0",
@@ -47258,6 +48854,7 @@ module.exports={
     "envify": "^3.4.0",
     "geojson-normalize": "0.0.0",
     "gulp": "^3.8.11",
+    "gulp-autoprefixer": "^2.1.0",
     "gulp-bump": "^0.3.0",
     "gulp-less": "^3.0.2",
     "gulp-livereload": "^3.8.0",
@@ -47269,7 +48866,7 @@ module.exports={
   }
 }
 
-},{}],382:[function(require,module,exports){
+},{}],387:[function(require,module,exports){
 var AppDispatcher = require('../dispatcher/AppDispatcher');
 var LayerConstants = require('../constants/LayerConstants');
 
@@ -47395,7 +48992,7 @@ var LayerActions = {
 
 module.exports = LayerActions;
 
-},{"../constants/LayerConstants":401,"../dispatcher/AppDispatcher":402}],383:[function(require,module,exports){
+},{"../constants/LayerConstants":406,"../dispatcher/AppDispatcher":407}],388:[function(require,module,exports){
 var React = require('react')
   , LayerActions = require('../actions/LayerActions')
   , Tooltip = require('./Tooltip')
@@ -47521,7 +49118,7 @@ var AddLayers = React.createClass({displayName: "AddLayers",
 
 module.exports = AddLayers
 
-},{"../actions/LayerActions":382,"../utils/DefaultLayer":404,"../utils/palette":406,"../utils/readfile":407,"./Modals.jsx":391,"./Tooltip":397,"geojson-normalize":69,"react":240}],384:[function(require,module,exports){
+},{"../actions/LayerActions":387,"../utils/DefaultLayer":410,"../utils/palette":413,"../utils/readfile":414,"./Modals.jsx":396,"./Tooltip":402,"geojson-normalize":74,"react":245}],389:[function(require,module,exports){
 var React = require('react')
   , FixedDataTable = require('fixed-data-table')
   , LayerActions = require('../actions/LayerActions')
@@ -47562,7 +49159,7 @@ var AttributeTable = React.createClass({displayName: "AttributeTable",
     })
     columns.unshift(
       React.createElement(Column, {
-        label: '', 
+        label: 'idx', 
         width: indexColumnWidth, 
         dataKey: 0, 
         key: 0})
@@ -47593,9 +49190,10 @@ var AttributeTable = React.createClass({displayName: "AttributeTable",
 
 module.exports = AttributeTable
 
-},{"../actions/LayerActions":382,"fixed-data-table":65,"react":240}],385:[function(require,module,exports){
+},{"../actions/LayerActions":387,"fixed-data-table":70,"react":245}],390:[function(require,module,exports){
 var React = require('react')
   , geojsonhint = require('geojsonhint')
+  , vectorTools = require('../utils/vectorTools')
 
 var Editor = React.createClass({displayName: "Editor",
   componentDidMount: function() {
@@ -47667,10 +49265,11 @@ var Editor = React.createClass({displayName: "Editor",
 
 module.exports = Editor
 
-},{"geojsonhint":70,"react":240}],386:[function(require,module,exports){
+},{"../utils/vectorTools":415,"geojsonhint":75,"react":245}],391:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
+  , ToolbarSubmenu = require('./ToolbarSubmenu.jsx')
   , ToolbarDropdown = require('./ToolbarDropdown.jsx')
   , LayerActions = require('../actions/LayerActions')
   , LayerStore = require('../stores/LayerStore')
@@ -47681,7 +49280,7 @@ var Area = React.createClass({displayName: "Area",
     vectorTools.area(LayerStore.getAllSelected())
   },
   render: function() {
-    var active = this.props.config.oneFeature || this.props.config.multiFeature
+    var active = this.props.config.numPolys > 0
     return (
       React.createElement(ToolbarItem, {text: 'Area', onClick: this.onClick, active: active})
     )
@@ -47868,16 +49467,10 @@ var Quantile = React.createClass({displayName: "Quantile",
   }
 })
 
-var FeatureMenu = React.createClass({displayName: "FeatureMenu",
+var Transformation = React.createClass({displayName: "Transformation",
   render: function() {
-    //var active = this.props.config.oneFeature || this.props.config.multiFeature
     var active = true
     var submenu = [
-      React.createElement(Area, React.__spread({},  this.props, {key: 'area'})),
-      React.createElement(Distance, React.__spread({},  this.props, {key: 'distance'})),
-      React.createElement(Bearing, React.__spread({},  this.props, {key: 'bearing'})),
-      React.createElement(Length, React.__spread({},  this.props, {key: 'lineLength'})),
-      React.createElement(Delete, React.__spread({},  this.props, {key: 'deleteFeature'})),
       React.createElement(Simplify, React.__spread({},  this.props, {key: 'simplify'})),
       React.createElement(Buffer, React.__spread({},  this.props, {key: 'buffer'})),
       React.createElement(Flip, React.__spread({},  this.props, {key: 'flip'})),
@@ -47887,6 +49480,35 @@ var FeatureMenu = React.createClass({displayName: "FeatureMenu",
       React.createElement(Intersect, React.__spread({},  this.props, {key: 'intersect'}))
     ]
     return (
+      React.createElement(ToolbarSubmenu, {text: 'Transformation', submenu: submenu, active: active})
+    )
+  }
+})
+
+var Measurement = React.createClass({displayName: "Measurement",
+  render: function() {
+    var active = true
+    var submenu = [
+      React.createElement(Area, React.__spread({},  this.props, {key: 'area'})),
+      React.createElement(Distance, React.__spread({},  this.props, {key: 'distance'})),
+      React.createElement(Bearing, React.__spread({},  this.props, {key: 'bearing'})),
+      React.createElement(Length, React.__spread({},  this.props, {key: 'lineLength'}))
+    ]
+    return (
+      React.createElement(ToolbarSubmenu, {text: 'Measurement', submenu: submenu, active: active})
+    )
+  }
+})
+
+var FeatureMenu = React.createClass({displayName: "FeatureMenu",
+  render: function() {
+    var active = true
+    var submenu = [
+      React.createElement(Delete, React.__spread({},  this.props, {key: 'deleteFeature'})),
+      React.createElement(Measurement, React.__spread({},  this.props, {key: 'Measurement'})),
+      React.createElement(Transformation, React.__spread({},  this.props, {key: 'Transformation'}))
+    ]
+    return (
       React.createElement(ToolbarDropdown, {text: 'Feature', submenu: submenu, active: active})
     )
   }
@@ -47894,7 +49516,7 @@ var FeatureMenu = React.createClass({displayName: "FeatureMenu",
 
 module.exports = FeatureMenu
 
-},{"../actions/LayerActions":382,"../stores/LayerStore":403,"../utils/vectorTools":408,"./Modals.jsx":391,"./ToolbarDropdown.jsx":394,"./ToolbarItem.jsx":395,"react":240}],387:[function(require,module,exports){
+},{"../actions/LayerActions":387,"../stores/LayerStore":408,"../utils/vectorTools":415,"./Modals.jsx":396,"./ToolbarDropdown.jsx":399,"./ToolbarItem.jsx":400,"./ToolbarSubmenu.jsx":401,"react":245}],392:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
@@ -47927,10 +49549,13 @@ var HelpMenu = React.createClass({displayName: "HelpMenu",
 
 module.exports = HelpMenu
 
-},{"./Modals.jsx":391,"./ToolbarDropdown.jsx":394,"./ToolbarItem.jsx":395,"react":240}],388:[function(require,module,exports){
+},{"./Modals.jsx":396,"./ToolbarDropdown.jsx":399,"./ToolbarItem.jsx":400,"react":245}],393:[function(require,module,exports){
 var React = require('react')
+  , Color = require("color")
   , palette = require('../utils/palette')
   , LayerActions = require('../actions/LayerActions')
+  , vectorTools = require('../utils/vectorTools')
+  , Modals = require('./Modals.jsx')
 
 var Layer = React.createClass({displayName: "Layer",
   getInitialState: function() {
@@ -47939,16 +49564,26 @@ var Layer = React.createClass({displayName: "Layer",
     }
   },
   onClick: function(e) {
-    if (e.target.tagName === 'DIV' || e.target.tagName === 'SPAN') {
+    console.log(this.props.layer.id, e.target.className)
+    if (e.target.className === 'layer' || e.target.className === 'layer-name') {
       var update = {}
       update.selected = !this.props.layer.selected
+      console.log(update)
       if (!update.selected) {
         update.editing = false
         update.editGeoJSON = false
         update.viewAttributes = false
       }
+      console.log(update)
       LayerActions.update(this.props.layer.id, update)
     }
+  },
+  colorClick: function(e) {
+    var self = this
+    Modals.getStyle(this.props.layer.style, function(err, style) {
+      var newStyle = vectorTools.updateStyle(self.props.layer, style)
+      LayerActions.update(self.props.layer.id, {style: newStyle})
+    })
   },
   onChange: function(e) {
     var update = {}
@@ -47983,6 +49618,20 @@ var Layer = React.createClass({displayName: "Layer",
       textDecoration: this.props.layer.selected ? 'underline': 'none',
       backgroundColor: this.state.dragEnter ? 'red' : palette.dark
     }
+    var backgroundColor = Color(this.props.layer.style.fillColor).rgb()
+    backgroundColor.a = this.props.layer.style.fillOpacity
+    backgroundColor = Color(backgroundColor).rgbString()
+
+    var borderColor = Color(this.props.layer.style.color).rgb()
+    borderColor.a = this.props.layer.style.opacity
+    borderColor = Color(borderColor).rgbString()
+
+    var swatchStyle = {
+      backgroundColor: backgroundColor,
+      borderColor: borderColor,
+      borderWidth: this.props.layer.style.weight
+    }
+
     return (
       React.createElement("div", {className: "layer", style: layerStyle, draggable: "true", 
         onClick: this.onClick, 
@@ -47991,10 +49640,10 @@ var Layer = React.createClass({displayName: "Layer",
         onDragOver: this.onDragOver, 
         onDragLeave: this.onDragLeave, 
         onDragEnd: this.onDragEnd, 
-        onDrop: this.onDrop
-      }, 
+        onDrop: this.onDrop}, 
         React.createElement("input", {type: "checkbox", ref: "checkbox", checked: this.props.layer.enabled, onChange: this.onChange}), 
-        React.createElement("span", {className: "layer-name"}, this.props.layer.name)
+        React.createElement("span", {className: "layer-name"}, this.props.layer.name), 
+        React.createElement("div", {className: "swatch-wrap"}, React.createElement("div", {className: "color-swatch", style: swatchStyle, onClick: this.colorClick}))
       )
     )
   }
@@ -48022,7 +49671,7 @@ var LayerList = React.createClass({displayName: "LayerList",
 
 module.exports = LayerList
 
-},{"../actions/LayerActions":382,"../utils/palette":406,"react":240}],389:[function(require,module,exports){
+},{"../actions/LayerActions":387,"../utils/palette":413,"../utils/vectorTools":415,"./Modals.jsx":396,"color":11,"react":245}],394:[function(require,module,exports){
 var React = require('react')
   , vectorTools = require('../utils/vectorTools')
   , Modals = require('./Modals.jsx')
@@ -48038,7 +49687,7 @@ var Undo = React.createClass({displayName: "Undo",
     LayerActions.undo()
   },
   render: function() {
-    var active = this.props.config.oneLayer  || this.props.config.multiLayer
+    var active = LayerStore.getUndoLength() > 0
     return (
       React.createElement(ToolbarItem, {text: 'Undo', onClick: this.onClick, active: active})
     )
@@ -48062,9 +49711,27 @@ var RenameLayer = React.createClass({displayName: "RenameLayer",
   }
 })
 
-var SaveAs = React.createClass({displayName: "SaveAs",
+var Style = React.createClass({displayName: "Style",
+  onClick: function() {
+    var layer = LayerStore.getSelected()
+    if (layer) {
+      Modals.getStyle(layer.style, function(err, style) {
+        var newStyle = vectorTools.updateStyle(layer, style)
+        LayerActions.update(layer.id, {style: newStyle})
+      })
+    }
+  },
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector
+    return (
+      React.createElement(ToolbarItem, {text: 'Style', onClick: this.onClick, active: active})
+    )
+  }
+})
+
+var SaveAs = React.createClass({displayName: "SaveAs",
+  render: function() {
+    var active = true
         var submenu = [
           React.createElement(SaveAsGeoJSON, React.__spread({},  this.props, {key: 'saveAsGeoJSON'})),
           React.createElement(SaveAsShp, React.__spread({},  this.props, {key: 'saveAsShp'}))
@@ -48082,7 +49749,7 @@ var SaveAsGeoJSON = React.createClass({displayName: "SaveAsGeoJSON",
     for (var id in layers) {
       var layer = layers[id]
       if (layer.selected) {
-        fileSaver(new Blob([JSON.stringify(layer.geojson)], {
+        fileSaver(new Blob([JSON.stringify(vectorTools.clean(layer.geojson))], {
             type: 'text/plain;charset=utf-8'
         }), layer.name + '.geojson')
       }
@@ -48133,6 +49800,7 @@ var LayerMenu = React.createClass({displayName: "LayerMenu",
     var submenu = [
       React.createElement(Undo, React.__spread({},  this.props, {key: 'undo'})),
       React.createElement(RenameLayer, React.__spread({},  this.props, {key: 'renameLayer'})),
+      React.createElement(Style, React.__spread({},  this.props, {key: 'style'})),
       React.createElement(SaveAs, React.__spread({},  this.props, {key: 'saveAs'})),
       React.createElement(ZoomToLayer, React.__spread({},  this.props, {key: 'zoomToLayer'}))
       ]
@@ -48144,7 +49812,7 @@ var LayerMenu = React.createClass({displayName: "LayerMenu",
 
 module.exports = LayerMenu
 
-},{"../actions/LayerActions":382,"../stores/LayerStore":403,"../utils/vectorTools":408,"./Modals.jsx":391,"./ToolbarDropdown.jsx":394,"./ToolbarItem.jsx":395,"./ToolbarSubmenu.jsx":396,"filesaver.js":14,"react":240}],390:[function(require,module,exports){
+},{"../actions/LayerActions":387,"../stores/LayerStore":408,"../utils/vectorTools":415,"./Modals.jsx":396,"./ToolbarDropdown.jsx":399,"./ToolbarItem.jsx":400,"./ToolbarSubmenu.jsx":401,"filesaver.js":19,"react":245}],395:[function(require,module,exports){
 var React = require('react')
   , palette = require('../utils/palette')
   , gjutils = require('../utils/gjutils')
@@ -48186,7 +49854,7 @@ var MessageBar = React.createClass({displayName: "MessageBar",
 
 module.exports = MessageBar
 
-},{"../utils/gjutils":405,"../utils/palette":406,"react":240}],391:[function(require,module,exports){
+},{"../utils/gjutils":412,"../utils/palette":413,"react":245}],396:[function(require,module,exports){
 var React = require('react')
   , pkg = require('../../package.json')
 
@@ -48327,6 +49995,44 @@ var Modals = {
 
   },
 
+  getStyle: function(style, next) {
+    var Modal = React.createClass({displayName: "Modal",
+      render: function() {
+        return (
+          React.createElement("div", {className: 'style-form'}, 
+            React.createElement("p", null, "fill color:"), 
+            React.createElement("input", {name: "fillColor", type: "color", defaultValue: this.props.style.fillColor}), 
+            React.createElement("p", null, "color:"), 
+            React.createElement("input", {name: "color", type: "color", defaultValue: this.props.style.color}), 
+            React.createElement("p", null, "radius:"), 
+            React.createElement("input", {name: "radius", type: "text", defaultValue: this.props.style.radius}), 
+            React.createElement("p", null, "weight:"), 
+            React.createElement("input", {name: "weight", type: "text", defaultValue: this.props.style.weight}), 
+            React.createElement("p", null, "opacity:"), 
+            React.createElement("input", {name: "opacity", type: "text", defaultValue: this.props.style.opacity}), 
+            React.createElement("p", null, "fillOpacity:"), 
+            React.createElement("input", {name: "fillOpacity", type: "text", defaultValue: this.props.style.fillOpacity})
+          )
+        )
+      }
+    })
+
+    var dialog = vex.dialog.open({
+      message: 'Update Layer Style',
+      afterOpen: function($vexContent) {
+        React.render(React.createElement(Modal, {style: style}), $vexContent.find('.vex-dialog-input').get(0))
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled')
+        }
+        var err = false
+        next(err, data)
+      }
+    })
+
+  },
+
   getTileURL: function(next) {
 
     var TileLayer = React.createClass({displayName: "TileLayer",
@@ -48357,7 +50063,7 @@ var Modals = {
 
 module.exports = Modals
 
-},{"../../package.json":381,"react":240}],392:[function(require,module,exports){
+},{"../../package.json":386,"react":245}],397:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
@@ -48463,7 +50169,7 @@ var SelectMenu = React.createClass({displayName: "SelectMenu",
 
 module.exports = SelectMenu
 
-},{"../stores/LayerStore":403,"../utils/vectorTools":408,"./Modals.jsx":391,"./ToolbarDropdown.jsx":394,"./ToolbarItem.jsx":395,"react":240}],393:[function(require,module,exports){
+},{"../stores/LayerStore":408,"../utils/vectorTools":415,"./Modals.jsx":396,"./ToolbarDropdown.jsx":399,"./ToolbarItem.jsx":400,"react":245}],398:[function(require,module,exports){
 var React = require('react')
   , gjutils = require('../utils/gjutils')
   , LayerMenu = require('./LayerMenu.jsx')
@@ -48550,9 +50256,9 @@ var Toolbar = React.createClass({displayName: "Toolbar",
     return (
       React.createElement("div", {className: "toolbar"}, 
         React.createElement("h1", null, "uGIS"), 
-        React.createElement(LayerMenu, {config: config}), 
-        React.createElement(ViewMenu, {config: config}), 
-        React.createElement(FeatureMenu, {config: config}), 
+        React.createElement(LayerMenu, React.__spread({},  this.props, {config: config})), 
+        React.createElement(ViewMenu, React.__spread({},  this.props, {config: config})), 
+        React.createElement(FeatureMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(SelectMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(HelpMenu, null)
       )
@@ -48562,7 +50268,7 @@ var Toolbar = React.createClass({displayName: "Toolbar",
 
 module.exports = Toolbar
 
-},{"../utils/gjutils":405,"./FeatureMenu.jsx":386,"./HelpMenu.jsx":387,"./LayerMenu.jsx":389,"./SelectMenu.jsx":392,"./ViewMenu.jsx":399,"react":240}],394:[function(require,module,exports){
+},{"../utils/gjutils":412,"./FeatureMenu.jsx":391,"./HelpMenu.jsx":392,"./LayerMenu.jsx":394,"./SelectMenu.jsx":397,"./ViewMenu.jsx":404,"react":245}],399:[function(require,module,exports){
 var React = require('react')
 
 var ToolbarDropdown = React.createClass({displayName: "ToolbarDropdown",
@@ -48608,7 +50314,7 @@ var ToolbarDropdown = React.createClass({displayName: "ToolbarDropdown",
 
 module.exports = ToolbarDropdown
 
-},{"react":240}],395:[function(require,module,exports){
+},{"react":245}],400:[function(require,module,exports){
 var React = require('react')
 
 var ToolbarItem = React.createClass({displayName: "ToolbarItem",
@@ -48637,7 +50343,7 @@ var ToolbarItem = React.createClass({displayName: "ToolbarItem",
 
 module.exports = ToolbarItem
 
-},{"react":240}],396:[function(require,module,exports){
+},{"react":245}],401:[function(require,module,exports){
 var React = require('react')
 
 var ToolbarSubmenu = React.createClass({displayName: "ToolbarSubmenu",
@@ -48681,7 +50387,7 @@ var ToolbarSubmenu = React.createClass({displayName: "ToolbarSubmenu",
 
 module.exports = ToolbarSubmenu
 
-},{"react":240}],397:[function(require,module,exports){
+},{"react":245}],402:[function(require,module,exports){
 var React = require('react')
 
 var Tooltip = React.createClass({displayName: "Tooltip",
@@ -48698,7 +50404,7 @@ var Tooltip = React.createClass({displayName: "Tooltip",
 
 module.exports = Tooltip
 
-},{"react":240}],398:[function(require,module,exports){
+},{"react":245}],403:[function(require,module,exports){
 var React = require('react')
   , Toolbar = require('./Toolbar.jsx')
   , AddLayers = require('./AddLayers.jsx')
@@ -48723,12 +50429,17 @@ var UGISApp = React.createClass({displayName: "UGISApp",
   getInitialState: function() {
     return {
       layers: LayerStore.getAll(),
-      error: false
+      error: false,
+      baseMap: 'simple'
     }
   },
 
   updateError: function(error) {
     this.setState({error: error})
+  },
+
+  updateBaseMap: function(id) {
+    this.setState({baseMap: id})
   },
 
   componentDidMount: function() {
@@ -48756,12 +50467,12 @@ var UGISApp = React.createClass({displayName: "UGISApp",
     }
     return (
       React.createElement("div", {className: "app"}, 
-        React.createElement(Toolbar, {layers: this.state.layers}), 
+        React.createElement(Toolbar, {layers: this.state.layers, updateBaseMap: this.updateBaseMap, baseMap: this.state.baseMap}), 
         React.createElement("div", {className: "flex-row"}, 
           React.createElement(AddLayers, null), 
           React.createElement(LayerList, {layers: this.state.layers}), 
           React.createElement("div", {className: "right-pane"}, 
-            React.createElement(WorkSpace, {layers: this.state.layers}), 
+            React.createElement(WorkSpace, {layers: this.state.layers, baseMap: this.state.baseMap}), 
             attributeTable
           ), 
           editor
@@ -48784,13 +50495,15 @@ var UGISApp = React.createClass({displayName: "UGISApp",
 
 module.exports = UGISApp;
 
-},{"../stores/LayerStore":403,"./AddLayers.jsx":383,"./AttributeTable.jsx":384,"./Editor.jsx":385,"./LayerList.jsx":388,"./MessageBar.jsx":390,"./Toolbar.jsx":393,"./WorkSpace.jsx":400,"react":240}],399:[function(require,module,exports){
+},{"../stores/LayerStore":408,"./AddLayers.jsx":388,"./AttributeTable.jsx":389,"./Editor.jsx":390,"./LayerList.jsx":393,"./MessageBar.jsx":395,"./Toolbar.jsx":398,"./WorkSpace.jsx":405,"react":245}],404:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
+  , ToolbarSubmenu = require('./ToolbarSubmenu.jsx')
   , ToolbarDropdown = require('./ToolbarDropdown.jsx')
   , LayerActions = require('../actions/LayerActions')
   , LayerStore = require('../stores/LayerStore')
+  , baseMaps = require('../utils/BaseMaps')
 
 var ViewAttributes = React.createClass({displayName: "ViewAttributes",
   onClick: function() {
@@ -48850,19 +50563,39 @@ var Edit = React.createClass({displayName: "Edit",
       var icon = React.createElement("i", {className: "fa fa-check"})
     }
     return (
-      React.createElement(ToolbarItem, {text: 'Editing Toolbar', onClick: this.onClick, icon: icon, active: active})
+      React.createElement(ToolbarItem, {text: 'Drawing Toolbar', onClick: this.onClick, icon: icon, active: active})
+    )
+  }
+})
+
+var Basemap = React.createClass({displayName: "Basemap",
+  render: function() {
+    var active = true
+    var submenu = []
+    for (var name in baseMaps) {
+      var icon = false
+      if (this.props.baseMap === name) {
+        var icon = React.createElement("i", {className: "fa fa-check"})
+      }
+      var update = function(name) {
+        this.props.updateBaseMap(name)
+      }.bind(this, name)
+      submenu.push(React.createElement(ToolbarItem, React.__spread({},  this.props, {key: name, text: baseMaps[name].name, onClick: update, icon: icon, active: true})))
+    }
+    return (
+      React.createElement(ToolbarSubmenu, {text: 'Basemap', submenu: submenu, active: active})
     )
   }
 })
 
 var ViewMenu = React.createClass({displayName: "ViewMenu",
   render: function() {
-    //var active = this.props.config.oneLayer  || this.props.config.multiLayer
     var active = true
     var submenu = [
-      React.createElement(ViewAttributes, React.__spread({},  this.props, {key: 'viewAttributes'})),
+      React.createElement(Basemap, React.__spread({},  this.props, {key: 'Basemap'})),
+      React.createElement(Edit, React.__spread({},  this.props, {key: 'editFeature'})),
       React.createElement(ViewGeoJSON, React.__spread({},  this.props, {key: 'viewGeoJSON'})),
-      React.createElement(Edit, React.__spread({},  this.props, {key: 'editFeature'}))
+      React.createElement(ViewAttributes, React.__spread({},  this.props, {key: 'viewAttributes'}))
       ]
     return (
       React.createElement(ToolbarDropdown, {text: 'View', submenu: submenu, active: active})
@@ -48872,17 +50605,20 @@ var ViewMenu = React.createClass({displayName: "ViewMenu",
 
 module.exports = ViewMenu
 
-},{"../actions/LayerActions":382,"../stores/LayerStore":403,"./Modals.jsx":391,"./ToolbarDropdown.jsx":394,"./ToolbarItem.jsx":395,"react":240}],400:[function(require,module,exports){
+},{"../actions/LayerActions":387,"../stores/LayerStore":408,"../utils/BaseMaps":409,"./Modals.jsx":396,"./ToolbarDropdown.jsx":399,"./ToolbarItem.jsx":400,"./ToolbarSubmenu.jsx":401,"react":245}],405:[function(require,module,exports){
 var React = require('react')
   , numeral = require('numeral')
   , LayerActions = require('../actions/LayerActions')
   , LayerStore = require('../stores/LayerStore')
   , vectorTools = require('../utils/vectorTools')
   , palette = require('../utils/palette')
+  , baseMaps = require('../utils/baseMaps')
 
 var selectedStyle = {
-  weight: 3,
-  color: '#f00'
+  color: '#f00',
+  fillColor: '#f00',
+  fillOpacity: 1,
+  opacity: 1
 }
 
 var unselectedStyle = {
@@ -48904,6 +50640,13 @@ var lineStyle = {
   opacity: 1
 }
 
+// var baseMaps = [
+//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png'),
+//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png'),
+//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png'),
+//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+// ]
+
 var WorkSpace = React.createClass({displayName: "WorkSpace",
   componentDidMount: function() {
     this.makeMap()
@@ -48923,7 +50666,9 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       attributionControl: false,
       zoomControl: false
     }).setView([30, 20], 2)
-    L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png').addTo(this.map)
+    this.baseMap = baseMaps[this.props.baseMap].layer
+    this.baseMap.addTo(this.map)
+    //L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png').addTo(this.map)
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
     this.map.on('mousemove', function(e) {
@@ -48959,10 +50704,10 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
         if (layer.selected) {
-          layer.geojson = layer.mapLayer.toGeoJSON()
+          var gj = layer.mapLayer.toGeoJSON()
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
-          LayerActions.update(layer.id, {geojson: layer.geojson, mapLayer: layer.mapLayer})
+          LayerActions.update(layer.id, {geojson: gj, mapLayer: layer.mapLayer})
         }
       }
     }, this)
@@ -48975,25 +50720,21 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       } else {
         feature.selected = false
       }
-      if (feature.selected) {
-        mapLayer.setStyle(selectedStyle)
-      } else {
-        mapLayer.setStyle(unselectedStyle)
-      }
       LayerActions.update(layer.id, {geojson: layer.geojson})
     }
   },
-  styleFeature: function(feature) {
+  styleFeature: function(layer, feature) {
     if (feature.selected) {
       return selectedStyle
     } else {
-      if (feature.geometry.type === 'Point') {
-        return pointStyle
-      } else if (feature.geometry.type === 'LineString') {
-        return lineStyle
-      } else {
-        return unselectedStyle
-      }
+      return layer.style
+      // if (feature.geometry.type === 'Point') {
+      //   return pointStyle
+      // } else if (feature.geometry.type === 'LineString') {
+      //   return lineStyle
+      // } else {
+      //   return unselectedStyle
+      // }
     }
   },
   selectBoxMouseDown: function(e) {
@@ -49055,13 +50796,13 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
             pointToLayer: function(feature, latlng) {
               return L.circleMarker(latlng, pointStyle)
             },
-            style: self.styleFeature,
+            style: self.styleFeature.bind(self, layer),
             onEachFeature: function (layer, feature, mapLayer) {
               mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
             }.bind(self, layer)
           })
         } else {
-          layer.mapLayer.setStyle(self.styleFeature)
+          layer.mapLayer.setStyle(self.styleFeature.bind(self, layer))
         }
 
         if (layer.editing) {
@@ -49071,13 +50812,13 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
           self.drawControl = new L.Control.Draw({
             draw: {
               polyline: {
-                  shapeOptions: unselectedStyle
+                  shapeOptions: layer.style
               },
               polygon: {
-                  shapeOptions: unselectedStyle
+                  shapeOptions: layer.style
               },
               rectangle: {
-                shapeOptions: unselectedStyle
+                shapeOptions: layer.style
               },
               circle: false
             },
@@ -49126,6 +50867,13 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
   },
   render: function() {
     var style = this.addLayers()
+    if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
+      this.map.removeLayer(this.baseMap)
+      if (baseMaps[this.props.baseMap].layer) {
+        this.baseMap = baseMaps[this.props.baseMap].layer
+        this.map.addLayer(this.baseMap)
+      }
+    }
     return (
       React.createElement("div", {className: "work-space", ref: "workspace", style: style}
       )
@@ -49135,7 +50883,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
 
 module.exports = WorkSpace
 
-},{"../actions/LayerActions":382,"../stores/LayerStore":403,"../utils/palette":406,"../utils/vectorTools":408,"numeral":73,"react":240}],401:[function(require,module,exports){
+},{"../actions/LayerActions":387,"../stores/LayerStore":408,"../utils/baseMaps":411,"../utils/palette":413,"../utils/vectorTools":415,"numeral":78,"react":245}],406:[function(require,module,exports){
 var keyMirror = require('keymirror');
 
 module.exports = keyMirror({
@@ -49154,21 +50902,14 @@ module.exports = keyMirror({
   TODO_UPDATE_TEXT: null
 });
 
-},{"keymirror":72}],402:[function(require,module,exports){
+},{"keymirror":77}],407:[function(require,module,exports){
 var Dispatcher = require('flux').Dispatcher
 
 module.exports = new Dispatcher()
 
-},{"flux":66}],403:[function(require,module,exports){
+},{"flux":71}],408:[function(require,module,exports){
 /*
- * Copyright (c) 2014, Facebook, Inc.
- * All rights reserved.
- *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
- *
- * TodoStore
+ * Layer Store
  */
 
 var AppDispatcher = require('../dispatcher/AppDispatcher');
@@ -49181,8 +50922,9 @@ var CHANGE_EVENT = 'change';
 
 var _layers = {};
 
-var _backupLayers = {};
+var undos = []
 
+var UNDO_LENGTH = 10
 /**
  * Create a TODO item.
  * @param  {string} text The content of the TODO
@@ -49200,6 +50942,7 @@ function create() {
  *     updated.
  */
 function update(id, updates) {
+  addUndo(id, updates)
   _layers[id] = assign({}, _layers[id], updates)
 }
 
@@ -49210,7 +50953,8 @@ function update(id, updates) {
  */
 function updateList(updates) {
   for (var id in updates) {
-    _layers[id] = assign({}, _layers[id], updates[id])
+    update(id, updates[id])
+    //_layers[id] = assign({}, _layers[id], updates[id])
   }
 }
 
@@ -49274,22 +51018,26 @@ function reorder(from, to) {
   }
 }
 
-function backup() {
-  console.log('backup')
-  _backupLayers = _.cloneDeep(_layers)
-  for (var id in _backupLayers) {
-    _backupLayers[id].mapLayer = false
+function addUndo(id, updates) {
+  var oldUpdates = {}
+  for (var key in updates) {
+    oldUpdates[key] = _layers[id][key]
   }
+  if (undos.length === UNDO_LENGTH) {
+    undos.shift()
+  }
+  undos.push({id: id, updates: oldUpdates})
 }
 
 function undo() {
-  for (var id in _layers) {
-    if (_layers[id].mapLayer) {
-      _layers[id].mapLayer.clearLayers()
-      _layers[id].mapLayer = false
-    }
+  var op = undos[undos.length - 1]
+  console.log(op)
+  if (_.has(op.updates, 'geojson')) {
+    _layers[op.id].mapLayer.clearLayers()
+    _layers[op.id].mapLayer = false
   }
-  _layers = _.cloneDeep(_backupLayers)
+  _layers[op.id] = assign({}, _layers[op.id], op.updates)
+  undos.pop()
 }
 
 var LayerStore = assign({}, EventEmitter.prototype, {
@@ -49342,6 +51090,14 @@ var LayerStore = assign({}, EventEmitter.prototype, {
    */
   getSelected: function() {
     return _.findWhere(_layers, {selected: true})
+  },
+
+  /**
+   * Get all selected layers
+   * @return {object}
+   */
+  getUndoLength: function() {
+    return undos.length
   },
 
   emitChange: function() {
@@ -49443,7 +51199,18 @@ AppDispatcher.register(function(action) {
 
 module.exports = LayerStore;
 
-},{"../constants/LayerConstants":401,"../dispatcher/AppDispatcher":402,"../utils/DefaultLayer":404,"events":8,"object-assign":74}],404:[function(require,module,exports){
+},{"../constants/LayerConstants":406,"../dispatcher/AppDispatcher":407,"../utils/DefaultLayer":410,"events":8,"object-assign":79}],409:[function(require,module,exports){
+module.exports = {
+  simple: {name: 'Simple', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')},
+  satellite: {name: 'Satellite', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')},
+  satellitestreets: {name: 'Satellite Streets', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')},
+  streets: {name: 'Streets', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')},
+  none: {name: 'None', layer: false}
+}
+
+},{}],410:[function(require,module,exports){
+var palette = require('../utils/palette')
+
 function DefaultLayer() {
   this.defaultLayer = {
     name: 'New Layer',
@@ -49459,6 +51226,14 @@ function DefaultLayer() {
     geojson: {
       "type": "FeatureCollection",
       "features": []
+    },
+    style: {
+      radius: 3,
+      color: palette.green,
+      fillColor: palette.green,
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.2
     }
   }
   this.tileLayer = JSON.parse(JSON.stringify(this.defaultLayer))
@@ -49477,7 +51252,16 @@ DefaultLayer.prototype = {
 
 module.exports = new DefaultLayer()
 
-},{}],405:[function(require,module,exports){
+},{"../utils/palette":413}],411:[function(require,module,exports){
+module.exports = {
+  simple: {name: 'Simple', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')},
+  satellite: {name: 'Satellite', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')},
+  satellitestreets: {name: 'Satellite Streets', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')},
+  streets: {name: 'Streets', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')},
+  none: {name: 'None', layer: false}
+}
+
+},{}],412:[function(require,module,exports){
 function GJUtils() {
 
 }
@@ -49532,7 +51316,7 @@ GJUtils.prototype = {
 
 module.exports = new GJUtils()
 
-},{}],406:[function(require,module,exports){
+},{}],413:[function(require,module,exports){
 // module.exports = {
 //   darkest: '#594F4F',
 //   dark: '#547980',
@@ -49558,7 +51342,7 @@ module.exports = {
   green: '#428675'
 }
 
-},{}],407:[function(require,module,exports){
+},{}],414:[function(require,module,exports){
 var topojson = require('topojson'),
     toGeoJSON = require('togeojson'),
     csv2geojson = require('csv2geojson'),
@@ -49737,7 +51521,7 @@ function readFile(f, text, callback) {
     }
 }
 
-},{"csv2geojson":11,"osmtogeojson":75,"polytogeojson":81,"togeojson":241,"topojson":242}],408:[function(require,module,exports){
+},{"csv2geojson":16,"osmtogeojson":80,"polytogeojson":86,"togeojson":246,"topojson":247}],415:[function(require,module,exports){
 var React = require('react')
   , numeral = require('numeral')
   , turf = require('turf')
@@ -49757,21 +51541,16 @@ VectorTools.prototype = {
     var updates = {}
     for (var id in layers) {
       var layer = layers[id]
-      if (layer.geojson.type === 'FeatureCollection') {
-        var newFeatures = []
-        var newGj = gjutils.newFeatureCollection()
-        for (var j = 0; j < layer.geojson.features.length; j++) {
-          var newFeature = fn(layer.geojson.features[j], layer)
-          if (newFeature) {
-            if (newFeature.type === 'FeatureCollection') {
-              newGj.features = newGj.features.concat(newFeature.features)
-            } else {
-              newGj.features.push(newFeature)
-            }
+      var newGj = gjutils.newFeatureCollection()
+      for (var j = 0; j < layer.geojson.features.length; j++) {
+        var newFeature = fn(_.cloneDeep(layer.geojson.features[j]), layer)
+        if (newFeature) {
+          if (newFeature.type === 'FeatureCollection') {
+            newGj.features = newGj.features.concat(newFeature.features)
+          } else {
+            newGj.features.push(newFeature)
           }
         }
-      } else if (layer.geojson.type === 'Feature') {
-        var newGj = fn(layer.geojson, layer)
       }
       if (layer.mapLayer) {
         layer.mapLayer.clearLayers()
@@ -50067,7 +51846,7 @@ VectorTools.prototype = {
       }
     }
     var bearing = turf.bearing(points[0], points[1])
-    var msg = '<p>Bearing</p><p>' + numeral(bearing).format('0.0000')
+    var msg = '<p>Bearing</p><p>' + numeral(bearing).format('0.0000') + '&deg;'
     vex.dialog.alert(msg)
   },
   distance: function(layers) {
@@ -50124,9 +51903,25 @@ VectorTools.prototype = {
     })
     var msg = '<p>Length</p><p>' + numeral(distance).format('0.0000') + ' mi'
     vex.dialog.alert(msg)
+  },
+  updateStyle: function(layer, style) {
+    var newStyle = _.cloneDeep(layer.style)
+    for (var prop in newStyle) {
+      if (style[prop]) {
+        newStyle[prop] = style[prop]
+      }
+    }
+    return newStyle
+  },
+  clean: function(gj) {
+    gj.features = gj.features.map(function(f) {
+      if (f.selected !== 'undefined') delete f.selected
+        return f
+    })
+    return gj
   }
 }
 
 module.exports = new VectorTools()
 
-},{"../actions/LayerActions":382,"../components/Modals.jsx":391,"./DefaultLayer":404,"./gjutils":405,"filesaver.js":14,"numeral":73,"react":240,"turf":274}]},{},[1]);
+},{"../actions/LayerActions":387,"../components/Modals.jsx":396,"./DefaultLayer":410,"./gjutils":412,"filesaver.js":19,"numeral":78,"react":245,"turf":279}]},{},[1]);

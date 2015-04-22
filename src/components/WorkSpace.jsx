@@ -4,10 +4,13 @@ var React = require('react')
   , LayerStore = require('../stores/LayerStore')
   , vectorTools = require('../utils/vectorTools')
   , palette = require('../utils/palette')
+  , baseMaps = require('../utils/baseMaps')
 
 var selectedStyle = {
-  weight: 3,
-  color: '#f00'
+  color: '#f00',
+  fillColor: '#f00',
+  fillOpacity: 1,
+  opacity: 1
 }
 
 var unselectedStyle = {
@@ -29,6 +32,13 @@ var lineStyle = {
   opacity: 1
 }
 
+// var baseMaps = [
+//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png'),
+//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png'),
+//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png'),
+//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+// ]
+
 var WorkSpace = React.createClass({
   componentDidMount: function() {
     this.makeMap()
@@ -48,7 +58,9 @@ var WorkSpace = React.createClass({
       attributionControl: false,
       zoomControl: false
     }).setView([30, 20], 2)
-    L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png').addTo(this.map)
+    this.baseMap = baseMaps[this.props.baseMap].layer
+    this.baseMap.addTo(this.map)
+    //L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png').addTo(this.map)
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
     this.map.on('mousemove', function(e) {
@@ -84,10 +96,10 @@ var WorkSpace = React.createClass({
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
         if (layer.selected) {
-          layer.geojson = layer.mapLayer.toGeoJSON()
+          var gj = layer.mapLayer.toGeoJSON()
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
-          LayerActions.update(layer.id, {geojson: layer.geojson, mapLayer: layer.mapLayer})
+          LayerActions.update(layer.id, {geojson: gj, mapLayer: layer.mapLayer})
         }
       }
     }, this)
@@ -100,25 +112,21 @@ var WorkSpace = React.createClass({
       } else {
         feature.selected = false
       }
-      if (feature.selected) {
-        mapLayer.setStyle(selectedStyle)
-      } else {
-        mapLayer.setStyle(unselectedStyle)
-      }
       LayerActions.update(layer.id, {geojson: layer.geojson})
     }
   },
-  styleFeature: function(feature) {
+  styleFeature: function(layer, feature) {
     if (feature.selected) {
       return selectedStyle
     } else {
-      if (feature.geometry.type === 'Point') {
-        return pointStyle
-      } else if (feature.geometry.type === 'LineString') {
-        return lineStyle
-      } else {
-        return unselectedStyle
-      }
+      return layer.style
+      // if (feature.geometry.type === 'Point') {
+      //   return pointStyle
+      // } else if (feature.geometry.type === 'LineString') {
+      //   return lineStyle
+      // } else {
+      //   return unselectedStyle
+      // }
     }
   },
   selectBoxMouseDown: function(e) {
@@ -180,13 +188,13 @@ var WorkSpace = React.createClass({
             pointToLayer: function(feature, latlng) {
               return L.circleMarker(latlng, pointStyle)
             },
-            style: self.styleFeature,
+            style: self.styleFeature.bind(self, layer),
             onEachFeature: function (layer, feature, mapLayer) {
               mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
             }.bind(self, layer)
           })
         } else {
-          layer.mapLayer.setStyle(self.styleFeature)
+          layer.mapLayer.setStyle(self.styleFeature.bind(self, layer))
         }
 
         if (layer.editing) {
@@ -196,13 +204,13 @@ var WorkSpace = React.createClass({
           self.drawControl = new L.Control.Draw({
             draw: {
               polyline: {
-                  shapeOptions: unselectedStyle
+                  shapeOptions: layer.style
               },
               polygon: {
-                  shapeOptions: unselectedStyle
+                  shapeOptions: layer.style
               },
               rectangle: {
-                shapeOptions: unselectedStyle
+                shapeOptions: layer.style
               },
               circle: false
             },
@@ -251,6 +259,13 @@ var WorkSpace = React.createClass({
   },
   render: function() {
     var style = this.addLayers()
+    if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
+      this.map.removeLayer(this.baseMap)
+      if (baseMaps[this.props.baseMap].layer) {
+        this.baseMap = baseMaps[this.props.baseMap].layer
+        this.map.addLayer(this.baseMap)
+      }
+    }
     return (
       <div className="work-space" ref="workspace" style={style}>
       </div>

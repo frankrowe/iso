@@ -138,6 +138,44 @@ var Modals = {
 
   },
 
+  getStyle: function(style, next) {
+    var Modal = React.createClass({
+      render: function() {
+        return (
+          <div className={'style-form'}>
+            <p>fill color:</p>
+            <input name="fillColor" type="color" defaultValue={this.props.style.fillColor} />
+            <p>color:</p>
+            <input name="color" type="color" defaultValue={this.props.style.color} />
+            <p>radius:</p>
+            <input name="radius" type="text" defaultValue={this.props.style.radius} />
+            <p>weight:</p>
+            <input name="weight" type="text" defaultValue={this.props.style.weight} />
+            <p>opacity:</p>
+            <input name="opacity" type="text" defaultValue={this.props.style.opacity} />
+            <p>fillOpacity:</p>
+            <input name="fillOpacity" type="text" defaultValue={this.props.style.fillOpacity} />
+          </div>
+        )
+      }
+    })
+
+    var dialog = vex.dialog.open({
+      message: 'Update Layer Style',
+      afterOpen: function($vexContent) {
+        React.render(<Modal style={style}/>, $vexContent.find('.vex-dialog-input').get(0))
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled')
+        }
+        var err = false
+        next(err, data)
+      }
+    })
+
+  },
+
   getTileURL: function(next) {
 
     var TileLayer = React.createClass({

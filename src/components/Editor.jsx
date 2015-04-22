@@ -1,5 +1,6 @@
 var React = require('react')
   , geojsonhint = require('geojsonhint')
+  , vectorTools = require('../utils/vectorTools')
 
 var Editor = React.createClass({
   componentDidMount: function() {

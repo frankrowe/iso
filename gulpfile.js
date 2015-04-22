@@ -9,6 +9,7 @@ var gulp = require('gulp')
   , less = require('gulp-less')
   , bump = require('gulp-bump')
   , livereload = require('gulp-livereload')
+  , autoprefixer = require('gulp-autoprefixer')
   , path = require('path')
   , fs = require('fs')
 
@@ -27,6 +28,10 @@ gulp.task('css', function () {
     .pipe(less({
       paths: [ './public/css/' ]
     }))
+    .pipe(autoprefixer({
+      browsers: ['last 2 versions'],
+      cascade: false
+     }))
     .pipe(gulp.dest('./public/css/'))
     .pipe(livereload())
 })

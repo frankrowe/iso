@@ -38,7 +38,7 @@ var AttributeTable = React.createClass({
     })
     columns.unshift(
       <Column
-        label={''}
+        label={'idx'}
         width={indexColumnWidth}
         dataKey={0}
         key={0} />

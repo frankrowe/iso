@@ -13,7 +13,7 @@ var Undo = React.createClass({
     LayerActions.undo()
   },
   render: function() {
-    var active = this.props.config.oneLayer  || this.props.config.multiLayer
+    var active = LayerStore.getUndoLength() > 0
     return (
       <ToolbarItem text={'Undo'} onClick={this.onClick} active={active}/>
     )
@@ -37,9 +37,27 @@ var RenameLayer = React.createClass({
   }
 })
 
-var SaveAs = React.createClass({
+var Style = React.createClass({
+  onClick: function() {
+    var layer = LayerStore.getSelected()
+    if (layer) {
+      Modals.getStyle(layer.style, function(err, style) {
+        var newStyle = vectorTools.updateStyle(layer, style)
+        LayerActions.update(layer.id, {style: newStyle})
+      })
+    }
+  },
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector
+    return (
+      <ToolbarItem text={'Style'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var SaveAs = React.createClass({
+  render: function() {
+    var active = true
         var submenu = [
           <SaveAsGeoJSON {...this.props} key={'saveAsGeoJSON'}/>,
           <SaveAsShp {...this.props} key={'saveAsShp'}/>
@@ -57,7 +75,7 @@ var SaveAsGeoJSON = React.createClass({
     for (var id in layers) {
       var layer = layers[id]
       if (layer.selected) {
-        fileSaver(new Blob([JSON.stringify(layer.geojson)], {
+        fileSaver(new Blob([JSON.stringify(vectorTools.clean(layer.geojson))], {
             type: 'text/plain;charset=utf-8'
         }), layer.name + '.geojson')
       }
@@ -108,6 +126,7 @@ var LayerMenu = React.createClass({
     var submenu = [
       <Undo {...this.props} key={'undo'}/>,
       <RenameLayer {...this.props} key={'renameLayer'}/>,
+      <Style {...this.props} key={'style'}/>,
       <SaveAs {...this.props} key={'saveAs'}/>,
       <ZoomToLayer {...this.props} key={'zoomToLayer'}/>
       ]

@@ -1,6 +1,7 @@
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
+  , ToolbarSubmenu = require('./ToolbarSubmenu.jsx')
   , ToolbarDropdown = require('./ToolbarDropdown.jsx')
   , LayerActions = require('../actions/LayerActions')
   , LayerStore = require('../stores/LayerStore')
@@ -11,7 +12,7 @@ var Area = React.createClass({
     vectorTools.area(LayerStore.getAllSelected())
   },
   render: function() {
-    var active = this.props.config.oneFeature || this.props.config.multiFeature
+    var active = this.props.config.numPolys > 0
     return (
       <ToolbarItem text={'Area'} onClick={this.onClick} active={active}/>
     )
@@ -198,16 +199,10 @@ var Quantile = React.createClass({
   }
 })
 
-var FeatureMenu = React.createClass({
+var Transformation = React.createClass({
   render: function() {
-    //var active = this.props.config.oneFeature || this.props.config.multiFeature
     var active = true
     var submenu = [
-      <Area {...this.props} key={'area'}/>,
-      <Distance {...this.props} key={'distance'}/>,
-      <Bearing {...this.props} key={'bearing'}/>,
-      <Length {...this.props} key={'lineLength'}/>,
-      <Delete {...this.props} key={'deleteFeature'}/>,
       <Simplify {...this.props} key={'simplify'}/>,
       <Buffer {...this.props} key={'buffer'}/>,
       <Flip {...this.props} key={'flip'}/>,
@@ -215,6 +210,35 @@ var FeatureMenu = React.createClass({
       <Merge {...this.props} key={'merge'}/>,
       <Erase {...this.props} key={'erase'}/>,
       <Intersect {...this.props} key={'intersect'}/>
+    ]
+    return (
+      <ToolbarSubmenu text={'Transformation'} submenu={submenu} active={active}/>
+    )
+  }
+})
+
+var Measurement = React.createClass({
+  render: function() {
+    var active = true
+    var submenu = [
+      <Area {...this.props} key={'area'}/>,
+      <Distance {...this.props} key={'distance'}/>,
+      <Bearing {...this.props} key={'bearing'}/>,
+      <Length {...this.props} key={'lineLength'}/>
+    ]
+    return (
+      <ToolbarSubmenu text={'Measurement'} submenu={submenu} active={active}/>
+    )
+  }
+})
+
+var FeatureMenu = React.createClass({
+  render: function() {
+    var active = true
+    var submenu = [
+      <Delete {...this.props} key={'deleteFeature'}/>,
+      <Measurement {...this.props} key={'Measurement'}/>,
+      <Transformation {...this.props} key={'Transformation'}/>
     ]
     return (
       <ToolbarDropdown text={'Feature'} submenu={submenu} active={active}/>

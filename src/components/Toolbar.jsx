@@ -84,9 +84,9 @@ var Toolbar = React.createClass({
     return (
       <div className="toolbar">
         <h1>uGIS</h1>
-        <LayerMenu config={config} />
-        <ViewMenu config={config} />
-        <FeatureMenu config={config} />
+        <LayerMenu {...this.props} config={config} />
+        <ViewMenu {...this.props} config={config} />
+        <FeatureMenu {...this.props} config={config} />
         <SelectMenu {...this.props} config={config} />
         <HelpMenu />
       </div>

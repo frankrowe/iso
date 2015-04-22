@@ -1,12 +1,5 @@
 /*
- * Copyright (c) 2014, Facebook, Inc.
- * All rights reserved.
- *
- * This source code is licensed under the BSD-style license found in the
- * LICENSE file in the root directory of this source tree. An additional grant
- * of patent rights can be found in the PATENTS file in the same directory.
- *
- * TodoStore
+ * Layer Store
  */
 
 var AppDispatcher = require('../dispatcher/AppDispatcher');
@@ -19,8 +12,9 @@ var CHANGE_EVENT = 'change';
 
 var _layers = {};
 
-var _backupLayers = {};
+var undos = []
 
+var UNDO_LENGTH = 10
 /**
  * Create a TODO item.
  * @param  {string} text The content of the TODO
@@ -38,6 +32,7 @@ function create() {
  *     updated.
  */
 function update(id, updates) {
+  addUndo(id, updates)
   _layers[id] = assign({}, _layers[id], updates)
 }
 
@@ -48,7 +43,8 @@ function update(id, updates) {
  */
 function updateList(updates) {
   for (var id in updates) {
-    _layers[id] = assign({}, _layers[id], updates[id])
+    update(id, updates[id])
+    //_layers[id] = assign({}, _layers[id], updates[id])
   }
 }
 
@@ -112,22 +108,26 @@ function reorder(from, to) {
   }
 }
 
-function backup() {
-  console.log('backup')
-  _backupLayers = _.cloneDeep(_layers)
-  for (var id in _backupLayers) {
-    _backupLayers[id].mapLayer = false
+function addUndo(id, updates) {
+  var oldUpdates = {}
+  for (var key in updates) {
+    oldUpdates[key] = _layers[id][key]
   }
+  if (undos.length === UNDO_LENGTH) {
+    undos.shift()
+  }
+  undos.push({id: id, updates: oldUpdates})
 }
 
 function undo() {
-  for (var id in _layers) {
-    if (_layers[id].mapLayer) {
-      _layers[id].mapLayer.clearLayers()
-      _layers[id].mapLayer = false
-    }
+  var op = undos[undos.length - 1]
+  console.log(op)
+  if (_.has(op.updates, 'geojson')) {
+    _layers[op.id].mapLayer.clearLayers()
+    _layers[op.id].mapLayer = false
   }
-  _layers = _.cloneDeep(_backupLayers)
+  _layers[op.id] = assign({}, _layers[op.id], op.updates)
+  undos.pop()
 }
 
 var LayerStore = assign({}, EventEmitter.prototype, {
@@ -180,6 +180,14 @@ var LayerStore = assign({}, EventEmitter.prototype, {
    */
   getSelected: function() {
     return _.findWhere(_layers, {selected: true})
+  },
+
+  /**
+   * Get all selected layers
+   * @return {object}
+   */
+  getUndoLength: function() {
+    return undos.length
   },
 
   emitChange: function() {

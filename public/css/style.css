@@ -15,14 +15,28 @@ body {
 #ugis .app {
   height: 100%;
   width: 100%;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  -webkit-justify-content: flex-start;
+  -ms-flex-pack: start;
   justify-content: flex-start;
+  -webkit-align-items: stretch;
+  -ms-flex-align: stretch;
   align-items: stretch;
+  -webkit-align-content: stretch;
+  -ms-flex-line-pack: stretch;
   align-content: stretch;
 }
 #ugis .app .flex-row {
+  -webkit-flex: 1;
+  -ms-flex: 1;
   flex: 1;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
   border-bottom: 1px solid #7d7d7d;
 }
@@ -114,6 +128,8 @@ body {
 .add-layers {
   width: 50px;
   min-height: 100px;
+  -webkit-flex: none;
+  -ms-flex: none;
   flex: none;
   border-right: 1px solid #7d7d7d;
   background: #303030;
@@ -134,11 +150,14 @@ body {
 }
 .layer-list {
   min-height: 100px;
+  -webkit-flex: none;
+  -ms-flex: none;
   flex: none;
   border-right: 1px solid #d5d5d5;
   background: #636363;
 }
 .layer-list .layer {
+  position: relative;
   text-align: left;
   padding: 10px;
   border-bottom: 1px solid #7d7d7d;
@@ -149,22 +168,48 @@ body {
 .layer-list .layer span {
   padding-left: 5px;
 }
+.layer-list .layer .swatch-wrap {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: #bbb;
+}
+.layer-list .layer .color-swatch {
+  background: #636363;
+  height: 17px;
+  width: 17px;
+  border: 1px solid #636363;
+  background-clip: padding-box;
+  box-sizing: border-box;
+  float: right;
+  padding: 0;
+}
 .right-pane {
   min-height: 100px;
   min-width: 400px;
+  -webkit-flex: 1;
+  -ms-flex: 1;
   flex: 1;
+  -webkit-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
+  display: -webkit-flex;
+  display: -ms-flexbox;
   display: flex;
 }
 .work-space {
   min-height: 100px;
   min-width: 400px;
+  -webkit-flex: 1;
+  -ms-flex: 1;
   flex: 1;
 }
 .work-space.active {
   cursor: crosshair;
 }
 .attribute-table {
+  -webkit-flex: none;
+  -ms-flex: none;
   flex: none;
 }
 .message-bar {
@@ -206,6 +251,8 @@ body {
 }
 .editor {
   width: 400px;
+  -webkit-flex: none;
+  -ms-flex: none;
   flex: none;
   background: #262626;
   position: absolute;

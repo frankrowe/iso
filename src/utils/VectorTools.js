@@ -17,21 +17,16 @@ VectorTools.prototype = {
     var updates = {}
     for (var id in layers) {
       var layer = layers[id]
-      if (layer.geojson.type === 'FeatureCollection') {
-        var newFeatures = []
-        var newGj = gjutils.newFeatureCollection()
-        for (var j = 0; j < layer.geojson.features.length; j++) {
-          var newFeature = fn(layer.geojson.features[j], layer)
-          if (newFeature) {
-            if (newFeature.type === 'FeatureCollection') {
-              newGj.features = newGj.features.concat(newFeature.features)
-            } else {
-              newGj.features.push(newFeature)
-            }
+      var newGj = gjutils.newFeatureCollection()
+      for (var j = 0; j < layer.geojson.features.length; j++) {
+        var newFeature = fn(_.cloneDeep(layer.geojson.features[j]), layer)
+        if (newFeature) {
+          if (newFeature.type === 'FeatureCollection') {
+            newGj.features = newGj.features.concat(newFeature.features)
+          } else {
+            newGj.features.push(newFeature)
           }
         }
-      } else if (layer.geojson.type === 'Feature') {
-        var newGj = fn(layer.geojson, layer)
       }
       if (layer.mapLayer) {
         layer.mapLayer.clearLayers()
@@ -327,7 +322,7 @@ VectorTools.prototype = {
       }
     }
     var bearing = turf.bearing(points[0], points[1])
-    var msg = '<p>Bearing</p><p>' + numeral(bearing).format('0.0000')
+    var msg = '<p>Bearing</p><p>' + numeral(bearing).format('0.0000') + '&deg;'
     vex.dialog.alert(msg)
   },
   distance: function(layers) {
@@ -384,6 +379,22 @@ VectorTools.prototype = {
     })
     var msg = '<p>Length</p><p>' + numeral(distance).format('0.0000') + ' mi'
     vex.dialog.alert(msg)
+  },
+  updateStyle: function(layer, style) {
+    var newStyle = _.cloneDeep(layer.style)
+    for (var prop in newStyle) {
+      if (style[prop]) {
+        newStyle[prop] = style[prop]
+      }
+    }
+    return newStyle
+  },
+  clean: function(gj) {
+    gj.features = gj.features.map(function(f) {
+      if (f.selected !== 'undefined') delete f.selected
+        return f
+    })
+    return gj
   }
 }
 

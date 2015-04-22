@@ -22,12 +22,17 @@ var UGISApp = React.createClass({
   getInitialState: function() {
     return {
       layers: LayerStore.getAll(),
-      error: false
+      error: false,
+      baseMap: 'simple'
     }
   },
 
   updateError: function(error) {
     this.setState({error: error})
+  },
+
+  updateBaseMap: function(id) {
+    this.setState({baseMap: id})
   },
 
   componentDidMount: function() {
@@ -55,12 +60,12 @@ var UGISApp = React.createClass({
     }
     return (
       <div className="app">
-        <Toolbar layers={this.state.layers}/>
+        <Toolbar layers={this.state.layers} updateBaseMap={this.updateBaseMap} baseMap={this.state.baseMap}/>
         <div className="flex-row">
           <AddLayers />
           <LayerList layers={this.state.layers} />
           <div className="right-pane">
-            <WorkSpace layers={this.state.layers} />
+            <WorkSpace layers={this.state.layers} baseMap={this.state.baseMap}/>
             {attributeTable}
           </div>
           {editor}
