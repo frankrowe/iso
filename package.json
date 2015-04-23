@@ -1,8 +1,9 @@
 {
   "name": "ugis",
-  "version": "0.3.75",
+  "version": "0.3.93",
   "private": true,
   "scripts": {},
+  "author": "frankrowe",
   "dependencies": {
     "body-parser": "~1.8.1",
     "brfs": "^1.4.0",

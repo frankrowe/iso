@@ -182,7 +182,7 @@ var Modals = {
       render: function() {
         return (
           <div>
-            <p>{'(http://tile.stamen.com/watercolor/{z}/{x}/{y}.jpg)'}</p>
+            <p>{'(http://tile.stamen.com/toner/{z}/{x}/{y}.jpg)'}</p>
             <input name="url" type="text" defaultValue="" />
           </div>
         )

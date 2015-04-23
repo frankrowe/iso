@@ -14,6 +14,9 @@ function getLayerState() {
   }
 }
 
+var editor = false
+  , attributeTable = false
+
 var UGISApp = React.createClass({
 
   getInitialState: function() {
@@ -40,18 +43,19 @@ var UGISApp = React.createClass({
     LayerStore.removeChangeListener(this._onChange)
   },
 
-  render: function() {
-    console.log('render UGISApp')
-    var editor = false
-      , attributeTable = false
+  componentWillUpdate: function() {
     var editLayer = _.findWhere(this.state.layers, {editGeoJSON: true})
     if (editLayer) {
       editor = <Editor layer={editLayer} updateError={this.updateError}/>
     }
+
     var attributesLayer = _.findWhere(this.state.layers, {viewAttributes: true})
     if (attributesLayer) {
       attributeTable = <AttributeTable layer={attributesLayer} />
     }
+  },
+
+  render: function() {
     return (
       <div className="app">
         <Toolbar layers={this.state.layers} updateBaseMap={this.updateBaseMap} baseMap={this.state.baseMap}/>

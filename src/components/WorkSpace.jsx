@@ -13,6 +13,8 @@ var selectedStyle = {
   opacity: 1
 }
 
+var mapStyle = {}
+
 var WorkSpace = React.createClass({
   componentDidMount: function() {
     this.makeMap()
@@ -191,6 +193,34 @@ var WorkSpace = React.createClass({
         layer.mapLayer = L.tileLayer(layer.tileURL)
       }
     }
+    layer.mapLayerId = L.stamp(layer.mapLayer)
+  },
+  enableLayer: function(layer, zoomToLayers) {
+    if (layer.enabled) {
+      if (layer.vector && layer.zoomTo) {
+        zoomToLayers.addLayer(layer.mapLayer)
+        layer.zoomTo = false
+      }
+      if(!this.workingLayers.hasLayer(layer.mapLayer)) {
+        this.workingLayers.addLayer(layer.mapLayer)
+      }
+    } else {
+      if(this.workingLayers.hasLayer(layer.mapLayer)) {
+        this.workingLayers.removeLayer(layer.mapLayer)
+      }
+    }
+  },
+
+  /**
+   * Remove any layers from the map that aren't in props
+   */
+  checkCurrentLayers: function() {
+    this.workingLayers.eachLayer(function(layer) {
+      var ids = _.pluck(this.props.layers, 'mapLayerId')
+      if (ids.indexOf(L.stamp(layer)) < 0) {
+        this.workingLayers.removeLayer(layer)
+      }
+    }, this)
   },
   addLayers: function(layer) {
     var style = {}
@@ -208,19 +238,7 @@ var WorkSpace = React.createClass({
       }
       this.addLeafletLayer(layer)
       this.addDrawControl(layer)
-      if (layer.enabled) {
-        if (layer.vector && layer.zoomTo) {
-          zoomToLayers.addLayer(layer.mapLayer)
-          layer.zoomTo = false
-        }
-        if(!this.workingLayers.hasLayer(layer.mapLayer)) {
-          this.workingLayers.addLayer(layer.mapLayer)
-        }
-      } else {
-        if(this.workingLayers.hasLayer(layer.mapLayer)) {
-          this.workingLayers.removeLayer(layer.mapLayer)
-        }
-      }
+      this.enableLayer(layer, zoomToLayers)
     }
     this.selectBox(selectBoxActive)
     if (this.selectBoxActive) {
@@ -235,8 +253,9 @@ var WorkSpace = React.createClass({
     }
     return style
   },
-  render: function() {
-    var style = this.addLayers()
+  componentWillUpdate: function() {
+    if (this.map) this.checkCurrentLayers()
+    mapStyle = this.addLayers()
     if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
       this.map.removeLayer(this.baseMap)
       if (baseMaps[this.props.baseMap].layer) {
@@ -244,8 +263,10 @@ var WorkSpace = React.createClass({
         this.map.addLayer(this.baseMap)
       }
     }
+  },
+  render: function() {
     return (
-      <div className="work-space" ref="workspace" style={style}>
+      <div className="work-space" ref="workspace" style={mapStyle}>
       </div>
     )
   }

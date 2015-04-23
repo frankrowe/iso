@@ -74,7 +74,10 @@ function importLayer(layer) {
  * @param  {string} id
  */
 function destroy(id) {
-  _layers[id].mapLayer.clearLayers()
+  if (_layers[id].vector) {
+    _layers[id].mapLayer.clearLayers()
+  }
+  _layers[id].mapLayer = false
   delete _layers[id]
 }
 

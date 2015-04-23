@@ -49331,9 +49331,10 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.75",
+  "version": "0.3.93",
   "private": true,
   "scripts": {},
+  "author": "frankrowe",
   "dependencies": {
     "body-parser": "~1.8.1",
     "brfs": "^1.4.0",
@@ -50103,6 +50104,11 @@ var Layer = React.createClass({displayName: "Layer",
       borderWidth: this.props.layer.style.weight
     }
 
+    if (this.props.layer.vector) {
+      var swatch = React.createElement("div", {className: "swatch-wrap"}, React.createElement("div", {className: "color-swatch", style: swatchStyle, onClick: this.colorClick}))
+    } else {
+      var swatch = false
+    }
     return (
       React.createElement("div", {className: "layer", style: layerStyle, draggable: "true", 
         onClick: this.onClick, 
@@ -50114,7 +50120,7 @@ var Layer = React.createClass({displayName: "Layer",
         onDrop: this.onDrop}, 
         React.createElement("input", {type: "checkbox", ref: "checkbox", checked: this.props.layer.enabled, onChange: this.onChange}), 
         React.createElement("span", {className: "layer-name"}, this.props.layer.name), 
-        React.createElement("div", {className: "swatch-wrap"}, React.createElement("div", {className: "color-swatch", style: swatchStyle, onClick: this.colorClick}))
+        swatch
       )
     )
   }
@@ -50581,7 +50587,7 @@ var Modals = {
       render: function() {
         return (
           React.createElement("div", null, 
-            React.createElement("p", null, '(http://tile.stamen.com/watercolor/{z}/{x}/{y}.jpg)'), 
+            React.createElement("p", null, '(http://tile.stamen.com/toner/{z}/{x}/{y}.jpg)'), 
             React.createElement("input", {name: "url", type: "text", defaultValue: ""})
           )
         )
@@ -50797,7 +50803,7 @@ var Toolbar = React.createClass({displayName: "Toolbar",
     var config = this.findActive()
     return (
       React.createElement("div", {className: "toolbar"}, 
-        React.createElement("h1", null, "uGIS"), 
+        React.createElement("h1", null, "ugis"), 
         React.createElement(LayerMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(ViewMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(FeatureMenu, React.__spread({},  this.props, {config: config})), 
@@ -50963,6 +50969,9 @@ function getLayerState() {
   }
 }
 
+var editor = false
+  , attributeTable = false
+
 var UGISApp = React.createClass({displayName: "UGISApp",
 
   getInitialState: function() {
@@ -50989,18 +50998,19 @@ var UGISApp = React.createClass({displayName: "UGISApp",
     LayerStore.removeChangeListener(this._onChange)
   },
 
-  render: function() {
-    console.log('render UGISApp')
-    var editor = false
-      , attributeTable = false
+  componentWillUpdate: function() {
     var editLayer = _.findWhere(this.state.layers, {editGeoJSON: true})
     if (editLayer) {
       editor = React.createElement(Editor, {layer: editLayer, updateError: this.updateError})
     }
+
     var attributesLayer = _.findWhere(this.state.layers, {viewAttributes: true})
     if (attributesLayer) {
       attributeTable = React.createElement(AttributeTable, {layer: attributesLayer})
     }
+  },
+
+  render: function() {
     return (
       React.createElement("div", {className: "app"}, 
         React.createElement(Toolbar, {layers: this.state.layers, updateBaseMap: this.updateBaseMap, baseMap: this.state.baseMap}), 
@@ -51156,6 +51166,8 @@ var selectedStyle = {
   fillOpacity: 0.8,
   opacity: 1
 }
+
+var mapStyle = {}
 
 var WorkSpace = React.createClass({displayName: "WorkSpace",
   componentDidMount: function() {
@@ -51335,6 +51347,34 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
         layer.mapLayer = L.tileLayer(layer.tileURL)
       }
     }
+    layer.mapLayerId = L.stamp(layer.mapLayer)
+  },
+  enableLayer: function(layer, zoomToLayers) {
+    if (layer.enabled) {
+      if (layer.vector && layer.zoomTo) {
+        zoomToLayers.addLayer(layer.mapLayer)
+        layer.zoomTo = false
+      }
+      if(!this.workingLayers.hasLayer(layer.mapLayer)) {
+        this.workingLayers.addLayer(layer.mapLayer)
+      }
+    } else {
+      if(this.workingLayers.hasLayer(layer.mapLayer)) {
+        this.workingLayers.removeLayer(layer.mapLayer)
+      }
+    }
+  },
+
+  /**
+   * Remove any layers from the map that aren't in props
+   */
+  checkCurrentLayers: function() {
+    this.workingLayers.eachLayer(function(layer) {
+      var ids = _.pluck(this.props.layers, 'mapLayerId')
+      if (ids.indexOf(L.stamp(layer)) < 0) {
+        this.workingLayers.removeLayer(layer)
+      }
+    }, this)
   },
   addLayers: function(layer) {
     var style = {}
@@ -51352,19 +51392,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       }
       this.addLeafletLayer(layer)
       this.addDrawControl(layer)
-      if (layer.enabled) {
-        if (layer.vector && layer.zoomTo) {
-          zoomToLayers.addLayer(layer.mapLayer)
-          layer.zoomTo = false
-        }
-        if(!this.workingLayers.hasLayer(layer.mapLayer)) {
-          this.workingLayers.addLayer(layer.mapLayer)
-        }
-      } else {
-        if(this.workingLayers.hasLayer(layer.mapLayer)) {
-          this.workingLayers.removeLayer(layer.mapLayer)
-        }
-      }
+      this.enableLayer(layer, zoomToLayers)
     }
     this.selectBox(selectBoxActive)
     if (this.selectBoxActive) {
@@ -51379,8 +51407,9 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     }
     return style
   },
-  render: function() {
-    var style = this.addLayers()
+  componentWillUpdate: function() {
+    if (this.map) this.checkCurrentLayers()
+    mapStyle = this.addLayers()
     if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
       this.map.removeLayer(this.baseMap)
       if (baseMaps[this.props.baseMap].layer) {
@@ -51388,8 +51417,10 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
         this.map.addLayer(this.baseMap)
       }
     }
+  },
+  render: function() {
     return (
-      React.createElement("div", {className: "work-space", ref: "workspace", style: style}
+      React.createElement("div", {className: "work-space", ref: "workspace", style: mapStyle}
       )
     )
   }
@@ -51493,7 +51524,10 @@ function importLayer(layer) {
  * @param  {string} id
  */
 function destroy(id) {
-  _layers[id].mapLayer.clearLayers()
+  if (_layers[id].vector) {
+    _layers[id].mapLayer.clearLayers()
+  }
+  _layers[id].mapLayer = false
   delete _layers[id]
 }
 

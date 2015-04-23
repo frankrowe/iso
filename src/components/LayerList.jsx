@@ -77,6 +77,11 @@ var Layer = React.createClass({
       borderWidth: this.props.layer.style.weight
     }
 
+    if (this.props.layer.vector) {
+      var swatch = <div className="swatch-wrap"><div className="color-swatch" style={swatchStyle} onClick={this.colorClick}></div></div>
+    } else {
+      var swatch = false
+    }
     return (
       <div className="layer" style={layerStyle} draggable="true"
         onClick={this.onClick}
@@ -88,7 +93,7 @@ var Layer = React.createClass({
         onDrop={this.onDrop}>
         <input type="checkbox" ref="checkbox" checked={this.props.layer.enabled} onChange={this.onChange} />
         <span className="layer-name">{this.props.layer.name}</span>
-        <div className="swatch-wrap"><div className="color-swatch" style={swatchStyle} onClick={this.colorClick}></div></div>
+        {swatch}
       </div>
     )
   }
