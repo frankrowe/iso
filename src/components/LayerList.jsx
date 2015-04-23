@@ -87,7 +87,7 @@ var Layer = React.createClass({
         onDragEnd={this.onDragEnd}
         onDrop={this.onDrop}>
         <input type="checkbox" ref="checkbox" checked={this.props.layer.enabled} onChange={this.onChange} />
-        <span className="layer-name">{this.props.layer.id}</span>
+        <span className="layer-name">{this.props.layer.name}</span>
         <div className="swatch-wrap"><div className="color-swatch" style={swatchStyle} onClick={this.colorClick}></div></div>
       </div>
     )

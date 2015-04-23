@@ -22,7 +22,7 @@ function DefaultLayer() {
       fillColor: palette.green,
       weight: 1,
       opacity: 1,
-      fillOpacity: 0.2
+      fillOpacity: 0.5
     }
   }
 }
@@ -38,6 +38,7 @@ DefaultLayer.prototype = {
     var layer = JSON.parse(JSON.stringify(this.defaultLayer))
     layer.id = this.generateID()
     layer.style.color = this.generateColor()
+    console.log(layer.style.color)
     layer.style.fillColor = layer.style.color
     return layer
   }

@@ -95,18 +95,17 @@ function destroySelected() {
  * @param  {number} the position to move the layer
  */
 function reorder(from, to) {
-  console.log(from, to)
-  var orderHash = {}
-  for (var id in _layers) {
-    orderHash[_layers[id].order] = _layers[id]
-  }
-  var orders = _.pluck(_layers, 'order')
-  console.log(orders)
+  var orders = _.range(Object.keys(_layers).length)
   orders.splice(to, 0, orders.splice(from, 1)[0])
-  console.log(orders)
+
+  var updates = {}
   orders.forEach(function(order, idx) {
-    update(orderHash[order].id, {order: idx})
+    var layer = _.findWhere(_layers, {order: order})
+    updates[layer.id] = {
+      order: idx
+    }
   })
+  updateList(updates)
 
   for (var id in _layers) {
     if (_layers[id].vector) {
