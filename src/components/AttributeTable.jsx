@@ -18,25 +18,28 @@ var AttributeTable = React.createClass({
     feature.selected = !feature.selected
     LayerActions.update(this.props.layer.id, {geojson: this.props.layer.geojson})
   },
-  render: function() {
-    var self = this
-    var style = {}
-      , tableWidth = $('.work-space').innerWidth() - 4
-      , tableHeight = 200
-      , indexColumnWidth = 30
-
+  componentWillMount: function() {
+    this.makeTable()
+  },
+  componentWillUpdate: function() {
+    this.makeTable()
+  },
+  makeTable: function() {
+    this.tableWidth = $('.work-space').innerWidth() - 4
+    this.tableHeight = 200
+    var indexColumnWidth = 30
     var columnLabels = _.pluck(this.props.layer.geojson.features, 'properties')
     columnLabels = columnLabels.map(function(c) { return _.keys(c) })
     columnLabels = _.uniq(_.flatten(columnLabels))
-    var columnWidth = (tableWidth - indexColumnWidth)/columnLabels.length
-    var columns = columnLabels.map(function(label, idx) {
+    var columnWidth = (this.tableWidth - indexColumnWidth)/columnLabels.length
+    this.columns = columnLabels.map(function(label, idx) {
       return <Column
-        label={label}
-        width={columnWidth}
-        dataKey={idx+1}
-        key={idx+1} />
+               label={label}
+               width={columnWidth}
+               dataKey={idx+1}
+               key={idx+1} />
     })
-    columns.unshift(
+    this.columns.unshift(
       <Column
         label={'idx'}
         width={indexColumnWidth}
@@ -49,18 +52,20 @@ var AttributeTable = React.createClass({
       row.unshift(idx)
       return row
     })
+  },
+  render: function() {
     return (
-      <div className="attribute-table" style={style}>
+      <div className="attribute-table">
         <Table
             rowHeight={20}
             rowGetter={this.rowGetter}
             rowClassNameGetter={this.rowClassNameGetter}
             onRowClick={this.onRowClick}
             rowsCount={this.props.layer.geojson.features.length}
-            width={tableWidth}
-            maxHeight={tableHeight}
+            width={this.tableWidth}
+            maxHeight={this.tableHeight}
             headerHeight={20}>
-            {columns}
+            {this.columns}
           </Table>
       </div>
     )

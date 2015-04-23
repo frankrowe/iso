@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.93",
+  "version": "0.3.106",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -49614,25 +49614,28 @@ var AttributeTable = React.createClass({displayName: "AttributeTable",
     feature.selected = !feature.selected
     LayerActions.update(this.props.layer.id, {geojson: this.props.layer.geojson})
   },
-  render: function() {
-    var self = this
-    var style = {}
-      , tableWidth = $('.work-space').innerWidth() - 4
-      , tableHeight = 200
-      , indexColumnWidth = 30
-
+  componentWillMount: function() {
+    this.makeTable()
+  },
+  componentWillUpdate: function() {
+    this.makeTable()
+  },
+  makeTable: function() {
+    this.tableWidth = $('.work-space').innerWidth() - 4
+    this.tableHeight = 200
+    var indexColumnWidth = 30
     var columnLabels = _.pluck(this.props.layer.geojson.features, 'properties')
     columnLabels = columnLabels.map(function(c) { return _.keys(c) })
     columnLabels = _.uniq(_.flatten(columnLabels))
-    var columnWidth = (tableWidth - indexColumnWidth)/columnLabels.length
-    var columns = columnLabels.map(function(label, idx) {
+    var columnWidth = (this.tableWidth - indexColumnWidth)/columnLabels.length
+    this.columns = columnLabels.map(function(label, idx) {
       return React.createElement(Column, {
-        label: label, 
-        width: columnWidth, 
-        dataKey: idx+1, 
-        key: idx+1})
+               label: label, 
+               width: columnWidth, 
+               dataKey: idx+1, 
+               key: idx+1})
     })
-    columns.unshift(
+    this.columns.unshift(
       React.createElement(Column, {
         label: 'idx', 
         width: indexColumnWidth, 
@@ -49645,18 +49648,20 @@ var AttributeTable = React.createClass({displayName: "AttributeTable",
       row.unshift(idx)
       return row
     })
+  },
+  render: function() {
     return (
-      React.createElement("div", {className: "attribute-table", style: style}, 
+      React.createElement("div", {className: "attribute-table"}, 
         React.createElement(Table, {
             rowHeight: 20, 
             rowGetter: this.rowGetter, 
             rowClassNameGetter: this.rowClassNameGetter, 
             onRowClick: this.onRowClick, 
             rowsCount: this.props.layer.geojson.features.length, 
-            width: tableWidth, 
-            maxHeight: tableHeight, 
+            width: this.tableWidth, 
+            maxHeight: this.tableHeight, 
             headerHeight: 20}, 
-            columns
+            this.columns
           )
       )
     )
@@ -49725,13 +49730,11 @@ var Editor = React.createClass({displayName: "Editor",
     }
   },
   render: function() {
-    var self = this
     var textareaStyle = {
       display: 'none'
     }
-    var editorStyle = {}
     return (
-      React.createElement("div", {className: "editor", style: editorStyle}, 
+      React.createElement("div", {className: "editor"}, 
         React.createElement("textarea", {ref: "textarea", style: textareaStyle})
       )
     )
@@ -51002,11 +51005,15 @@ var UGISApp = React.createClass({displayName: "UGISApp",
     var editLayer = _.findWhere(this.state.layers, {editGeoJSON: true})
     if (editLayer) {
       editor = React.createElement(Editor, {layer: editLayer, updateError: this.updateError})
+    } else {
+      editor = false
     }
 
     var attributesLayer = _.findWhere(this.state.layers, {viewAttributes: true})
     if (attributesLayer) {
       attributeTable = React.createElement(AttributeTable, {layer: attributesLayer})
+    } else {
+      attributeTable = false
     }
   },
 

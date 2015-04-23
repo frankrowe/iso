@@ -57,13 +57,11 @@ var Editor = React.createClass({
     }
   },
   render: function() {
-    var self = this
     var textareaStyle = {
       display: 'none'
     }
-    var editorStyle = {}
     return (
-      <div className="editor" style={editorStyle}>
+      <div className="editor">
         <textarea ref="textarea" style={textareaStyle}></textarea>
       </div>
     )

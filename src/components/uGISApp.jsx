@@ -47,11 +47,15 @@ var UGISApp = React.createClass({
     var editLayer = _.findWhere(this.state.layers, {editGeoJSON: true})
     if (editLayer) {
       editor = <Editor layer={editLayer} updateError={this.updateError}/>
+    } else {
+      editor = false
     }
 
     var attributesLayer = _.findWhere(this.state.layers, {viewAttributes: true})
     if (attributesLayer) {
       attributeTable = <AttributeTable layer={attributesLayer} />
+    } else {
+      attributeTable = false
     }
   },
 
