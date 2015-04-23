@@ -49331,47 +49331,30 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.106",
+  "version": "0.3.133",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
   "dependencies": {
-    "body-parser": "~1.8.1",
     "brfs": "^1.4.0",
     "color": "^0.8.0",
-    "cookie-parser": "~1.3.3",
     "csv2geojson": "^4.0.0",
-    "debug": "~2.0.0",
-    "express": "~4.9.0",
     "filesaver.js": "^0.1.1",
     "fixed-data-table": "^0.1.2",
     "flux": "^2.0.1",
     "geojson2dsv": "0.0.0",
     "geojsonhint": "^1.0.0",
-    "hbs": "~2.7.0",
     "keymirror": "^0.1.1",
-    "less-middleware": "1.0.x",
     "morgan": "~1.3.0",
     "numeral": "^1.5.3",
     "object-assign": "^2.0.0",
     "osmtogeojson": "^2.2.5",
     "polytogeojson": "0.0.1",
-    "serve-favicon": "~2.1.3",
     "shp-write": "^0.2.1",
     "togeojson": "^0.11.1",
     "tokml": "^0.3.0",
     "topojson": "^1.6.18",
     "turf": "^2.0.2",
-    "turf-area": "^1.1.1",
-    "turf-bearing": "^1.0.1",
-    "turf-buffer": "^1.0.4",
-    "turf-combine": "^1.0.2",
-    "turf-explode": "^1.0.1",
-    "turf-flip": "^1.0.3",
-    "turf-hex-grid": "^2.0.1",
-    "turf-kinks": "^1.3.1",
-    "turf-merge": "^1.0.2",
-    "turf-quantile": "^1.0.1",
     "wellknown": "^0.3.1"
   },
   "devDependencies": {
@@ -49614,12 +49597,6 @@ var AttributeTable = React.createClass({displayName: "AttributeTable",
     feature.selected = !feature.selected
     LayerActions.update(this.props.layer.id, {geojson: this.props.layer.geojson})
   },
-  componentWillMount: function() {
-    this.makeTable()
-  },
-  componentWillUpdate: function() {
-    this.makeTable()
-  },
   makeTable: function() {
     this.tableWidth = $('.work-space').innerWidth() - 4
     this.tableHeight = 200
@@ -49650,6 +49627,7 @@ var AttributeTable = React.createClass({displayName: "AttributeTable",
     })
   },
   render: function() {
+    this.makeTable()
     return (
       React.createElement("div", {className: "attribute-table"}, 
         React.createElement(Table, {
@@ -49820,7 +49798,7 @@ var Simplify = React.createClass({displayName: "Simplify",
   render: function() {
     var active = this.props.config.line || this.props.config.poly
     return (
-      React.createElement(ToolbarItem, {text: 'Simplify', onClick: this.onClick, active: active})
+      React.createElement(ToolbarItem, {text: 'Simplify', img: "img/tools/simplify.png", onClick: this.onClick, active: active})
     )
   }
 })
@@ -49832,7 +49810,7 @@ var Buffer = React.createClass({displayName: "Buffer",
   render: function() {
     var active = this.props.config.oneFeature || this.props.config.multiFeature
     return (
-      React.createElement(ToolbarItem, {text: 'Buffer', onClick: this.onClick, active: active})
+      React.createElement(ToolbarItem, {text: 'Buffer', img: "img/tools/buffer.png", onClick: this.onClick, active: active})
     )
   }
 })
@@ -49892,7 +49870,7 @@ var Merge = React.createClass({displayName: "Merge",
   render: function() {
     var active = this.props.config.multiFeature && this.props.config.oneLayer
     return (
-      React.createElement(ToolbarItem, {text: 'Merge', onClick: this.onClick, active: active})
+      React.createElement(ToolbarItem, {text: 'Merge', img: "img/tools/dissolve.png", onClick: this.onClick, active: active})
     )
   }
 })
@@ -49904,7 +49882,7 @@ var Erase = React.createClass({displayName: "Erase",
   render: function() {
     var active = this.props.config.numPolys === 2
     return (
-      React.createElement(ToolbarItem, {text: 'Erase', onClick: this.onClick, active: active})
+      React.createElement(ToolbarItem, {text: 'Erase', img: "img/tools/difference.png", onClick: this.onClick, active: active})
     )
   }
 })
@@ -49916,7 +49894,7 @@ var Intersect = React.createClass({displayName: "Intersect",
   render: function() {
     var active = this.props.config.numPolys === 2
     return (
-      React.createElement(ToolbarItem, {text: 'Intersect', onClick: this.onClick, active: active})
+      React.createElement(ToolbarItem, {text: 'Intersect', img: "img/tools/intersect.png", onClick: this.onClick, active: active})
     )
   }
 })
@@ -50702,7 +50680,6 @@ var SelectBox = React.createClass({displayName: "SelectBox",
 
 var SelectMenu = React.createClass({displayName: "SelectMenu",
   render: function() {
-    //var active = this.props.config.oneLayer  || this.props.config.multiLayer
     var active = true
     var submenu = [
       React.createElement(SelectAll, React.__spread({key: 'select'},  this.props)),
@@ -50883,8 +50860,10 @@ var ToolbarItem = React.createClass({displayName: "ToolbarItem",
     var style = {}
     var className = 'toolbar-item'
     if (this.props.active) className += ' active'
+    var img = this.props.img ? React.createElement("img", {src: this.props.img}) : false
     return (
       React.createElement("div", {className: className, style: style, onClick: this.onClick}, 
+        React.createElement("span", {className: "descriptor-icon"}, img), 
         React.createElement("span", {className: "label"}, this.props.text), 
         React.createElement("span", {className: "icon"}, this.props.icon)
       )
@@ -51001,15 +50980,15 @@ var UGISApp = React.createClass({displayName: "UGISApp",
     LayerStore.removeChangeListener(this._onChange)
   },
 
-  componentWillUpdate: function() {
-    var editLayer = _.findWhere(this.state.layers, {editGeoJSON: true})
+  componentWillUpdate: function(nextProps, nextState) {
+    var editLayer = _.findWhere(nextState.layers, {editGeoJSON: true})
     if (editLayer) {
       editor = React.createElement(Editor, {layer: editLayer, updateError: this.updateError})
     } else {
       editor = false
     }
 
-    var attributesLayer = _.findWhere(this.state.layers, {viewAttributes: true})
+    var attributesLayer = _.findWhere(nextState.layers, {viewAttributes: true})
     if (attributesLayer) {
       attributeTable = React.createElement(AttributeTable, {layer: attributesLayer})
     } else {
@@ -51224,7 +51203,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     this.map.on('draw:created', function (e) {
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
-        if (layer.selected) {
+        if (layer.selected && layer.vector) {
           var gj = _.cloneDeep(layer.geojson)
           gj.features.push(e.layer.toGeoJSON())
           layer.mapLayer.clearLayers()
@@ -51237,7 +51216,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     this.map.on('draw:edited', function (e) {
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
-        if (layer.selected) {
+        if (layer.selected && layer.vector) {
           var gj = layer.mapLayer.toGeoJSON()
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
@@ -51305,32 +51284,35 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     }
   },
   addDrawControl: function(layer) {
-    if (layer.editing) {
-      if (this.drawControl) {
-        this.map.removeControl(this.drawControl)
-      }
-      this.drawControl = new L.Control.Draw({
-        draw: {
-          polyline: {
-              shapeOptions: layer.style
-          },
-          polygon: {
-              shapeOptions: layer.style
-          },
-          rectangle: {
-            shapeOptions: layer.style
-          },
-          circle: false
-        },
-        edit: {
-          featureGroup: layer.mapLayer
+    if (layer.vector) {
+      if (layer.editing) {
+        console.log(layer.name)
+        if (this.drawControl) {
+          this.map.removeControl(this.drawControl)
         }
-      })
-      this.map.addControl(this.drawControl)
-    } else {
-      if (this.drawControl) {
-        this.map.removeControl(this.drawControl)
-        this.drawControl = false
+        this.drawControl = new L.Control.Draw({
+          draw: {
+            polyline: {
+                shapeOptions: layer.style
+            },
+            polygon: {
+                shapeOptions: layer.style
+            },
+            rectangle: {
+              shapeOptions: layer.style
+            },
+            circle: false
+          },
+          edit: {
+            featureGroup: layer.mapLayer
+          }
+        })
+        this.map.addControl(this.drawControl)
+      } else {
+        if (this.drawControl) {
+          this.map.removeControl(this.drawControl)
+          this.drawControl = false
+        }
       }
     }
   },
@@ -51414,18 +51396,22 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     }
     return style
   },
-  componentWillUpdate: function() {
-    if (this.map) this.checkCurrentLayers()
-    mapStyle = this.addLayers()
-    if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
-      this.map.removeLayer(this.baseMap)
-      if (baseMaps[this.props.baseMap].layer) {
-        this.baseMap = baseMaps[this.props.baseMap].layer
-        this.map.addLayer(this.baseMap)
+  checkBaseMap: function() {
+    if (this.map) {
+      this.checkCurrentLayers()
+      mapStyle = this.addLayers()
+      if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
+        this.map.removeLayer(this.baseMap)
+        if (baseMaps[this.props.baseMap].layer) {
+          this.baseMap = baseMaps[this.props.baseMap].layer
+          this.map.addLayer(this.baseMap)
+        }
       }
     }
   },
   render: function() {
+    this.addLayers()
+    this.checkBaseMap()
     return (
       React.createElement("div", {className: "work-space", ref: "workspace", style: mapStyle}
       )
@@ -51721,6 +51707,10 @@ module.exports = {
     name: 'Simple',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
   },
+  streets: {
+    name: 'Streets',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+  },
   satellite: {
     name: 'Satellite',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')
@@ -51728,10 +51718,6 @@ module.exports = {
   satellitestreets: {
     name: 'Satellite Streets',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')
-  },
-  streets: {
-    name: 'Streets',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
   },
   none: {
     name: 'None',
@@ -51780,7 +51766,6 @@ DefaultLayer.prototype = {
     var layer = JSON.parse(JSON.stringify(this.defaultLayer))
     layer.id = this.generateID()
     layer.style.color = this.generateColor()
-    console.log(layer.style.color)
     layer.style.fillColor = layer.style.color
     return layer
   }
@@ -51794,6 +51779,10 @@ module.exports = {
     name: 'Simple',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
   },
+  streets: {
+    name: 'Streets',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+  },
   satellite: {
     name: 'Satellite',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')
@@ -51801,10 +51790,6 @@ module.exports = {
   satellitestreets: {
     name: 'Satellite Streets',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')
-  },
-  streets: {
-    name: 'Streets',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
   },
   none: {
     name: 'None',

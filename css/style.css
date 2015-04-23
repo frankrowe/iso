@@ -117,6 +117,9 @@ body {
   float: right;
   font-weight: 800;
 }
+.toolbar .toolbar-item .descriptor-icon {
+  float: left;
+}
 .toolbar .toolbar-item.active {
   color: #fff;
 }

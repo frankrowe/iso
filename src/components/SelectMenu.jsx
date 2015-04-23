@@ -85,7 +85,6 @@ var SelectBox = React.createClass({
 
 var SelectMenu = React.createClass({
   render: function() {
-    //var active = this.props.config.oneLayer  || this.props.config.multiLayer
     var active = true
     var submenu = [
       <SelectAll key={'select'} {...this.props}/>,

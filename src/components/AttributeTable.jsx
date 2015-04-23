@@ -18,12 +18,6 @@ var AttributeTable = React.createClass({
     feature.selected = !feature.selected
     LayerActions.update(this.props.layer.id, {geojson: this.props.layer.geojson})
   },
-  componentWillMount: function() {
-    this.makeTable()
-  },
-  componentWillUpdate: function() {
-    this.makeTable()
-  },
   makeTable: function() {
     this.tableWidth = $('.work-space').innerWidth() - 4
     this.tableHeight = 200
@@ -54,6 +48,7 @@ var AttributeTable = React.createClass({
     })
   },
   render: function() {
+    this.makeTable()
     return (
       <div className="attribute-table">
         <Table

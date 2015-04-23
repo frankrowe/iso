@@ -63,7 +63,7 @@ var WorkSpace = React.createClass({
     this.map.on('draw:created', function (e) {
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
-        if (layer.selected) {
+        if (layer.selected && layer.vector) {
           var gj = _.cloneDeep(layer.geojson)
           gj.features.push(e.layer.toGeoJSON())
           layer.mapLayer.clearLayers()
@@ -76,7 +76,7 @@ var WorkSpace = React.createClass({
     this.map.on('draw:edited', function (e) {
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
-        if (layer.selected) {
+        if (layer.selected && layer.vector) {
           var gj = layer.mapLayer.toGeoJSON()
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
@@ -144,32 +144,35 @@ var WorkSpace = React.createClass({
     }
   },
   addDrawControl: function(layer) {
-    if (layer.editing) {
-      if (this.drawControl) {
-        this.map.removeControl(this.drawControl)
-      }
-      this.drawControl = new L.Control.Draw({
-        draw: {
-          polyline: {
-              shapeOptions: layer.style
-          },
-          polygon: {
-              shapeOptions: layer.style
-          },
-          rectangle: {
-            shapeOptions: layer.style
-          },
-          circle: false
-        },
-        edit: {
-          featureGroup: layer.mapLayer
+    if (layer.vector) {
+      if (layer.editing) {
+        console.log(layer.name)
+        if (this.drawControl) {
+          this.map.removeControl(this.drawControl)
         }
-      })
-      this.map.addControl(this.drawControl)
-    } else {
-      if (this.drawControl) {
-        this.map.removeControl(this.drawControl)
-        this.drawControl = false
+        this.drawControl = new L.Control.Draw({
+          draw: {
+            polyline: {
+                shapeOptions: layer.style
+            },
+            polygon: {
+                shapeOptions: layer.style
+            },
+            rectangle: {
+              shapeOptions: layer.style
+            },
+            circle: false
+          },
+          edit: {
+            featureGroup: layer.mapLayer
+          }
+        })
+        this.map.addControl(this.drawControl)
+      } else {
+        if (this.drawControl) {
+          this.map.removeControl(this.drawControl)
+          this.drawControl = false
+        }
       }
     }
   },
@@ -253,18 +256,22 @@ var WorkSpace = React.createClass({
     }
     return style
   },
-  componentWillUpdate: function() {
-    if (this.map) this.checkCurrentLayers()
-    mapStyle = this.addLayers()
-    if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
-      this.map.removeLayer(this.baseMap)
-      if (baseMaps[this.props.baseMap].layer) {
-        this.baseMap = baseMaps[this.props.baseMap].layer
-        this.map.addLayer(this.baseMap)
+  checkBaseMap: function() {
+    if (this.map) {
+      this.checkCurrentLayers()
+      mapStyle = this.addLayers()
+      if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
+        this.map.removeLayer(this.baseMap)
+        if (baseMaps[this.props.baseMap].layer) {
+          this.baseMap = baseMaps[this.props.baseMap].layer
+          this.map.addLayer(this.baseMap)
+        }
       }
     }
   },
   render: function() {
+    this.addLayers()
+    this.checkBaseMap()
     return (
       <div className="work-space" ref="workspace" style={mapStyle}>
       </div>

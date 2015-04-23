@@ -15,8 +15,10 @@ var ToolbarItem = React.createClass({
     var style = {}
     var className = 'toolbar-item'
     if (this.props.active) className += ' active'
+    var img = this.props.img ? <img src={this.props.img} /> : false
     return (
       <div className={className} style={style} onClick={this.onClick}>
+        <span className="descriptor-icon">{img}</span>
         <span className="label">{this.props.text}</span>
         <span className='icon'>{this.props.icon}</span>
       </div>

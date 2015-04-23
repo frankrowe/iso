@@ -74,7 +74,7 @@ var Simplify = React.createClass({
   render: function() {
     var active = this.props.config.line || this.props.config.poly
     return (
-      <ToolbarItem text={'Simplify'} onClick={this.onClick} active={active}/>
+      <ToolbarItem text={'Simplify'} img={"img/tools/simplify.png"} onClick={this.onClick} active={active}/>
     )
   }
 })
@@ -86,7 +86,7 @@ var Buffer = React.createClass({
   render: function() {
     var active = this.props.config.oneFeature || this.props.config.multiFeature
     return (
-      <ToolbarItem text={'Buffer'} onClick={this.onClick} active={active}/>
+      <ToolbarItem text={'Buffer'} img={"img/tools/buffer.png"} onClick={this.onClick} active={active}/>
     )
   }
 })
@@ -146,7 +146,7 @@ var Merge = React.createClass({
   render: function() {
     var active = this.props.config.multiFeature && this.props.config.oneLayer
     return (
-      <ToolbarItem text={'Merge'} onClick={this.onClick} active={active}/>
+      <ToolbarItem text={'Merge'} img={"img/tools/dissolve.png"} onClick={this.onClick} active={active}/>
     )
   }
 })
@@ -158,7 +158,7 @@ var Erase = React.createClass({
   render: function() {
     var active = this.props.config.numPolys === 2
     return (
-      <ToolbarItem text={'Erase'} onClick={this.onClick} active={active}/>
+      <ToolbarItem text={'Erase'} img={"img/tools/difference.png"} onClick={this.onClick} active={active}/>
     )
   }
 })
@@ -170,7 +170,7 @@ var Intersect = React.createClass({
   render: function() {
     var active = this.props.config.numPolys === 2
     return (
-      <ToolbarItem text={'Intersect'} onClick={this.onClick} active={active}/>
+      <ToolbarItem text={'Intersect'} img={"img/tools/intersect.png"} onClick={this.onClick} active={active}/>
     )
   }
 })

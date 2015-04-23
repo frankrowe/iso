@@ -38,7 +38,6 @@ DefaultLayer.prototype = {
     var layer = JSON.parse(JSON.stringify(this.defaultLayer))
     layer.id = this.generateID()
     layer.style.color = this.generateColor()
-    console.log(layer.style.color)
     layer.style.fillColor = layer.style.color
     return layer
   }

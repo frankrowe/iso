@@ -43,15 +43,15 @@ var UGISApp = React.createClass({
     LayerStore.removeChangeListener(this._onChange)
   },
 
-  componentWillUpdate: function() {
-    var editLayer = _.findWhere(this.state.layers, {editGeoJSON: true})
+  componentWillUpdate: function(nextProps, nextState) {
+    var editLayer = _.findWhere(nextState.layers, {editGeoJSON: true})
     if (editLayer) {
       editor = <Editor layer={editLayer} updateError={this.updateError}/>
     } else {
       editor = false
     }
 
-    var attributesLayer = _.findWhere(this.state.layers, {viewAttributes: true})
+    var attributesLayer = _.findWhere(nextState.layers, {viewAttributes: true})
     if (attributesLayer) {
       attributeTable = <AttributeTable layer={attributesLayer} />
     } else {
