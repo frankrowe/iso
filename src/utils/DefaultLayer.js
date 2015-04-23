@@ -25,16 +25,20 @@ function DefaultLayer() {
       fillOpacity: 0.2
     }
   }
-  this.tileLayer = JSON.parse(JSON.stringify(this.defaultLayer))
 }
 
 DefaultLayer.prototype = {
   generateID: function() {
     return (+new Date() + Math.floor(Math.random() * 999999)).toString(36)
   },
+  generateColor: function() {
+    return "#" + Math.random().toString(16).slice(2, 8)
+  },
   generate: function() {
     var layer = JSON.parse(JSON.stringify(this.defaultLayer))
     layer.id = this.generateID()
+    layer.style.color = this.generateColor()
+    layer.style.fillColor = layer.style.color
     return layer
   }
 }

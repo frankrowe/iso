@@ -8,9 +8,6 @@ var React = require('react')
   , MessageBar = require('./MessageBar.jsx')
   , LayerStore = require('../stores/LayerStore')
 
-/**
- * Retrieve the current TODO data from the TodoStore
- */
 function getLayerState() {
   return {
     layers: LayerStore.getAll()
@@ -43,9 +40,6 @@ var UGISApp = React.createClass({
     LayerStore.removeChangeListener(this._onChange)
   },
 
-  /**
-   * @return {object}
-   */
   render: function() {
     console.log('render UGISApp')
     var editor = false
@@ -86,4 +80,4 @@ var UGISApp = React.createClass({
 
 })
 
-module.exports = UGISApp;
+module.exports = UGISApp

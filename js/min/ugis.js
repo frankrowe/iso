@@ -48808,11 +48808,9 @@ module.exports = function(ptFC, polyFC){
 },{"turf-featurecollection":339,"turf-inside":341}],386:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.2.730",
+  "version": "0.3.60",
   "private": true,
-  "scripts": {
-    "start": "node ./bin/www"
-  },
+  "scripts": {},
   "dependencies": {
     "body-parser": "~1.8.1",
     "brfs": "^1.4.0",
@@ -48856,6 +48854,8 @@ module.exports={
     "gulp": "^3.8.11",
     "gulp-autoprefixer": "^2.1.0",
     "gulp-bump": "^0.3.0",
+    "gulp-compile-handlebars": "^0.4.4",
+    "gulp-handlebars": "^4.0.0",
     "gulp-less": "^3.0.2",
     "gulp-livereload": "^3.8.0",
     "gulp-rename": "^1.2.2",
@@ -48867,41 +48867,35 @@ module.exports={
 }
 
 },{}],387:[function(require,module,exports){
-var AppDispatcher = require('../dispatcher/AppDispatcher');
-var LayerConstants = require('../constants/LayerConstants');
+var AppDispatcher = require('../dispatcher/AppDispatcher')
+  , LayerConstants = require('../constants/LayerConstants')
 
 var LayerActions = {
 
-  /**
-   * @param  {string} text
-   */
   create: function() {
     AppDispatcher.dispatch({
       actionType: LayerConstants.LAYER_CREATE
-    });
+    })
   },
 
   importLayer: function(layer) {
     AppDispatcher.dispatch({
       actionType: LayerConstants.LAYER_IMPORT,
       layer: layer
-    });
+    })
   },
 
   destroySelected: function() {
     AppDispatcher.dispatch({
       actionType: LayerConstants.LAYER_DESTROY_SELECTED
-    });
+    })
   },
 
-  /**
-   * @param  {string} id
-   */
   destroy: function(id) {
     AppDispatcher.dispatch({
       actionType: LayerConstants.LAYER_DESTROY,
       id: id
-    });
+    })
   },
 
   reorder: function(from, to) {
@@ -48909,13 +48903,13 @@ var LayerActions = {
       actionType: LayerConstants.LAYER_REORDER,
       from: from,
       to: to
-    });
+    })
   },
 
   undo: function(from, to) {
     AppDispatcher.dispatch({
       actionType: LayerConstants.LAYER_UNDO
-    });
+    })
   },
 
   /**
@@ -48928,7 +48922,7 @@ var LayerActions = {
       actionType: LayerConstants.LAYER_UPDATE,
       id: id,
       update: update
-    });
+    })
   },
 
   /**
@@ -48939,58 +48933,12 @@ var LayerActions = {
     AppDispatcher.dispatch({
       actionType: LayerConstants.LAYER_UPDATE_LIST,
       updates: updates
-    });
+    })
   },
 
-  /**
-   * @param  {string} id The ID of the ToDo item
-   * @param  {string} text
-   */
-  updateText: function(id, text) {
-    AppDispatcher.dispatch({
-      actionType: LayerConstants.TODO_UPDATE_TEXT,
-      id: id,
-      text: text
-    });
-  },
+}
 
-  /**
-   * Toggle whether a single ToDo is complete
-   * @param  {object} todo
-   */
-  toggleComplete: function(todo) {
-    var id = todo.id;
-    var actionType = todo.complete ?
-        LayerConstants.TODO_UNDO_COMPLETE :
-        LayerConstants.TODO_COMPLETE;
-
-    AppDispatcher.dispatch({
-      actionType: actionType,
-      id: id
-    });
-  },
-
-  /**
-   * Mark all ToDos as complete
-   */
-  toggleCompleteAll: function() {
-    AppDispatcher.dispatch({
-      actionType: LayerConstants.TODO_TOGGLE_COMPLETE_ALL
-    });
-  },
-
-  /**
-   * Delete all the completed ToDos
-   */
-  destroyCompleted: function() {
-    AppDispatcher.dispatch({
-      actionType: LayerConstants.TODO_DESTROY_COMPLETED
-    });
-  }
-
-};
-
-module.exports = LayerActions;
+module.exports = LayerActions
 
 },{"../constants/LayerConstants":406,"../dispatcher/AppDispatcher":407}],388:[function(require,module,exports){
 var React = require('react')
@@ -49055,7 +49003,7 @@ var AddLayerButton = React.createClass({displayName: "AddLayerButton",
     var style = { display: 'none'}
     return (
       React.createElement("div", null, 
-        React.createElement(LayerButton, {img: "/img/MActionAddOgrLayer.png", tooltip: 'Import Vector Layer', onClick: this.onClick}), 
+        React.createElement(LayerButton, {img: "img/MActionAddOgrLayer.png", tooltip: 'Import Vector Layer', onClick: this.onClick}), 
         React.createElement("input", {ref: "addFile", type: "file", name: "addFile", style: style, onChange: this.onChange})
       )
     )
@@ -49070,7 +49018,7 @@ var NewLayerButton = React.createClass({displayName: "NewLayerButton",
   },
   render: function() {
     return (
-      React.createElement(LayerButton, {img: "/img/MActionNewVectorLayer.png", tooltip: 'New Vector Layer', onClick: this.onClick})
+      React.createElement(LayerButton, {img: "img/MActionNewVectorLayer.png", tooltip: 'New Vector Layer', onClick: this.onClick})
     )
   }
 })
@@ -49087,7 +49035,7 @@ var AddTileLayerButton = React.createClass({displayName: "AddTileLayerButton",
   },
   render: function() {
     return (
-      React.createElement(LayerButton, {img: "/img/MActionAddRasterLayer.png", tooltip: 'New Tile Layer', onClick: this.onClick})
+      React.createElement(LayerButton, {img: "img/MActionAddRasterLayer.png", tooltip: 'New Tile Layer', onClick: this.onClick})
     )
   }
 })
@@ -49098,7 +49046,7 @@ var RemoveLayerButton = React.createClass({displayName: "RemoveLayerButton",
   },
   render: function() {
     return (
-      React.createElement(LayerButton, {img: "/img/MActionRemoveLayer.png", tooltip: 'Remove Layer', onClick: this.onClick})
+      React.createElement(LayerButton, {img: "img/MActionRemoveLayer.png", tooltip: 'Remove Layer', onClick: this.onClick})
     )
   }
 })
@@ -49564,17 +49512,14 @@ var Layer = React.createClass({displayName: "Layer",
     }
   },
   onClick: function(e) {
-    console.log(this.props.layer.id, e.target.className)
     if (e.target.className === 'layer' || e.target.className === 'layer-name') {
       var update = {}
       update.selected = !this.props.layer.selected
-      console.log(update)
       if (!update.selected) {
         update.editing = false
         update.editGeoJSON = false
         update.viewAttributes = false
       }
-      console.log(update)
       LayerActions.update(this.props.layer.id, update)
     }
   },
@@ -49593,7 +49538,7 @@ var Layer = React.createClass({displayName: "Layer",
   },
   onDragStart: function(e) {
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text', this.props.idx.toString())
+    e.dataTransfer.setData('text', this.props.layer.order.toString())
   },
   onDragEnter: function(e) {
     this.setState({dragEnter: true})
@@ -49607,7 +49552,7 @@ var Layer = React.createClass({displayName: "Layer",
   },
   onDrop: function(e) {
     this.setState({dragEnter: false})
-    LayerActions.reorder(+e.dataTransfer.getData('text'), this.props.idx)
+    LayerActions.reorder(+e.dataTransfer.getData('text'), this.props.layer.order)
   },
   onDragEnd: function() {
 
@@ -49642,7 +49587,7 @@ var Layer = React.createClass({displayName: "Layer",
         onDragEnd: this.onDragEnd, 
         onDrop: this.onDrop}, 
         React.createElement("input", {type: "checkbox", ref: "checkbox", checked: this.props.layer.enabled, onChange: this.onChange}), 
-        React.createElement("span", {className: "layer-name"}, this.props.layer.name), 
+        React.createElement("span", {className: "layer-name"}, this.props.layer.id), 
         React.createElement("div", {className: "swatch-wrap"}, React.createElement("div", {className: "color-swatch", style: swatchStyle, onClick: this.colorClick}))
       )
     )
@@ -50415,9 +50360,6 @@ var React = require('react')
   , MessageBar = require('./MessageBar.jsx')
   , LayerStore = require('../stores/LayerStore')
 
-/**
- * Retrieve the current TODO data from the TodoStore
- */
 function getLayerState() {
   return {
     layers: LayerStore.getAll()
@@ -50450,9 +50392,6 @@ var UGISApp = React.createClass({displayName: "UGISApp",
     LayerStore.removeChangeListener(this._onChange)
   },
 
-  /**
-   * @return {object}
-   */
   render: function() {
     console.log('render UGISApp')
     var editor = false
@@ -50493,7 +50432,7 @@ var UGISApp = React.createClass({displayName: "UGISApp",
 
 })
 
-module.exports = UGISApp;
+module.exports = UGISApp
 
 },{"../stores/LayerStore":408,"./AddLayers.jsx":388,"./AttributeTable.jsx":389,"./Editor.jsx":390,"./LayerList.jsx":393,"./MessageBar.jsx":395,"./Toolbar.jsx":398,"./WorkSpace.jsx":405,"react":245}],404:[function(require,module,exports){
 var React = require('react')
@@ -50617,35 +50556,9 @@ var React = require('react')
 var selectedStyle = {
   color: '#f00',
   fillColor: '#f00',
-  fillOpacity: 1,
+  fillOpacity: 0.8,
   opacity: 1
 }
-
-var unselectedStyle = {
-  weight: 3,
-  color: palette.green
-}
-
-var pointStyle = {
-  radius: 3,
-  color: palette.green,
-  weight: 1,
-  opacity: 1,
-  fillOpacity: 1
-}
-
-var lineStyle = {
-  color: "blue",
-  weight: 3,
-  opacity: 1
-}
-
-// var baseMaps = [
-//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png'),
-//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png'),
-//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png'),
-//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
-// ]
 
 var WorkSpace = React.createClass({displayName: "WorkSpace",
   componentDidMount: function() {
@@ -50661,19 +50574,21 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       'z: ' + z
   },
   makeMap: function() {
-    var self = this
     this.map = L.map(this.refs.workspace.getDOMNode(), {
       attributionControl: false,
       zoomControl: false
     }).setView([30, 20], 2)
+
     this.baseMap = baseMaps[this.props.baseMap].layer
     this.baseMap.addTo(this.map)
-    //L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png').addTo(this.map)
+    
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
+
     this.map.on('mousemove', function(e) {
-      self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
-    })
+      this.updateCoords(e.latlng.lng, e.latlng.lat, this.map.getZoom())
+    }, this)
+
     this.map.on('draw:drawstart', function (e) {
       if (this.selectBoxActive) {
         this.map.off('mousedown', this.selectBoxMouseDown, this)
@@ -50681,6 +50596,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
         this.map.off('mouseup', this.selectBoxMouseUp, this)
       }
     }, this)
+
     this.map.on('draw:drawstop', function (e) {
       if (this.selectBoxActive) {
         this.map.on('mousedown', this.selectBoxMouseDown, this)
@@ -50688,6 +50604,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
         this.map.on('mouseup', this.selectBoxMouseUp, this)
       }
     }, this)
+
     this.map.on('draw:created', function (e) {
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
@@ -50700,6 +50617,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
         }
       }
     }, this)
+
     this.map.on('draw:edited', function (e) {
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
@@ -50711,6 +50629,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
         }
       }
     }, this)
+
   },
   featureOnClick: function(_layer, feature, mapLayer) {
     var layer = LayerStore.getById(_layer.id)
@@ -50728,13 +50647,6 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       return selectedStyle
     } else {
       return layer.style
-      // if (feature.geometry.type === 'Point') {
-      //   return pointStyle
-      // } else if (feature.geometry.type === 'LineString') {
-      //   return lineStyle
-      // } else {
-      //   return unselectedStyle
-      // }
     }
   },
   selectBoxMouseDown: function(e) {
@@ -50776,83 +50688,88 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       }
     }
   },
+  addDrawControl: function(layer) {
+    if (layer.editing) {
+      if (this.drawControl) {
+        this.map.removeControl(this.drawControl)
+      }
+      this.drawControl = new L.Control.Draw({
+        draw: {
+          polyline: {
+              shapeOptions: layer.style
+          },
+          polygon: {
+              shapeOptions: layer.style
+          },
+          rectangle: {
+            shapeOptions: layer.style
+          },
+          circle: false
+        },
+        edit: {
+          featureGroup: layer.mapLayer
+        }
+      })
+      this.map.addControl(this.drawControl)
+    } else {
+      if (this.drawControl) {
+        this.map.removeControl(this.drawControl)
+        this.drawControl = false
+      }
+    }
+  },
+  addLeafletLayer: function(layer) {
+    if (layer.vector) {
+      if (!layer.mapLayer) {
+        layer.mapLayer = L.geoJson(layer.geojson, {
+          pointToLayer: function(layer, feature, latlng) {
+            return L.circleMarker(latlng, layer.style)
+          }.bind(this, layer),
+          style: this.styleFeature.bind(this, layer),
+          onEachFeature: function (layer, feature, mapLayer) {
+            mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
+          }.bind(this, layer)
+        })
+      } else {
+        layer.mapLayer.setStyle(this.styleFeature.bind(this, layer))
+      } 
+    } else if (layer.tile) {
+      if (!layer.mapLayer) {
+        layer.mapLayer = L.tileLayer(layer.tileURL)
+      }
+    }
+  },
   addLayers: function(layer) {
-    var self = this
     var style = {}
-    var selectBox = false
+    var selectBoxActive = false
     var zoomToLayers = L.featureGroup()
     var layers = _.values(this.props.layers)
     layers = _.sortBy(layers, 'order')
-    layers.forEach(function(layer) {
+    for (var i = 0; i < layers.length; i++) {
+      var layer = layers[i]
       if (layer.editGeoJSON) {
         style.marginRight = 400
       }
       if (layer.selected && layer.selectBox) {
-        selectBox = true
+        selectBoxActive = true
       }
-      if (layer.vector) {
-        if (!layer.mapLayer) {
-          layer.mapLayer = L.geoJson(layer.geojson, {
-            pointToLayer: function(feature, latlng) {
-              return L.circleMarker(latlng, pointStyle)
-            },
-            style: self.styleFeature.bind(self, layer),
-            onEachFeature: function (layer, feature, mapLayer) {
-              mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
-            }.bind(self, layer)
-          })
-        } else {
-          layer.mapLayer.setStyle(self.styleFeature.bind(self, layer))
-        }
-
-        if (layer.editing) {
-          if (self.drawControl) {
-            self.map.removeControl(self.drawControl)
-          }
-          self.drawControl = new L.Control.Draw({
-            draw: {
-              polyline: {
-                  shapeOptions: layer.style
-              },
-              polygon: {
-                  shapeOptions: layer.style
-              },
-              rectangle: {
-                shapeOptions: layer.style
-              },
-              circle: false
-            },
-            edit: {
-              featureGroup: layer.mapLayer
-            }
-          })
-          self.map.addControl(self.drawControl)
-        } else {
-          if (self.drawControl) {
-            self.map.removeControl(self.drawControl)
-            self.drawControl = false
-          }
-        }
-      } else if (layer.tile) {
-        if (!layer.mapLayer) {
-          layer.mapLayer = L.tileLayer(layer.tileURL)
-        }
-      }
+      this.addLeafletLayer(layer)
+      this.addDrawControl(layer)
       if (layer.enabled) {
         if (layer.vector && layer.zoomTo) {
           zoomToLayers.addLayer(layer.mapLayer)
           layer.zoomTo = false
         }
-        if(!self.workingLayers.hasLayer(layer.mapLayer)) {
-          self.workingLayers.addLayer(layer.mapLayer)
+        if(!this.workingLayers.hasLayer(layer.mapLayer)) {
+          this.workingLayers.addLayer(layer.mapLayer)
         }
       } else {
-        if(self.workingLayers.hasLayer(layer.mapLayer)) {
-          self.workingLayers.removeLayer(layer.mapLayer)
+        if(this.workingLayers.hasLayer(layer.mapLayer)) {
+          this.workingLayers.removeLayer(layer.mapLayer)
         }
       }
-    })
-    self.selectBox(selectBox)
+    }
+    this.selectBox(selectBoxActive)
     if (this.selectBoxActive) {
       style.cursor = 'crosshair'
     }
@@ -50884,7 +50801,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
 module.exports = WorkSpace
 
 },{"../actions/LayerActions":387,"../stores/LayerStore":408,"../utils/baseMaps":411,"../utils/palette":413,"../utils/vectorTools":415,"numeral":78,"react":245}],406:[function(require,module,exports){
-var keyMirror = require('keymirror');
+var keyMirror = require('keymirror')
 
 module.exports = keyMirror({
   LAYER_CREATE: null,
@@ -50895,12 +50812,7 @@ module.exports = keyMirror({
   LAYER_DESTROY: null,
   LAYER_DESTROY_SELECTED: null,
   LAYER_UPDATE_LIST: null,
-  TODO_COMPLETE: null,
-  TODO_DESTROY_COMPLETED: null,
-  TODO_TOGGLE_COMPLETE_ALL: null,
-  TODO_UNDO_COMPLETE: null,
-  TODO_UPDATE_TEXT: null
-});
+})
 
 },{"keymirror":77}],407:[function(require,module,exports){
 var Dispatcher = require('flux').Dispatcher
@@ -50912,31 +50824,31 @@ module.exports = new Dispatcher()
  * Layer Store
  */
 
-var AppDispatcher = require('../dispatcher/AppDispatcher');
-var EventEmitter = require('events').EventEmitter;
-var LayerConstants = require('../constants/LayerConstants');
-var assign = require('object-assign');
-var DefaultLayer = require('../utils/DefaultLayer')
+var AppDispatcher = require('../dispatcher/AppDispatcher')
+  , EventEmitter = require('events').EventEmitter
+  , LayerConstants = require('../constants/LayerConstants')
+  , assign = require('object-assign')
+  , DefaultLayer = require('../utils/DefaultLayer')
 
-var CHANGE_EVENT = 'change';
+var CHANGE_EVENT = 'change'
 
-var _layers = {};
+var _layers = {}
 
 var undos = []
 
 var UNDO_LENGTH = 10
+
 /**
- * Create a TODO item.
- * @param  {string} text The content of the TODO
+ * Create a Layer.
  */
 function create() {
   var layer = DefaultLayer.generate()
-  layer.order = Object.keys(_layers).length + 1
+  layer.order = Object.keys(_layers).length
   _layers[layer.id] = layer
 }
 
 /**
- * Update a TODO item.
+ * Update a Layer.
  * @param  {string} id
  * @param {object} updates An object literal containing only the data to be
  *     updated.
@@ -50954,19 +50866,18 @@ function update(id, updates) {
 function updateList(updates) {
   for (var id in updates) {
     update(id, updates[id])
-    //_layers[id] = assign({}, _layers[id], updates[id])
   }
 }
 
 /**
- * Update all of the TODO items with the same object.
- *     the data to be updated.  Used to mark all TODOs as completed.
+ * Update all of the Layers with the same object.
+ *     the data to be updated.
  * @param  {object} updates An object literal containing only the data to be
  *     updated.
  */
 function updateAll(updates) {
   for (var id in _layers) {
-    update(id, updates);
+    update(id, updates)
   }
 }
 
@@ -50976,46 +50887,56 @@ function updateAll(updates) {
  * @param {object} the layer name
  */
 function importLayer(layer) {
-  layer.order = Object.keys(_layers).length + 1
+  layer.order = Object.keys(_layers).length
   _layers[layer.id] = layer
 }
 
 /**
- * Delete a TODO item.
+ * Delete a Layer.
  * @param  {string} id
  */
 function destroy(id) {
   _layers[id].mapLayer.clearLayers()
-  delete _layers[id];
+  delete _layers[id]
 }
 
 /**
- * Delete all the completed TODO items.
+ * Delete all the selected Layers.
  */
 function destroySelected() {
   for (var id in _layers) {
     if (_layers[id].selected) {
-      destroy(id);
+      destroy(id)
     }
   }
 }
 
+/**
+ * Reorder the Layers
+ * @param  {number} the original layer position
+ * @param  {number} the position to move the layer
+ */
 function reorder(from, to) {
+  console.log(from, to)
   var orderHash = {}
   for (var id in _layers) {
     orderHash[_layers[id].order] = _layers[id]
   }
   var orders = _.pluck(_layers, 'order')
+  console.log(orders)
   orders.splice(to, 0, orders.splice(from, 1)[0])
+  console.log(orders)
   orders.forEach(function(order, idx) {
-    orderHash[order].order = idx + 1
+    update(orderHash[order].id, {order: idx})
   })
+
   for (var id in _layers) {
     if (_layers[id].vector) {
       _layers[id].mapLayer.clearLayers()
     }
     _layers[id].mapLayer = false
   }
+
 }
 
 function addUndo(id, updates) {
@@ -51031,7 +50952,6 @@ function addUndo(id, updates) {
 
 function undo() {
   var op = undos[undos.length - 1]
-  console.log(op)
   if (_.has(op.updates, 'geojson')) {
     _layers[op.id].mapLayer.clearLayers()
     _layers[op.id].mapLayer = false
@@ -51043,24 +50963,11 @@ function undo() {
 var LayerStore = assign({}, EventEmitter.prototype, {
 
   /**
-   * Tests whether all the remaining TODO items are marked as completed.
-   * @return {boolean}
-   */
-  areAllComplete: function() {
-    for (var id in _layers) {
-      if (!_layers[id].complete) {
-        return false;
-      }
-    }
-    return true;
-  },
-
-  /**
    * Get the entire collection of layers.
    * @return {object}
    */
   getAll: function() {
-    return _layers;
+    return _layers
   },
 
   /**
@@ -51101,111 +51008,98 @@ var LayerStore = assign({}, EventEmitter.prototype, {
   },
 
   emitChange: function() {
-    this.emit(CHANGE_EVENT);
+    this.emit(CHANGE_EVENT)
   },
 
   /**
    * @param {function} callback
    */
   addChangeListener: function(callback) {
-    this.on(CHANGE_EVENT, callback);
+    this.on(CHANGE_EVENT, callback)
   },
 
   /**
    * @param {function} callback
    */
   removeChangeListener: function(callback) {
-    this.removeListener(CHANGE_EVENT, callback);
+    this.removeListener(CHANGE_EVENT, callback)
   }
 
-});
+})
 
 // Register callback to handle all updates
 AppDispatcher.register(function(action) {
-  var text;
 
   switch(action.actionType) {
     case LayerConstants.LAYER_CREATE:
-      create();
-      LayerStore.emitChange();
-      break;
+      create()
+      LayerStore.emitChange()
+      break
 
     case LayerConstants.LAYER_UPDATE:
-      update(action.id, action.update);
-      LayerStore.emitChange();
-      break;
+      update(action.id, action.update)
+      LayerStore.emitChange()
+      break
 
     case LayerConstants.LAYER_UPDATE_LIST:
-      updateList(action.updates);
-      LayerStore.emitChange();
-      break;
+      updateList(action.updates)
+      LayerStore.emitChange()
+      break
 
     case LayerConstants.LAYER_IMPORT:
-      importLayer(action.layer);
-      LayerStore.emitChange();
-      break;
+      importLayer(action.layer)
+      LayerStore.emitChange()
+      break
 
     case LayerConstants.LAYER_REORDER:
-      reorder(action.from, action.to);
-      LayerStore.emitChange();
-      break;
+      reorder(action.from, action.to)
+      LayerStore.emitChange()
+      break
 
     case LayerConstants.LAYER_UNDO:
-      undo();
-      LayerStore.emitChange();
-      break;
-
-    case LayerConstants.TODO_TOGGLE_COMPLETE_ALL:
-      if (LayerStore.areAllComplete()) {
-        updateAll({complete: false});
-      } else {
-        updateAll({complete: true});
-      }
-      LayerStore.emitChange();
-      break;
-
-    case LayerConstants.TODO_UNDO_COMPLETE:
-      update(action.id, {complete: false});
-      LayerStore.emitChange();
-      break;
-
-    case LayerConstants.TODO_COMPLETE:
-      update(action.id, {complete: true});
-      LayerStore.emitChange();
-      break;
-
-    case LayerConstants.TODO_UPDATE_TEXT:
-      text = action.text.trim();
-      if (text !== '') {
-        update(action.id, {text: text});
-        LayerStore.emitChange();
-      }
-      break;
+      undo()
+      LayerStore.emitChange()
+      break
 
     case LayerConstants.LAYER_DESTROY:
-      destroy(action.id);
-      LayerStore.emitChange();
-      break;
+      destroy(action.id)
+      LayerStore.emitChange()
+      break
 
     case LayerConstants.LAYER_DESTROY_SELECTED:
-      destroySelected();
-      LayerStore.emitChange();
-      break;
+      destroySelected()
+      LayerStore.emitChange()
+      break
 
     default:
       // no op
   }
-});
+})
 
-module.exports = LayerStore;
+module.exports = LayerStore
 
 },{"../constants/LayerConstants":406,"../dispatcher/AppDispatcher":407,"../utils/DefaultLayer":410,"events":8,"object-assign":79}],409:[function(require,module,exports){
 module.exports = {
-  simple: {name: 'Simple', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')},
-  satellite: {name: 'Satellite', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')},
-  satellitestreets: {name: 'Satellite Streets', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')},
-  streets: {name: 'Streets', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')},
-  none: {name: 'None', layer: false}
+  simple: {
+    name: 'Simple',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
+  },
+  satellite: {
+    name: 'Satellite',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')
+  },
+  satellitestreets: {
+    name: 'Satellite Streets',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')
+  },
+  streets: {
+    name: 'Streets',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+  },
+  none: {
+    name: 'None',
+    layer: false
+  }
 }
 
 },{}],410:[function(require,module,exports){
@@ -51236,16 +51130,20 @@ function DefaultLayer() {
       fillOpacity: 0.2
     }
   }
-  this.tileLayer = JSON.parse(JSON.stringify(this.defaultLayer))
 }
 
 DefaultLayer.prototype = {
   generateID: function() {
     return (+new Date() + Math.floor(Math.random() * 999999)).toString(36)
   },
+  generateColor: function() {
+    return "#" + Math.random().toString(16).slice(2, 8)
+  },
   generate: function() {
     var layer = JSON.parse(JSON.stringify(this.defaultLayer))
     layer.id = this.generateID()
+    layer.style.color = this.generateColor()
+    layer.style.fillColor = layer.style.color
     return layer
   }
 }
@@ -51254,11 +51152,26 @@ module.exports = new DefaultLayer()
 
 },{"../utils/palette":413}],411:[function(require,module,exports){
 module.exports = {
-  simple: {name: 'Simple', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')},
-  satellite: {name: 'Satellite', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')},
-  satellitestreets: {name: 'Satellite Streets', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')},
-  streets: {name: 'Streets', layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')},
-  none: {name: 'None', layer: false}
+  simple: {
+    name: 'Simple',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
+  },
+  satellite: {
+    name: 'Satellite',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')
+  },
+  satellitestreets: {
+    name: 'Satellite Streets',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')
+  },
+  streets: {
+    name: 'Streets',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+  },
+  none: {
+    name: 'None',
+    layer: false
+  }
 }
 
 },{}],412:[function(require,module,exports){
@@ -51283,34 +51196,6 @@ GJUtils.prototype = {
       "type": "FeatureCollection",
       "features": []
     }
-  },
-  editFeatures: function(layers, fn) {
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i]
-      if (layer.enabled) {
-        if (layer.geojson.type === 'FeatureCollection') {
-          var newFeatures = []
-          for (var j = 0; j < layer.geojson.features.length; j++) {
-            var newgj = fn(layer.geojson.features[j], layer)
-            if (newgj) {
-              if (newgj.type === 'FeatureCollection') {
-                newFeatures = newFeatures.concat(newgj.features)
-              } else {
-                newFeatures.push(newgj)
-              }
-            }
-          }
-          layer.geojson.features = newFeatures
-        } else if (layer.geojson.type === 'Feature') {
-          layer.geojson = fn(layer.geojson, layer)
-        }
-        if (layer.mapLayer) {
-          layer.mapLayer.clearLayers()
-          if (layer.geojson) layer.mapLayer.addData(layer.geojson)
-        }
-      }
-    }
-    return layers
   }
 }
 

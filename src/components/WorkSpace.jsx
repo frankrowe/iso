@@ -9,35 +9,9 @@ var React = require('react')
 var selectedStyle = {
   color: '#f00',
   fillColor: '#f00',
-  fillOpacity: 1,
+  fillOpacity: 0.8,
   opacity: 1
 }
-
-var unselectedStyle = {
-  weight: 3,
-  color: palette.green
-}
-
-var pointStyle = {
-  radius: 3,
-  color: palette.green,
-  weight: 1,
-  opacity: 1,
-  fillOpacity: 1
-}
-
-var lineStyle = {
-  color: "blue",
-  weight: 3,
-  opacity: 1
-}
-
-// var baseMaps = [
-//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png'),
-//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png'),
-//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png'),
-//   L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
-// ]
 
 var WorkSpace = React.createClass({
   componentDidMount: function() {
@@ -53,19 +27,21 @@ var WorkSpace = React.createClass({
       'z: ' + z
   },
   makeMap: function() {
-    var self = this
     this.map = L.map(this.refs.workspace.getDOMNode(), {
       attributionControl: false,
       zoomControl: false
     }).setView([30, 20], 2)
+
     this.baseMap = baseMaps[this.props.baseMap].layer
     this.baseMap.addTo(this.map)
-    //L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png').addTo(this.map)
+    
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
+
     this.map.on('mousemove', function(e) {
-      self.updateCoords(e.latlng.lng, e.latlng.lat, self.map.getZoom())
-    })
+      this.updateCoords(e.latlng.lng, e.latlng.lat, this.map.getZoom())
+    }, this)
+
     this.map.on('draw:drawstart', function (e) {
       if (this.selectBoxActive) {
         this.map.off('mousedown', this.selectBoxMouseDown, this)
@@ -73,6 +49,7 @@ var WorkSpace = React.createClass({
         this.map.off('mouseup', this.selectBoxMouseUp, this)
       }
     }, this)
+
     this.map.on('draw:drawstop', function (e) {
       if (this.selectBoxActive) {
         this.map.on('mousedown', this.selectBoxMouseDown, this)
@@ -80,6 +57,7 @@ var WorkSpace = React.createClass({
         this.map.on('mouseup', this.selectBoxMouseUp, this)
       }
     }, this)
+
     this.map.on('draw:created', function (e) {
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
@@ -92,6 +70,7 @@ var WorkSpace = React.createClass({
         }
       }
     }, this)
+
     this.map.on('draw:edited', function (e) {
       for (var id in this.props.layers) {
         var layer = this.props.layers[id]
@@ -103,6 +82,7 @@ var WorkSpace = React.createClass({
         }
       }
     }, this)
+
   },
   featureOnClick: function(_layer, feature, mapLayer) {
     var layer = LayerStore.getById(_layer.id)
@@ -120,13 +100,6 @@ var WorkSpace = React.createClass({
       return selectedStyle
     } else {
       return layer.style
-      // if (feature.geometry.type === 'Point') {
-      //   return pointStyle
-      // } else if (feature.geometry.type === 'LineString') {
-      //   return lineStyle
-      // } else {
-      //   return unselectedStyle
-      // }
     }
   },
   selectBoxMouseDown: function(e) {
@@ -168,83 +141,88 @@ var WorkSpace = React.createClass({
       }
     }
   },
+  addDrawControl: function(layer) {
+    if (layer.editing) {
+      if (this.drawControl) {
+        this.map.removeControl(this.drawControl)
+      }
+      this.drawControl = new L.Control.Draw({
+        draw: {
+          polyline: {
+              shapeOptions: layer.style
+          },
+          polygon: {
+              shapeOptions: layer.style
+          },
+          rectangle: {
+            shapeOptions: layer.style
+          },
+          circle: false
+        },
+        edit: {
+          featureGroup: layer.mapLayer
+        }
+      })
+      this.map.addControl(this.drawControl)
+    } else {
+      if (this.drawControl) {
+        this.map.removeControl(this.drawControl)
+        this.drawControl = false
+      }
+    }
+  },
+  addLeafletLayer: function(layer) {
+    if (layer.vector) {
+      if (!layer.mapLayer) {
+        layer.mapLayer = L.geoJson(layer.geojson, {
+          pointToLayer: function(layer, feature, latlng) {
+            return L.circleMarker(latlng, layer.style)
+          }.bind(this, layer),
+          style: this.styleFeature.bind(this, layer),
+          onEachFeature: function (layer, feature, mapLayer) {
+            mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
+          }.bind(this, layer)
+        })
+      } else {
+        layer.mapLayer.setStyle(this.styleFeature.bind(this, layer))
+      } 
+    } else if (layer.tile) {
+      if (!layer.mapLayer) {
+        layer.mapLayer = L.tileLayer(layer.tileURL)
+      }
+    }
+  },
   addLayers: function(layer) {
-    var self = this
     var style = {}
-    var selectBox = false
+    var selectBoxActive = false
     var zoomToLayers = L.featureGroup()
     var layers = _.values(this.props.layers)
     layers = _.sortBy(layers, 'order')
-    layers.forEach(function(layer) {
+    for (var i = 0; i < layers.length; i++) {
+      var layer = layers[i]
       if (layer.editGeoJSON) {
         style.marginRight = 400
       }
       if (layer.selected && layer.selectBox) {
-        selectBox = true
+        selectBoxActive = true
       }
-      if (layer.vector) {
-        if (!layer.mapLayer) {
-          layer.mapLayer = L.geoJson(layer.geojson, {
-            pointToLayer: function(feature, latlng) {
-              return L.circleMarker(latlng, pointStyle)
-            },
-            style: self.styleFeature.bind(self, layer),
-            onEachFeature: function (layer, feature, mapLayer) {
-              mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
-            }.bind(self, layer)
-          })
-        } else {
-          layer.mapLayer.setStyle(self.styleFeature.bind(self, layer))
-        }
-
-        if (layer.editing) {
-          if (self.drawControl) {
-            self.map.removeControl(self.drawControl)
-          }
-          self.drawControl = new L.Control.Draw({
-            draw: {
-              polyline: {
-                  shapeOptions: layer.style
-              },
-              polygon: {
-                  shapeOptions: layer.style
-              },
-              rectangle: {
-                shapeOptions: layer.style
-              },
-              circle: false
-            },
-            edit: {
-              featureGroup: layer.mapLayer
-            }
-          })
-          self.map.addControl(self.drawControl)
-        } else {
-          if (self.drawControl) {
-            self.map.removeControl(self.drawControl)
-            self.drawControl = false
-          }
-        }
-      } else if (layer.tile) {
-        if (!layer.mapLayer) {
-          layer.mapLayer = L.tileLayer(layer.tileURL)
-        }
-      }
+      this.addLeafletLayer(layer)
+      this.addDrawControl(layer)
       if (layer.enabled) {
         if (layer.vector && layer.zoomTo) {
           zoomToLayers.addLayer(layer.mapLayer)
           layer.zoomTo = false
         }
-        if(!self.workingLayers.hasLayer(layer.mapLayer)) {
-          self.workingLayers.addLayer(layer.mapLayer)
+        if(!this.workingLayers.hasLayer(layer.mapLayer)) {
+          this.workingLayers.addLayer(layer.mapLayer)
         }
       } else {
-        if(self.workingLayers.hasLayer(layer.mapLayer)) {
-          self.workingLayers.removeLayer(layer.mapLayer)
+        if(this.workingLayers.hasLayer(layer.mapLayer)) {
+          this.workingLayers.removeLayer(layer.mapLayer)
         }
       }
-    })
-    self.selectBox(selectBox)
+    }
+    this.selectBox(selectBoxActive)
     if (this.selectBoxActive) {
       style.cursor = 'crosshair'
     }

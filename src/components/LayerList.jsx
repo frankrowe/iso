@@ -12,17 +12,14 @@ var Layer = React.createClass({
     }
   },
   onClick: function(e) {
-    console.log(this.props.layer.id, e.target.className)
     if (e.target.className === 'layer' || e.target.className === 'layer-name') {
       var update = {}
       update.selected = !this.props.layer.selected
-      console.log(update)
       if (!update.selected) {
         update.editing = false
         update.editGeoJSON = false
         update.viewAttributes = false
       }
-      console.log(update)
       LayerActions.update(this.props.layer.id, update)
     }
   },
@@ -41,7 +38,7 @@ var Layer = React.createClass({
   },
   onDragStart: function(e) {
     e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text', this.props.idx.toString())
+    e.dataTransfer.setData('text', this.props.layer.order.toString())
   },
   onDragEnter: function(e) {
     this.setState({dragEnter: true})
@@ -55,7 +52,7 @@ var Layer = React.createClass({
   },
   onDrop: function(e) {
     this.setState({dragEnter: false})
-    LayerActions.reorder(+e.dataTransfer.getData('text'), this.props.idx)
+    LayerActions.reorder(+e.dataTransfer.getData('text'), this.props.layer.order)
   },
   onDragEnd: function() {
 
@@ -90,7 +87,7 @@ var Layer = React.createClass({
         onDragEnd={this.onDragEnd}
         onDrop={this.onDrop}>
         <input type="checkbox" ref="checkbox" checked={this.props.layer.enabled} onChange={this.onChange} />
-        <span className="layer-name">{this.props.layer.name}</span>
+        <span className="layer-name">{this.props.layer.id}</span>
         <div className="swatch-wrap"><div className="color-swatch" style={swatchStyle} onClick={this.colorClick}></div></div>
       </div>
     )
@@ -107,7 +104,7 @@ var LayerList = React.createClass({
     var layers = _.values(this.props.layers)
     layers = _.sortBy(layers, 'order')
     layers.forEach(function(layer, idx) {
-      _layers.push(<Layer layer={layer} key={layer.id} idx={idx} />)
+      _layers.push(<Layer layer={layer} key={layer.id} idx={idx}/>)
     })
     return (
       <div className="layer-list" style={layerListStyle}>
