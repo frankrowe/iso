@@ -40,6 +40,9 @@ body {
   display: flex;
   border-bottom: 1px solid #7d7d7d;
 }
+.error {
+  color: #D9534F !important;
+}
 .header {
   height: 20px;
   border-bottom: 1px solid;
@@ -57,7 +60,7 @@ body {
   background: #303030;
   width: 100%;
 }
-.toolbar h1 {
+.toolbar img.logo {
   margin: 0;
   float: left;
   color: white;
@@ -232,9 +235,6 @@ body {
   text-align: right;
   margin: 0 5px 0 0;
 }
-.message-bar .error {
-  color: red;
-}
 .tooltip {
   display: inline-block;
   position: absolute;
@@ -289,9 +289,17 @@ body {
   margin: 0 0 0.25em;
 }
 .vex.vex-theme-os .vex-content p {
-  margin: 0 0 5px 0;
+  margin: 10px 0 5px 0;
   font-size: 14px;
-  line-height: 14px;
+  line-height: 16px;
+}
+.vex.vex-theme-os .vex-content h2 {
+  margin-top: 0;
+}
+.vex.vex-theme-os .vex-content ul {
+  font-size: 14px;
+  margin: 0;
+  line-height: 16px;
 }
 .vex.vex-theme-os .vex-dialog-button.vex-dialog-button-primary {
   background-color: #428675;

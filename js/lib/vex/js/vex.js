@@ -81,8 +81,11 @@
         }), 0);
         return options.$vexContent;
       },
+      getSelectorFromBaseClass: function(baseClass) {
+        return "." + (baseClass.split(' ').join('.'));
+      },
       getAllVexes: function() {
-        return $("." + vex.baseClassNames.vex + ":not(\"." + vex.baseClassNames.closing + "\") ." + vex.baseClassNames.content);
+        return $("." + vex.baseClassNames.vex + ":not(\"." + vex.baseClassNames.closing + "\") " + (vex.getSelectorFromBaseClass(vex.baseClassNames.content)));
       },
       getVexByID: function(id) {
         return vex.getAllVexes().filter(function() {
@@ -135,13 +138,15 @@
           }
         };
         if (animationEndSupport) {
-          beforeClose();
-          $vex.unbind(vex.animationEndEvent).bind(vex.animationEndEvent, function() {
-            return close();
-          }).addClass(vex.baseClassNames.closing);
+          if (beforeClose() !== false) {
+            $vex.unbind(vex.animationEndEvent).bind(vex.animationEndEvent, function() {
+              return close();
+            }).addClass(vex.baseClassNames.closing);
+          }
         } else {
-          beforeClose();
-          close();
+          if (beforeClose() !== false) {
+            close();
+          }
         }
         return true;
       },

@@ -62,13 +62,15 @@ vexDialogFactory = ($, vex) ->
         options = $.extend {}, vex.defaultOptions, dialog.defaultOptions, options
         options.content = dialog.buildDialogForm options
 
-        options.beforeClose = ($vexContent) ->
-            options.callback $vexContent.data().vex.value
+        beforeClose = options.beforeClose
+        options.beforeClose = ($vexContent, config) ->
+            options.callback config.value
+            beforeClose? $vexContent, config
 
         $vexContent = vex.open options
 
         if options.focusFirstInput
-            $vexContent.find('input[type="submit"], textarea, input[type="date"], input[type="datetime"], input[type="datetime-local"], input[type="email"], input[type="month"], input[type="number"], input[type="password"], input[type="search"], input[type="tel"], input[type="text"], input[type="time"], input[type="url"], input[type="week"]').first().focus()
+            $vexContent.find('button[type="submit"], button[type="button"], input[type="submit"], input[type="button"], textarea, input[type="date"], input[type="datetime"], input[type="datetime-local"], input[type="email"], input[type="month"], input[type="number"], input[type="password"], input[type="search"], input[type="tel"], input[type="text"], input[type="time"], input[type="url"], input[type="week"]').first().focus()
 
         return $vexContent
 
@@ -126,11 +128,11 @@ vexDialogFactory = ($, vex) ->
         $buttons = $('<div class="vex-dialog-buttons" />')
 
         $.each buttons, (index, button) ->
-            $button = $("""<input type="#{button.type}" />""")
-                .val(button.text)
+            $button = $("""<button type="#{button.type}"></button>""")
+                .text(button.text)
                 .addClass(button.className + ' vex-dialog-button ' + (if index is 0 then 'vex-first ' else '') + (if index is buttons.length - 1 then 'vex-last ' else ''))
-                .bind('click.vex', (e) -> button.click($(@).parents(".#{vex.baseClassNames.content}"), e) if button.click)
-        
+                .bind('click.vex', (e) -> button.click($(@).parents(vex.getSelectorFromBaseClass(vex.baseClassNames.content)), e) if button.click)
+
             $button.appendTo $buttons
 
         return $buttons
@@ -143,7 +145,7 @@ if typeof define is 'function' and define.amd
     define ['jquery', 'vex'], vexDialogFactory
 else if typeof exports is 'object'
     # CommonJS
-    module.exports = vexDialogFactory require('jquery'), require('vex')
+    module.exports = vexDialogFactory require('jquery'), require('./vex.js')
 else
     # Global
     window.vex.dialog = vexDialogFactory window.jQuery, window.vex

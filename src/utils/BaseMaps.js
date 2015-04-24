@@ -1,11 +1,11 @@
 module.exports = {
-  simple: {
-    name: 'Simple',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
-  },
   streets: {
     name: 'Streets',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+  },
+  simple: {
+    name: 'Simple',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
   },
   satellite: {
     name: 'Satellite',

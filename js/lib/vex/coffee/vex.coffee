@@ -111,8 +111,11 @@ vexFactory = ($) ->
 
             return options.$vexContent # For chaining
 
+        getSelectorFromBaseClass: (baseClass) ->
+            return ".#{baseClass.split(' ').join('.')}"
+
         getAllVexes: ->
-            return $(""".#{vex.baseClassNames.vex}:not(".#{vex.baseClassNames.closing}") .#{vex.baseClassNames.content}""")
+            return $(""".#{vex.baseClassNames.vex}:not(".#{vex.baseClassNames.closing}") #{vex.getSelectorFromBaseClass(vex.baseClassNames.content)}""")
 
         getVexByID: (id) ->
             return vex.getAllVexes().filter(-> $(@).data().vex.id is id)
@@ -151,14 +154,14 @@ vexFactory = ($) ->
                 options.afterClose $vexContent, options if options.afterClose
 
             if animationEndSupport
-                beforeClose()
-                $vex
-                    .unbind(vex.animationEndEvent).bind(vex.animationEndEvent, -> close())
-                    .addClass(vex.baseClassNames.closing)
+                unless beforeClose() is false
+                    $vex
+                        .unbind(vex.animationEndEvent).bind(vex.animationEndEvent, -> close())
+                        .addClass(vex.baseClassNames.closing)
 
             else
-                beforeClose()
-                close()
+                unless beforeClose() is false
+                    close()
 
             return true
 
@@ -183,7 +186,6 @@ vexFactory = ($) ->
         showLoading: ->
             vex.hideLoading()
             $('body').append("""<div class="vex-loading-spinner #{vex.defaultOptions.className}"></div>""")
-
 
 if typeof define is 'function' and define.amd
     # AMD

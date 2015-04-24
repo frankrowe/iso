@@ -135,10 +135,10 @@ VectorTools.prototype = {
   },
   simplify: function(layers) {
     var self = this
-    Modals.getTolerance(function(err, tolerance) {
+    Modals.getTolerance(function(err, data) {
       var updates = self.editFeatures(layers, function(gj, layer) {
         if (gj.selected) {
-          var _gj = turf.simplify(gj, tolerance, false)
+          var _gj = turf.simplify(gj, data.tolerance, false)
           _gj.selected = true
           return _gj
         } else return gj
@@ -395,6 +395,18 @@ VectorTools.prototype = {
         return f
     })
     return gj
+  },
+  random: function(layer, type) {
+    Modals.getRandom(function(err, data) {
+      console.log(data)
+      var fc = turf.random(type, data.count, {
+        bbox: data.bbox
+      })
+      fc.features = fc.features.concat(layer.geojson.features)
+      layer.mapLayer.clearLayers()
+      layer.mapLayer = false
+      LayerActions.update(layer.id, {geojson: fc})
+    })
   }
 }
 

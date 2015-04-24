@@ -1,5 +1,3 @@
-@import compass/css3
-
 @import mixins
 @import keyframes
 
@@ -20,6 +18,13 @@
     right: 0
     bottom: 0
     left: 0
+
+.vex-scrollbar-measure
+    position: absolute
+    top: -9999px
+    width: 50px
+    height: 50px
+    overflow: scroll
 
 // IE
 .vex-overlay
@@ -54,8 +59,10 @@
     margin: 0 // Browser reset
 
 .vex-dialog-button
-    -webkit-appearance: none
+    text-rendering: optimizeLegibility
+    +appearance(none)
     cursor: pointer
+    -webkit-tap-highlight-color: transparent
 
 .vex-loading-spinner
     +vex-animation(vex-rotation .7s linear infinite)

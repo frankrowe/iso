@@ -23,7 +23,7 @@ var UGISApp = React.createClass({
     return {
       layers: LayerStore.getAll(),
       error: false,
-      baseMap: 'simple'
+      baseMap: 'streets'
     }
   },
 

@@ -199,6 +199,30 @@ var Quantile = React.createClass({
   }
 })
 
+var RandomPoints = React.createClass({
+  onClick: function() {
+    vectorTools.random(LayerStore.getSelected(), 'points')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      <ToolbarItem text={'Random Points'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var RandomPolys = React.createClass({
+  onClick: function() {
+    vectorTools.random(LayerStore.getSelected(), 'polygons')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      <ToolbarItem text={'Random Polys'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
 var Transformation = React.createClass({
   render: function() {
     var active = true
@@ -243,14 +267,28 @@ var Misc = React.createClass({
   }
 })
 
+var Create = React.createClass({
+  render: function() {
+    var active = true
+    var submenu = [
+      <RandomPoints {...this.props} key={'RandomPoints'}/>,
+      <RandomPolys {...this.props} key={'RandomPolys'}/>
+    ]
+    return (
+      <ToolbarSubmenu text={'Create'} submenu={submenu} active={active}/>
+    )
+  }
+})
+
 var FeatureMenu = React.createClass({
   render: function() {
     var active = true
     var submenu = [
       <Delete {...this.props} key={'deleteFeature'}/>,
+      <Create {...this.props} key={'create'}/>,
       <Measurement {...this.props} key={'Measurement'}/>,
       <Transformation {...this.props} key={'Transformation'}/>,
-      <Misc {...this.props} key={'Misc'}/>
+      <Misc {...this.props} key={'Misc='}/>
     ]
     return (
       <ToolbarDropdown text={'Feature'} submenu={submenu} active={active}/>

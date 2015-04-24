@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.139",
+  "version": "0.3.218",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -49923,6 +49923,30 @@ var Quantile = React.createClass({displayName: "Quantile",
   }
 })
 
+var RandomPoints = React.createClass({displayName: "RandomPoints",
+  onClick: function() {
+    vectorTools.random(LayerStore.getSelected(), 'points')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      React.createElement(ToolbarItem, {text: 'Random Points', onClick: this.onClick, active: active})
+    )
+  }
+})
+
+var RandomPolys = React.createClass({displayName: "RandomPolys",
+  onClick: function() {
+    vectorTools.random(LayerStore.getSelected(), 'polygons')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      React.createElement(ToolbarItem, {text: 'Random Polys', onClick: this.onClick, active: active})
+    )
+  }
+})
+
 var Transformation = React.createClass({displayName: "Transformation",
   render: function() {
     var active = true
@@ -49967,14 +49991,28 @@ var Misc = React.createClass({displayName: "Misc",
   }
 })
 
+var Create = React.createClass({displayName: "Create",
+  render: function() {
+    var active = true
+    var submenu = [
+      React.createElement(RandomPoints, React.__spread({},  this.props, {key: 'RandomPoints'})),
+      React.createElement(RandomPolys, React.__spread({},  this.props, {key: 'RandomPolys'}))
+    ]
+    return (
+      React.createElement(ToolbarSubmenu, {text: 'Create', submenu: submenu, active: active})
+    )
+  }
+})
+
 var FeatureMenu = React.createClass({displayName: "FeatureMenu",
   render: function() {
     var active = true
     var submenu = [
       React.createElement(Delete, React.__spread({},  this.props, {key: 'deleteFeature'})),
+      React.createElement(Create, React.__spread({},  this.props, {key: 'create'})),
       React.createElement(Measurement, React.__spread({},  this.props, {key: 'Measurement'})),
       React.createElement(Transformation, React.__spread({},  this.props, {key: 'Transformation'})),
-      React.createElement(Misc, React.__spread({},  this.props, {key: 'Misc'}))
+      React.createElement(Misc, React.__spread({},  this.props, {key: 'Misc='}))
     ]
     return (
       React.createElement(ToolbarDropdown, {text: 'Feature', submenu: submenu, active: active})
@@ -49997,7 +50035,7 @@ var About = React.createClass({displayName: "About",
   render: function() {
     var active = true
     return (
-      React.createElement(ToolbarItem, {text: 'About uGIS', onClick: this.onClick, active: active})
+      React.createElement(ToolbarItem, {text: 'About ugis', onClick: this.onClick, active: active})
     )
   }
 })
@@ -50405,9 +50443,29 @@ var Modals = {
     render: function() {
       return (
         React.createElement("div", null, 
-          React.createElement("p", null, "About uGIS"), 
-          React.createElement("p", null, "uGIS is a web based, GeoJSON + Javascript GIS engine."), 
-          React.createElement("p", null, "Version ", pkg.version)
+          React.createElement("h2", null, "ugis"), 
+          React.createElement("p", null, "ugis is a lightweight, web based, GeoJSON + Javascript GIS engine."), 
+          React.createElement("p", null, "Formats currently supported:", 
+            React.createElement("ul", null, 
+              React.createElement("li", null, "Loading: GeoJSON, KML"), 
+              React.createElement("li", null, "Saving: GeoJSON, KML, CSV, WKT, Shapefile")
+            )
+          ), 
+          React.createElement("p", null, "ugis is built on open source components, including:", 
+            React.createElement("ul", null, 
+              React.createElement("li", null, React.createElement("a", {href: "http://leafletjs.com/", target: "_blank"}, "Leaflet.js")), 
+              React.createElement("li", null, React.createElement("a", {href: "http://turfjs.org/", target: "_blank"}, "turf.js")), 
+              React.createElement("li", null, React.createElement("a", {href: "https://codemirror.net/", target: "_blank"}, "CodeMirror")), 
+              React.createElement("li", null, React.createElement("a", {href: "https://github.com/mapbox/geojsonhint", target: "_blank"}, "geojsonhint")), 
+              React.createElement("li", null, React.createElement("a", {href: "https://github.com/mapbox/csv2geojson", target: "_blank"}, "csv2geojson")), 
+              React.createElement("li", null, React.createElement("a", {href: "https://github.com/mapbox/togeojson", target: "_blank"}, "togeojson")), 
+              React.createElement("li", null, React.createElement("a", {href: "https://github.com/mapbox/shp-write", target: "_blank"}, "shp-write")), 
+              React.createElement("li", null, React.createElement("a", {href: "https://github.com/HubSpot/vex", target: "_blank"}, "vex")), 
+              React.createElement("li", null, React.createElement("a", {href: "https://github.com/qgis/QGIS", target: "_blank"}, "QGIS (icons)")), 
+              React.createElement("li", null, React.createElement("a", {href: "https://facebook.github.io/react/index.html", target: "_blank"}, "React"))
+            )
+          ), 
+          React.createElement("p", null, "ugis version ", React.createElement("b", null, pkg.version))
         )
       )
     }
@@ -50451,43 +50509,69 @@ var Modals = {
 
   getTolerance: function(next) {
 
-    var Simplify = React.createClass({displayName: "Simplify",
+    var el
+
+    var Modal = React.createClass({displayName: "Modal",
       render: function() {
         return (
-          React.createElement("input", {name: "tolerance", type: "text", defaultValue: "0.1"})
+          React.createElement("div", null, 
+          React.createElement("input", {name: "tolerance", type: "text", defaultValue: this.props.tolerance}), 
+          React.createElement("p", {className: "error"}, this.props.error)
+          )
         )
       }
     })
+
     vex.dialog.open({
       message: 'Select tolerance.',
       afterOpen: function($vexContent) {
-        React.render(React.createElement(Simplify, null), $vexContent.find('.vex-dialog-input').get(0))
+        el = $vexContent.find('.vex-dialog-input').get(0)
+        React.render(React.createElement(Modal, {tolerance: '0.1'}), el)
       },
-      callback: function(data) {
-        if (data === false) {
-          return console.log('Cancelled');
+      onSubmit: function(e) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        var error = false
+        var $vexContent = $(this).parent()
+
+        var tolerance = +this.tolerance.value
+        if (isNaN(tolerance)) {
+          error = 'Tolerance must be a number.'
+        } else if (tolerance <= 0) {
+          error = 'Tolerance must be greater than zero.'
         }
-        //TODO make sure tolerance is 0 - 1
-        var err = false
-        next(err, +data.tolerance)
+
+        if (error) {
+          React.render(React.createElement(Modal, {error: error, tolerance: this.tolerance.value}), el)
+        } else {
+          vex.close($vexContent.data().vex.id)
+          var data = {
+            tolerance: tolerance
+          }
+          next(false, data)
+        }
       }
     })
   },
 
   getDistance: function(next) {
 
-    var Buffer = React.createClass({displayName: "Buffer",
+    var el
+
+    var Modal = React.createClass({displayName: "Modal",
       render: function() {
         return (
           React.createElement("div", null, 
-          React.createElement("input", {name: "distance", type: "text", defaultValue: "0.1"}), 
-            React.createElement("select", {name: "units", defaultValue: "miles"}, 
-              React.createElement("option", {value: "miles"}, "Miles"), 
-              React.createElement("option", {value: "feet"}, "feet"), 
-              React.createElement("option", {value: "kilometers"}, "kilometers"), 
-              React.createElement("option", {value: "meters"}, "meters"), 
-              React.createElement("option", {value: "degrees"}, "degrees")
-            )
+          React.createElement("input", {name: "distance", type: "text", defaultValue: this.props.distance}), 
+          React.createElement("select", {name: "units", defaultValue: this.props.units}, 
+            React.createElement("option", {value: "miles"}, "Miles"), 
+            React.createElement("option", {value: "feet"}, "feet"), 
+            React.createElement("option", {value: "kilometers"}, "kilometers"), 
+            React.createElement("option", {value: "meters"}, "meters"), 
+            React.createElement("option", {value: "degrees"}, "degrees")
+          ), 
+          React.createElement("p", {className: "error"}, this.props.error)
           )
         )
       }
@@ -50495,17 +50579,33 @@ var Modals = {
     vex.dialog.open({
       message: 'Select distance.',
       afterOpen: function($vexContent) {
-        React.render(React.createElement(Buffer, null), $vexContent.find('.vex-dialog-input').get(0))
+        el = $vexContent.find('.vex-dialog-input').get(0)
+        React.render(React.createElement(Modal, {distance: '1', units: 'miles'}), el)
       },
-      callback: function(data) {
-        console.log(data)
-        if (data === false) {
-          return console.log('Cancelled');
+      onSubmit: function(e) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        var error = false
+        var $vexContent = $(this).parent()
+
+        var distance = +this.distance.value
+        if (isNaN(distance)) {
+          error = 'Distance must be a number.'
+        } else if (distance <= 0) {
+          error = 'Distance must be greater than zero.'
         }
-        //TODO make sure distance is number
-        data.distance = +data.distance
-        var err = false
-        next(err, data)
+
+        if (error) {
+          React.render(React.createElement(Modal, {error: error, distance: this.distance.value, units: this.units.value}), el)
+        } else {
+          vex.close($vexContent.data().vex.id)
+          var data = {
+            distance: distance,
+            units: this.units.value
+          }
+          next(false, data)
+        }
       }
     })
   },
@@ -50569,6 +50669,68 @@ var Modals = {
         }
         var err = false
         next(err, data)
+      }
+    })
+
+  },
+
+  getRandom: function(next) {
+
+    var LIMIT = 10000
+    var el
+    var Modal = React.createClass({displayName: "Modal",
+      render: function() {
+        return (
+          React.createElement("div", null, 
+            React.createElement("p", null, "Count:"), 
+            React.createElement("input", {name: "count", type: "text", defaultValue: this.props.count}), 
+            React.createElement("p", null, "Bounding Box (xLow, yLow, xHigh, yHigh):"), 
+            React.createElement("input", {name: "bbox", type: "text", defaultValue: this.props.bbox}), 
+            React.createElement("p", {className: "error"}, this.props.error)
+          )
+        )
+      }
+    })
+
+    var dialog = vex.dialog.open({
+      message: 'Create Random Features',
+      afterOpen: function($vexContent) {
+        el = $vexContent.find('.vex-dialog-input').get(0)
+        React.render(React.createElement(Modal, {count: '10', bbox: '-180, -90, 180, 90'}), el)
+      },
+      onSubmit: function(e) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        var $vexContent = $(this).parent()
+        var error = false
+
+        var count = +this.count.value
+        if (isNaN(count)) {
+          error = 'That\'s not a number...'
+        } else if (count > LIMIT) {
+          error = React.createElement("span", null, "Are you ", React.createElement("i", null, "trying"), " to crash me?")
+        } else if (count <= 0) {
+          error = 'Count should be more than zero.'
+        }
+
+        var bbox = this.bbox.value
+        bbox = bbox.split(',')
+        bbox = bbox.map(Number)
+        if (_.compact(bbox).length !== 4) {
+          error = 'Bounding box must be xLow, yLow, xHigh, yHigh'
+        }
+
+        if (error) {
+          React.render(React.createElement(Modal, {error: error, count: this.count.value, bbox: this.bbox.value}), el)
+        } else {
+          vex.close($vexContent.data().vex.id)
+          var data = {
+            bbox: bbox,
+            count: count
+          }
+          next(false, data)
+        }
       }
     })
 
@@ -50795,7 +50957,7 @@ var Toolbar = React.createClass({displayName: "Toolbar",
     var config = this.findActive()
     return (
       React.createElement("div", {className: "toolbar"}, 
-        React.createElement("h1", null, "ugis"), 
+        React.createElement("img", {className: "logo", src: "img/ugis.png"}), 
         React.createElement(LayerMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(ViewMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(FeatureMenu, React.__spread({},  this.props, {config: config})), 
@@ -50972,7 +51134,7 @@ var UGISApp = React.createClass({displayName: "UGISApp",
     return {
       layers: LayerStore.getAll(),
       error: false,
-      baseMap: 'simple'
+      baseMap: 'streets'
     }
   },
 
@@ -51715,13 +51877,13 @@ module.exports = LayerStore
 
 },{"../constants/LayerConstants":411,"../dispatcher/AppDispatcher":412,"../utils/DefaultLayer":415,"events":8,"object-assign":81}],414:[function(require,module,exports){
 module.exports = {
-  simple: {
-    name: 'Simple',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
-  },
   streets: {
     name: 'Streets',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+  },
+  simple: {
+    name: 'Simple',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
   },
   satellite: {
     name: 'Satellite',
@@ -51787,13 +51949,13 @@ module.exports = new DefaultLayer()
 
 },{"../utils/palette":418}],416:[function(require,module,exports){
 module.exports = {
-  simple: {
-    name: 'Simple',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
-  },
   streets: {
     name: 'Streets',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+  },
+  simple: {
+    name: 'Simple',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
   },
   satellite: {
     name: 'Satellite',
@@ -52179,10 +52341,10 @@ VectorTools.prototype = {
   },
   simplify: function(layers) {
     var self = this
-    Modals.getTolerance(function(err, tolerance) {
+    Modals.getTolerance(function(err, data) {
       var updates = self.editFeatures(layers, function(gj, layer) {
         if (gj.selected) {
-          var _gj = turf.simplify(gj, tolerance, false)
+          var _gj = turf.simplify(gj, data.tolerance, false)
           _gj.selected = true
           return _gj
         } else return gj
@@ -52439,6 +52601,18 @@ VectorTools.prototype = {
         return f
     })
     return gj
+  },
+  random: function(layer, type) {
+    Modals.getRandom(function(err, data) {
+      console.log(data)
+      var fc = turf.random(type, data.count, {
+        bbox: data.bbox
+      })
+      fc.features = fc.features.concat(layer.geojson.features)
+      layer.mapLayer.clearLayers()
+      layer.mapLayer = false
+      LayerActions.update(layer.id, {geojson: fc})
+    })
   }
 }
 

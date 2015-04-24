@@ -7,9 +7,29 @@ var Modals = {
     render: function() {
       return (
         <div>
-          <p>About uGIS</p>
-          <p>uGIS is a web based, GeoJSON + Javascript GIS engine.</p>
-          <p>Version {pkg.version}</p>
+          <h2>ugis</h2>
+          <p>ugis is a lightweight, web based, GeoJSON + Javascript GIS engine.</p>
+          <p>Formats currently supported:
+            <ul>
+              <li>Loading: GeoJSON, KML</li>
+              <li>Saving: GeoJSON, KML, CSV, WKT, Shapefile</li>
+            </ul>
+          </p>
+          <p>ugis is built on open source components, including:
+            <ul>
+              <li><a href="http://leafletjs.com/" target="_blank">Leaflet.js</a></li>
+              <li><a href="http://turfjs.org/" target="_blank">turf.js</a></li>
+              <li><a href="https://codemirror.net/" target="_blank">CodeMirror</a></li>
+              <li><a href="https://github.com/mapbox/geojsonhint" target="_blank">geojsonhint</a></li>
+              <li><a href="https://github.com/mapbox/csv2geojson" target="_blank">csv2geojson</a></li>
+              <li><a href="https://github.com/mapbox/togeojson" target="_blank">togeojson</a></li>
+              <li><a href="https://github.com/mapbox/shp-write" target="_blank">shp-write</a></li>
+              <li><a href="https://github.com/HubSpot/vex" target="_blank">vex</a></li>
+              <li><a href="https://github.com/qgis/QGIS" target="_blank">QGIS (icons)</a></li>
+              <li><a href="https://facebook.github.io/react/index.html" target="_blank">React</a></li>
+            </ul>
+          </p>
+          <p>ugis version <b>{pkg.version}</b></p>
         </div>
       )
     }
@@ -53,43 +73,69 @@ var Modals = {
 
   getTolerance: function(next) {
 
-    var Simplify = React.createClass({
+    var el
+
+    var Modal = React.createClass({
       render: function() {
         return (
-          <input name="tolerance" type="text" defaultValue="0.1" />
+          <div>
+          <input name="tolerance" type="text" defaultValue={this.props.tolerance} />
+          <p className="error">{this.props.error}</p>
+          </div>
         )
       }
     })
+
     vex.dialog.open({
       message: 'Select tolerance.',
       afterOpen: function($vexContent) {
-        React.render(<Simplify />, $vexContent.find('.vex-dialog-input').get(0))
+        el = $vexContent.find('.vex-dialog-input').get(0)
+        React.render(<Modal tolerance={'0.1'} />, el)
       },
-      callback: function(data) {
-        if (data === false) {
-          return console.log('Cancelled');
+      onSubmit: function(e) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        var error = false
+        var $vexContent = $(this).parent()
+
+        var tolerance = +this.tolerance.value
+        if (isNaN(tolerance)) {
+          error = 'Tolerance must be a number.'
+        } else if (tolerance <= 0) {
+          error = 'Tolerance must be greater than zero.'
         }
-        //TODO make sure tolerance is 0 - 1
-        var err = false
-        next(err, +data.tolerance)
+
+        if (error) {
+          React.render(<Modal error={error} tolerance={this.tolerance.value} />, el)
+        } else {
+          vex.close($vexContent.data().vex.id)
+          var data = {
+            tolerance: tolerance
+          }
+          next(false, data)
+        }
       }
     })
   },
 
   getDistance: function(next) {
 
-    var Buffer = React.createClass({
+    var el
+
+    var Modal = React.createClass({
       render: function() {
         return (
           <div>
-          <input name="distance" type="text" defaultValue="0.1" />
-            <select name="units" defaultValue="miles">
-              <option value="miles">Miles</option>
-              <option value="feet">feet</option>
-              <option value="kilometers">kilometers</option>
-              <option value="meters">meters</option>
-              <option value="degrees">degrees</option>
-            </select>
+          <input name="distance" type="text" defaultValue={this.props.distance} />
+          <select name="units" defaultValue={this.props.units}>
+            <option value="miles">Miles</option>
+            <option value="feet">feet</option>
+            <option value="kilometers">kilometers</option>
+            <option value="meters">meters</option>
+            <option value="degrees">degrees</option>
+          </select>
+          <p className="error">{this.props.error}</p>
           </div>
         )
       }
@@ -97,17 +143,33 @@ var Modals = {
     vex.dialog.open({
       message: 'Select distance.',
       afterOpen: function($vexContent) {
-        React.render(<Buffer />, $vexContent.find('.vex-dialog-input').get(0))
+        el = $vexContent.find('.vex-dialog-input').get(0)
+        React.render(<Modal distance={'1'} units={'miles'} />, el)
       },
-      callback: function(data) {
-        console.log(data)
-        if (data === false) {
-          return console.log('Cancelled');
+      onSubmit: function(e) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        var error = false
+        var $vexContent = $(this).parent()
+
+        var distance = +this.distance.value
+        if (isNaN(distance)) {
+          error = 'Distance must be a number.'
+        } else if (distance <= 0) {
+          error = 'Distance must be greater than zero.'
         }
-        //TODO make sure distance is number
-        data.distance = +data.distance
-        var err = false
-        next(err, data)
+
+        if (error) {
+          React.render(<Modal error={error} distance={this.distance.value} units={this.units.value}/>, el)
+        } else {
+          vex.close($vexContent.data().vex.id)
+          var data = {
+            distance: distance,
+            units: this.units.value
+          }
+          next(false, data)
+        }
       }
     })
   },
@@ -171,6 +233,68 @@ var Modals = {
         }
         var err = false
         next(err, data)
+      }
+    })
+
+  },
+
+  getRandom: function(next) {
+
+    var LIMIT = 10000
+    var el
+    var Modal = React.createClass({
+      render: function() {
+        return (
+          <div>
+            <p>Count:</p>
+            <input name="count" type="text" defaultValue={this.props.count} />
+            <p>Bounding Box (xLow, yLow, xHigh, yHigh):</p>
+            <input name="bbox" type="text" defaultValue={this.props.bbox} />
+            <p className="error">{this.props.error}</p>
+          </div>
+        )
+      }
+    })
+
+    var dialog = vex.dialog.open({
+      message: 'Create Random Features',
+      afterOpen: function($vexContent) {
+        el = $vexContent.find('.vex-dialog-input').get(0)
+        React.render(<Modal count={'10'} bbox={'-180, -90, 180, 90'}/>, el)
+      },
+      onSubmit: function(e) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        var $vexContent = $(this).parent()
+        var error = false
+
+        var count = +this.count.value
+        if (isNaN(count)) {
+          error = 'That\'s not a number...'
+        } else if (count > LIMIT) {
+          error = <span>Are you <i>trying</i> to crash me?</span>
+        } else if (count <= 0) {
+          error = 'Count should be more than zero.'
+        }
+
+        var bbox = this.bbox.value
+        bbox = bbox.split(',')
+        bbox = bbox.map(Number)
+        if (_.compact(bbox).length !== 4) {
+          error = 'Bounding box must be xLow, yLow, xHigh, yHigh'
+        }
+
+        if (error) {
+          React.render(<Modal error={error} count={this.count.value} bbox={this.bbox.value}/>, el)
+        } else {
+          vex.close($vexContent.data().vex.id)
+          var data = {
+            bbox: bbox,
+            count: count
+          }
+          next(false, data)
+        }
       }
     })
 

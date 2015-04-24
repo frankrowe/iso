@@ -7,7 +7,7 @@ Vex is a modern dialog library which is highly configurable, easily stylable, an
 #### Features
 
 - Drop-in replacement for `alert`, `confirm`, and `prompt`
-- Easilly configurable animations which are smooth as butter
+- Easily configurable animations which are smooth as butter
 - Tiny footprint (`6kb` minified) and only depends on `jQuery`
 - Looks and behaves great on mobile devices
 - Open multiple dialogs at once and close them individually or all at once
@@ -27,7 +27,7 @@ Vex is a modern dialog library which is highly configurable, easily stylable, an
 
 #### Including
 
-For the most common usage of Vex, you'll want to include following:
+For the most common usage of Vex, you'll want to include the following:
 
 ```html
 <script src="vex.combined.min.js"></script>
@@ -37,6 +37,10 @@ For the most common usage of Vex, you'll want to include following:
 ```
 
 That will give you all of the APIs for both Vex and Vex Dialog, and set you up with the "Operating System" theme. If you'd prefer another theme, check out [Themes](/vex/api/themes).
+
+The `vex.combined.min.js` file includes:
+- `vex.dialog.js` which adds the functionality that mimics the native browser alert, confirm, and prompt (everything you see in the [Basic docs](/vex/api/basic) examples).
+- `vex.js` which is a lightweight barebones generic dialog wrapper. See the [Advanced usage docs](/vex/api/advanced) for more information.
 
 <div class="hs-doc-callout hs-doc-callout-info">
 <h4>AMD / CommonJS</h4>

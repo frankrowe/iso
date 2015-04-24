@@ -83,7 +83,7 @@ var Toolbar = React.createClass({
     var config = this.findActive()
     return (
       <div className="toolbar">
-        <h1>ugis</h1>
+        <img className="logo" src="img/ugis.png" />
         <LayerMenu {...this.props} config={config} />
         <ViewMenu {...this.props} config={config} />
         <FeatureMenu {...this.props} config={config} />
