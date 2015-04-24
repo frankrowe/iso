@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.133",
+  "version": "0.3.139",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -49929,8 +49929,6 @@ var Transformation = React.createClass({displayName: "Transformation",
     var submenu = [
       React.createElement(Simplify, React.__spread({},  this.props, {key: 'simplify'})),
       React.createElement(Buffer, React.__spread({},  this.props, {key: 'buffer'})),
-      React.createElement(Flip, React.__spread({},  this.props, {key: 'flip'})),
-      React.createElement(Explode, React.__spread({},  this.props, {key: 'explode'})),
       React.createElement(Merge, React.__spread({},  this.props, {key: 'merge'})),
       React.createElement(Erase, React.__spread({},  this.props, {key: 'erase'})),
       React.createElement(Intersect, React.__spread({},  this.props, {key: 'intersect'}))
@@ -49956,13 +49954,27 @@ var Measurement = React.createClass({displayName: "Measurement",
   }
 })
 
+var Misc = React.createClass({displayName: "Misc",
+  render: function() {
+    var active = true
+    var submenu = [
+      React.createElement(Flip, React.__spread({},  this.props, {key: 'flip'})),
+      React.createElement(Explode, React.__spread({},  this.props, {key: 'explode'}))
+    ]
+    return (
+      React.createElement(ToolbarSubmenu, {text: 'Misc', submenu: submenu, active: active})
+    )
+  }
+})
+
 var FeatureMenu = React.createClass({displayName: "FeatureMenu",
   render: function() {
     var active = true
     var submenu = [
       React.createElement(Delete, React.__spread({},  this.props, {key: 'deleteFeature'})),
       React.createElement(Measurement, React.__spread({},  this.props, {key: 'Measurement'})),
-      React.createElement(Transformation, React.__spread({},  this.props, {key: 'Transformation'}))
+      React.createElement(Transformation, React.__spread({},  this.props, {key: 'Transformation'})),
+      React.createElement(Misc, React.__spread({},  this.props, {key: 'Misc'}))
     ]
     return (
       React.createElement(ToolbarDropdown, {text: 'Feature', submenu: submenu, active: active})
@@ -50863,8 +50875,8 @@ var ToolbarItem = React.createClass({displayName: "ToolbarItem",
     var img = this.props.img ? React.createElement("img", {src: this.props.img}) : false
     return (
       React.createElement("div", {className: className, style: style, onClick: this.onClick}, 
-        React.createElement("span", {className: "descriptor-icon"}, img), 
-        React.createElement("span", {className: "label"}, this.props.text), 
+        React.createElement("span", {className: "descriptor-icon"}), 
+        React.createElement("span", {className: "label"}, img, " ", this.props.text), 
         React.createElement("span", {className: "icon"}, this.props.icon)
       )
     )

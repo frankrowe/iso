@@ -205,8 +205,6 @@ var Transformation = React.createClass({
     var submenu = [
       <Simplify {...this.props} key={'simplify'}/>,
       <Buffer {...this.props} key={'buffer'}/>,
-      <Flip {...this.props} key={'flip'}/>,
-      <Explode {...this.props} key={'explode'}/>,
       <Merge {...this.props} key={'merge'}/>,
       <Erase {...this.props} key={'erase'}/>,
       <Intersect {...this.props} key={'intersect'}/>
@@ -232,13 +230,27 @@ var Measurement = React.createClass({
   }
 })
 
+var Misc = React.createClass({
+  render: function() {
+    var active = true
+    var submenu = [
+      <Flip {...this.props} key={'flip'}/>,
+      <Explode {...this.props} key={'explode'}/>
+    ]
+    return (
+      <ToolbarSubmenu text={'Misc'} submenu={submenu} active={active}/>
+    )
+  }
+})
+
 var FeatureMenu = React.createClass({
   render: function() {
     var active = true
     var submenu = [
       <Delete {...this.props} key={'deleteFeature'}/>,
       <Measurement {...this.props} key={'Measurement'}/>,
-      <Transformation {...this.props} key={'Transformation'}/>
+      <Transformation {...this.props} key={'Transformation'}/>,
+      <Misc {...this.props} key={'Misc'}/>
     ]
     return (
       <ToolbarDropdown text={'Feature'} submenu={submenu} active={active}/>
