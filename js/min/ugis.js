@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.261",
+  "version": "0.3.264",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -51227,9 +51227,10 @@ var UGISApp = React.createClass({displayName: "UGISApp",
           React.createElement(LayerList, {layers: this.state.layers}), 
           React.createElement("div", {className: "right-pane"}, 
             React.createElement(WorkSpace, {layers: this.state.layers, baseMap: this.state.baseMap}), 
-            attributeTable
-          ), 
-          editor
+            attributeTable, 
+            editor
+          )
+          
         ), 
         React.createElement(MessageBar, {layers: this.state.layers, error: this.state.error})
       )

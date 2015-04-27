@@ -69,8 +69,9 @@ var UGISApp = React.createClass({
           <div className="right-pane">
             <WorkSpace layers={this.state.layers} baseMap={this.state.baseMap}/>
             {attributeTable}
+            {editor}
           </div>
-          {editor}
+          
         </div>
         <MessageBar layers={this.state.layers} error={this.state.error}/>
       </div>
