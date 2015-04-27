@@ -62,7 +62,7 @@ var UGISApp = React.createClass({
   render: function() {
     return (
       <div className="app">
-        <Toolbar layers={this.state.layers} updateBaseMap={this.updateBaseMap} baseMap={this.state.baseMap}/>
+        <Toolbar layers={this.state.layers} updateError={this.updateError} updateBaseMap={this.updateBaseMap} baseMap={this.state.baseMap}/>
         <div className="flex-row">
           <AddLayers />
           <LayerList layers={this.state.layers} />

@@ -9,6 +9,10 @@ var ToolbarItem = React.createClass({
   onClick: function() {
     if (this.props.active) {
       this.props.onClick()
+    } else {
+      if (this.props.disabledClick) {
+        this.props.disabledClick()
+      }
     }
   },
   render: function() {

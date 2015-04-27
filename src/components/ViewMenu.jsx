@@ -17,6 +17,9 @@ var ViewAttributes = React.createClass({
       LayerActions.update(layer.id, update)
     }
   },
+  disabledClick: function() {
+    this.props.updateError('A layer must be selected.')
+  },
   render: function() {
     var active = this.props.config.oneLayer
     var icon = false

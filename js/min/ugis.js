@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.218",
+  "version": "0.3.261",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -50192,6 +50192,7 @@ var React = require('react')
   , tokml = require('tokml')
   , geojson2dsv = require('geojson2dsv')
   , wellknown = require('wellknown')
+  , defaultLayer = require('../utils/DefaultLayer')
 
 var Undo = React.createClass({displayName: "Undo",
   onClick: function() {
@@ -50240,6 +50241,48 @@ var Style = React.createClass({displayName: "Style",
   }
 })
 
+var NewEmptyLayer = React.createClass({displayName: "NewEmptyLayer",
+  onClick: function() {
+    var newLayer = defaultLayer.generate()
+    newLayer.vector = true
+    LayerActions.importLayer(newLayer)
+  },
+  render: function() {
+    var active = true
+    return (
+      React.createElement(ToolbarItem, {text: 'Vector Layer', onClick: this.onClick, active: active})
+    )
+  }
+})
+
+var NewLayerFromSelection = React.createClass({displayName: "NewLayerFromSelection",
+  onClick: function() {
+    var newLayer = defaultLayer.generate()
+    newLayer.vector = true
+    newLayer.geojson = vectorTools.layerFromSelection(LayerStore.getAll())
+    LayerActions.importLayer(newLayer)
+  },
+  render: function() {
+    var active = this.props.config.oneFeature || this.props.config.multiFeature
+    return (
+      React.createElement(ToolbarItem, {text: 'Vector Layer From Selection', onClick: this.onClick, active: active})
+    )
+  }
+})
+
+var Create = React.createClass({displayName: "Create",
+  render: function() {
+    var active = true
+      var submenu = [
+        React.createElement(NewEmptyLayer, React.__spread({},  this.props, {key: 'NewEmptyLayer'})),
+        React.createElement(NewLayerFromSelection, React.__spread({},  this.props, {key: 'NewLayerFromSelection'}))
+      ]
+    return (
+      React.createElement(ToolbarSubmenu, {text: 'Create', submenu: submenu, active: active})
+    )
+  }
+})
+
 var SaveAs = React.createClass({displayName: "SaveAs",
   render: function() {
     var active = true
@@ -50255,7 +50298,6 @@ var SaveAs = React.createClass({displayName: "SaveAs",
     )
   }
 })
-
 
 var SaveAsGeoJSON = React.createClass({displayName: "SaveAsGeoJSON",
   onClick: function() {
@@ -50378,9 +50420,10 @@ var LayerMenu = React.createClass({displayName: "LayerMenu",
     var active = true
     var submenu = [
       React.createElement(Undo, React.__spread({},  this.props, {key: 'undo'})),
+      React.createElement(Create, React.__spread({},  this.props, {key: 'Create'})),
+      React.createElement(SaveAs, React.__spread({},  this.props, {key: 'saveAs'})),
       React.createElement(RenameLayer, React.__spread({},  this.props, {key: 'renameLayer'})),
       React.createElement(Style, React.__spread({},  this.props, {key: 'style'})),
-      React.createElement(SaveAs, React.__spread({},  this.props, {key: 'saveAs'})),
       React.createElement(ZoomToLayer, React.__spread({},  this.props, {key: 'zoomToLayer'}))
       ]
     return (
@@ -50391,7 +50434,7 @@ var LayerMenu = React.createClass({displayName: "LayerMenu",
 
 module.exports = LayerMenu
 
-},{"../actions/LayerActions":392,"../stores/LayerStore":413,"../utils/vectorTools":420,"./Modals.jsx":401,"./ToolbarDropdown.jsx":404,"./ToolbarItem.jsx":405,"./ToolbarSubmenu.jsx":406,"filesaver.js":19,"geojson2dsv":75,"react":247,"tokml":249,"wellknown":390}],400:[function(require,module,exports){
+},{"../actions/LayerActions":392,"../stores/LayerStore":413,"../utils/DefaultLayer":415,"../utils/vectorTools":420,"./Modals.jsx":401,"./ToolbarDropdown.jsx":404,"./ToolbarItem.jsx":405,"./ToolbarSubmenu.jsx":406,"filesaver.js":19,"geojson2dsv":75,"react":247,"tokml":249,"wellknown":390}],400:[function(require,module,exports){
 var React = require('react')
   , palette = require('../utils/palette')
   , gjutils = require('../utils/gjutils')
@@ -50451,21 +50494,22 @@ var Modals = {
               React.createElement("li", null, "Saving: GeoJSON, KML, CSV, WKT, Shapefile")
             )
           ), 
+          React.createElement("p", null, "ugis is open source: ", React.createElement("a", {href: "https://github.com/frankrowe/ugis"}, "github.com/frankrowe/ugis")), 
           React.createElement("p", null, "ugis is built on open source components, including:", 
             React.createElement("ul", null, 
-              React.createElement("li", null, React.createElement("a", {href: "http://leafletjs.com/", target: "_blank"}, "Leaflet.js")), 
-              React.createElement("li", null, React.createElement("a", {href: "http://turfjs.org/", target: "_blank"}, "turf.js")), 
+              React.createElement("li", null, React.createElement("a", {href: "http://leafletjs.com/", target: "_blank"}, "Leaflet")), 
+              React.createElement("li", null, React.createElement("a", {href: "http://turfjs.org/", target: "_blank"}, "Turf")), 
+              React.createElement("li", null, React.createElement("a", {href: "https://facebook.github.io/react/index.html", target: "_blank"}, "React")), 
               React.createElement("li", null, React.createElement("a", {href: "https://codemirror.net/", target: "_blank"}, "CodeMirror")), 
               React.createElement("li", null, React.createElement("a", {href: "https://github.com/mapbox/geojsonhint", target: "_blank"}, "geojsonhint")), 
               React.createElement("li", null, React.createElement("a", {href: "https://github.com/mapbox/csv2geojson", target: "_blank"}, "csv2geojson")), 
               React.createElement("li", null, React.createElement("a", {href: "https://github.com/mapbox/togeojson", target: "_blank"}, "togeojson")), 
               React.createElement("li", null, React.createElement("a", {href: "https://github.com/mapbox/shp-write", target: "_blank"}, "shp-write")), 
               React.createElement("li", null, React.createElement("a", {href: "https://github.com/HubSpot/vex", target: "_blank"}, "vex")), 
-              React.createElement("li", null, React.createElement("a", {href: "https://github.com/qgis/QGIS", target: "_blank"}, "QGIS (icons)")), 
-              React.createElement("li", null, React.createElement("a", {href: "https://facebook.github.io/react/index.html", target: "_blank"}, "React"))
+              React.createElement("li", null, React.createElement("a", {href: "https://github.com/qgis/QGIS", target: "_blank"}, "QGIS (icons)"))
             )
           ), 
-          React.createElement("p", null, "ugis version ", React.createElement("b", null, pkg.version))
+          React.createElement("p", null, "Version ", React.createElement("b", null, pkg.version))
         )
       )
     }
@@ -50959,8 +51003,8 @@ var Toolbar = React.createClass({displayName: "Toolbar",
       React.createElement("div", {className: "toolbar"}, 
         React.createElement("img", {className: "logo", src: "img/ugis.png"}), 
         React.createElement(LayerMenu, React.__spread({},  this.props, {config: config})), 
-        React.createElement(ViewMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(FeatureMenu, React.__spread({},  this.props, {config: config})), 
+        React.createElement(ViewMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(SelectMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(HelpMenu, null)
       )
@@ -51028,6 +51072,10 @@ var ToolbarItem = React.createClass({displayName: "ToolbarItem",
   onClick: function() {
     if (this.props.active) {
       this.props.onClick()
+    } else {
+      if (this.props.disabledClick) {
+        this.props.disabledClick()
+      }
     }
   },
   render: function() {
@@ -51173,7 +51221,7 @@ var UGISApp = React.createClass({displayName: "UGISApp",
   render: function() {
     return (
       React.createElement("div", {className: "app"}, 
-        React.createElement(Toolbar, {layers: this.state.layers, updateBaseMap: this.updateBaseMap, baseMap: this.state.baseMap}), 
+        React.createElement(Toolbar, {layers: this.state.layers, updateError: this.updateError, updateBaseMap: this.updateBaseMap, baseMap: this.state.baseMap}), 
         React.createElement("div", {className: "flex-row"}, 
           React.createElement(AddLayers, null), 
           React.createElement(LayerList, {layers: this.state.layers}), 
@@ -51220,6 +51268,9 @@ var ViewAttributes = React.createClass({displayName: "ViewAttributes",
       }
       LayerActions.update(layer.id, update)
     }
+  },
+  disabledClick: function() {
+    this.props.updateError('A layer must be selected.')
   },
   render: function() {
     var active = this.props.config.oneLayer
@@ -51398,7 +51449,6 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
         }
       }
     }, this)
-
   },
   featureOnClick: function(_layer, feature, mapLayer) {
     var layer = LayerStore.getById(_layer.id)
@@ -51458,7 +51508,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     }
   },
   addDrawControl: function(layer) {
-    if (layer.vector) {
+    if (layer.vector && layer.selected) {
       if (layer.editing) {
         console.log(layer.name)
         if (this.drawControl) {
@@ -51527,7 +51577,6 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       }
     }
   },
-
   /**
    * Remove any layers from the map that aren't in props
    */
@@ -51540,7 +51589,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     }, this)
   },
   addLayers: function(layer) {
-    var style = {}
+    mapStyle = {}
     var selectBoxActive = false
     var zoomToLayers = L.featureGroup()
     var layers = _.values(this.props.layers)
@@ -51548,7 +51597,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i]
       if (layer.editGeoJSON) {
-        style.marginRight = 400
+        mapStyle.marginRight = 400
       }
       if (layer.selected && layer.selectBox) {
         selectBoxActive = true
@@ -51559,7 +51608,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     }
     this.selectBox(selectBoxActive)
     if (this.selectBoxActive) {
-      style.cursor = 'crosshair'
+      mapStyle.cursor = 'crosshair'
     }
     if (zoomToLayers.getLayers().length) {
       if (zoomToLayers.getBounds().isValid()) {
@@ -51568,12 +51617,10 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
       this.map.removeLayer(zoomToLayers)
       zoomToLayers = null
     }
-    return style
   },
   checkBaseMap: function() {
     if (this.map) {
       this.checkCurrentLayers()
-      mapStyle = this.addLayers()
       if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
         this.map.removeLayer(this.baseMap)
         if (baseMaps[this.props.baseMap].layer) {
@@ -51695,6 +51742,7 @@ function destroy(id) {
     _layers[id].mapLayer.clearLayers()
   }
   _layers[id].mapLayer = false
+  addUndo(id, _layers[id])
   delete _layers[id]
 }
 
@@ -51738,8 +51786,12 @@ function reorder(from, to) {
 
 function addUndo(id, updates) {
   var oldUpdates = {}
-  for (var key in updates) {
-    oldUpdates[key] = _layers[id][key]
+  if (_layers[id]) {
+    for (var key in updates) {
+      oldUpdates[key] = _layers[id][key]
+    }
+  } else {
+    oldUpdates = updates
   }
   if (undos.length === UNDO_LENGTH) {
     undos.shift()
@@ -51749,11 +51801,15 @@ function addUndo(id, updates) {
 
 function undo() {
   var op = undos[undos.length - 1]
-  if (_.has(op.updates, 'geojson')) {
-    _layers[op.id].mapLayer.clearLayers()
-    _layers[op.id].mapLayer = false
+  if (_layers[op.id]) {
+    if (_.has(op.updates, 'geojson')) {
+      _layers[op.id].mapLayer.clearLayers()
+      _layers[op.id].mapLayer = false
+    }
+    _layers[op.id] = assign({}, _layers[op.id], op.updates)
+  } else {
+    _layers[op.id] = op.updates
   }
-  _layers[op.id] = assign({}, _layers[op.id], op.updates)
   undos.pop()
 }
 
@@ -52613,6 +52669,20 @@ VectorTools.prototype = {
       layer.mapLayer = false
       LayerActions.update(layer.id, {geojson: fc})
     })
+  },
+  layerFromSelection: function(layers) {
+    var gj = gjutils.newFeatureCollection()
+    for (var key in layers) {
+      var layer = layers[key]
+      if (layer.geojson && layer.geojson.features) {
+        layer.geojson.features.forEach(function(feature) {
+          if (feature.selected) {
+            gj.features.push(feature)
+          }
+        })
+      }
+    }
+    return gj
   }
 }
 

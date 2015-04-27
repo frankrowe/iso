@@ -15,10 +15,12 @@ var Modals = {
               <li>Saving: GeoJSON, KML, CSV, WKT, Shapefile</li>
             </ul>
           </p>
+          <p>ugis is open source: <a href="https://github.com/frankrowe/ugis">github.com/frankrowe/ugis</a></p>
           <p>ugis is built on open source components, including:
             <ul>
-              <li><a href="http://leafletjs.com/" target="_blank">Leaflet.js</a></li>
-              <li><a href="http://turfjs.org/" target="_blank">turf.js</a></li>
+              <li><a href="http://leafletjs.com/" target="_blank">Leaflet</a></li>
+              <li><a href="http://turfjs.org/" target="_blank">Turf</a></li>
+              <li><a href="https://facebook.github.io/react/index.html" target="_blank">React</a></li>
               <li><a href="https://codemirror.net/" target="_blank">CodeMirror</a></li>
               <li><a href="https://github.com/mapbox/geojsonhint" target="_blank">geojsonhint</a></li>
               <li><a href="https://github.com/mapbox/csv2geojson" target="_blank">csv2geojson</a></li>
@@ -26,10 +28,9 @@ var Modals = {
               <li><a href="https://github.com/mapbox/shp-write" target="_blank">shp-write</a></li>
               <li><a href="https://github.com/HubSpot/vex" target="_blank">vex</a></li>
               <li><a href="https://github.com/qgis/QGIS" target="_blank">QGIS (icons)</a></li>
-              <li><a href="https://facebook.github.io/react/index.html" target="_blank">React</a></li>
             </ul>
           </p>
-          <p>ugis version <b>{pkg.version}</b></p>
+          <p>Version <b>{pkg.version}</b></p>
         </div>
       )
     }

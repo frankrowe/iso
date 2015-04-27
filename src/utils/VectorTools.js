@@ -407,6 +407,20 @@ VectorTools.prototype = {
       layer.mapLayer = false
       LayerActions.update(layer.id, {geojson: fc})
     })
+  },
+  layerFromSelection: function(layers) {
+    var gj = gjutils.newFeatureCollection()
+    for (var key in layers) {
+      var layer = layers[key]
+      if (layer.geojson && layer.geojson.features) {
+        layer.geojson.features.forEach(function(feature) {
+          if (feature.selected) {
+            gj.features.push(feature)
+          }
+        })
+      }
+    }
+    return gj
   }
 }
 

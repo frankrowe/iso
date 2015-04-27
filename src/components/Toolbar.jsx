@@ -85,8 +85,8 @@ var Toolbar = React.createClass({
       <div className="toolbar">
         <img className="logo" src="img/ugis.png" />
         <LayerMenu {...this.props} config={config} />
-        <ViewMenu {...this.props} config={config} />
         <FeatureMenu {...this.props} config={config} />
+        <ViewMenu {...this.props} config={config} />
         <SelectMenu {...this.props} config={config} />
         <HelpMenu />
       </div>

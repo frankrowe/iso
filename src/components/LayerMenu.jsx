@@ -10,6 +10,7 @@ var React = require('react')
   , tokml = require('tokml')
   , geojson2dsv = require('geojson2dsv')
   , wellknown = require('wellknown')
+  , defaultLayer = require('../utils/DefaultLayer')
 
 var Undo = React.createClass({
   onClick: function() {
@@ -58,6 +59,48 @@ var Style = React.createClass({
   }
 })
 
+var NewEmptyLayer = React.createClass({
+  onClick: function() {
+    var newLayer = defaultLayer.generate()
+    newLayer.vector = true
+    LayerActions.importLayer(newLayer)
+  },
+  render: function() {
+    var active = true
+    return (
+      <ToolbarItem text={'Vector Layer'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var NewLayerFromSelection = React.createClass({
+  onClick: function() {
+    var newLayer = defaultLayer.generate()
+    newLayer.vector = true
+    newLayer.geojson = vectorTools.layerFromSelection(LayerStore.getAll())
+    LayerActions.importLayer(newLayer)
+  },
+  render: function() {
+    var active = this.props.config.oneFeature || this.props.config.multiFeature
+    return (
+      <ToolbarItem text={'Vector Layer From Selection'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var Create = React.createClass({
+  render: function() {
+    var active = true
+      var submenu = [
+        <NewEmptyLayer {...this.props} key={'NewEmptyLayer'}/>,
+        <NewLayerFromSelection {...this.props} key={'NewLayerFromSelection'}/>
+      ]
+    return (
+      <ToolbarSubmenu text={'Create'} submenu={submenu} active={active}/>
+    )
+  }
+})
+
 var SaveAs = React.createClass({
   render: function() {
     var active = true
@@ -73,7 +116,6 @@ var SaveAs = React.createClass({
     )
   }
 })
-
 
 var SaveAsGeoJSON = React.createClass({
   onClick: function() {
@@ -196,9 +238,10 @@ var LayerMenu = React.createClass({
     var active = true
     var submenu = [
       <Undo {...this.props} key={'undo'}/>,
+      <Create {...this.props} key={'Create'} />,
+      <SaveAs {...this.props} key={'saveAs'}/>,
       <RenameLayer {...this.props} key={'renameLayer'}/>,
       <Style {...this.props} key={'style'}/>,
-      <SaveAs {...this.props} key={'saveAs'}/>,
       <ZoomToLayer {...this.props} key={'zoomToLayer'}/>
       ]
     return (

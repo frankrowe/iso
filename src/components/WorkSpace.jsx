@@ -84,7 +84,6 @@ var WorkSpace = React.createClass({
         }
       }
     }, this)
-
   },
   featureOnClick: function(_layer, feature, mapLayer) {
     var layer = LayerStore.getById(_layer.id)
@@ -144,7 +143,7 @@ var WorkSpace = React.createClass({
     }
   },
   addDrawControl: function(layer) {
-    if (layer.vector) {
+    if (layer.vector && layer.selected) {
       if (layer.editing) {
         console.log(layer.name)
         if (this.drawControl) {
@@ -213,7 +212,6 @@ var WorkSpace = React.createClass({
       }
     }
   },
-
   /**
    * Remove any layers from the map that aren't in props
    */
@@ -226,7 +224,7 @@ var WorkSpace = React.createClass({
     }, this)
   },
   addLayers: function(layer) {
-    var style = {}
+    mapStyle = {}
     var selectBoxActive = false
     var zoomToLayers = L.featureGroup()
     var layers = _.values(this.props.layers)
@@ -234,7 +232,7 @@ var WorkSpace = React.createClass({
     for (var i = 0; i < layers.length; i++) {
       var layer = layers[i]
       if (layer.editGeoJSON) {
-        style.marginRight = 400
+        mapStyle.marginRight = 400
       }
       if (layer.selected && layer.selectBox) {
         selectBoxActive = true
@@ -245,7 +243,7 @@ var WorkSpace = React.createClass({
     }
     this.selectBox(selectBoxActive)
     if (this.selectBoxActive) {
-      style.cursor = 'crosshair'
+      mapStyle.cursor = 'crosshair'
     }
     if (zoomToLayers.getLayers().length) {
       if (zoomToLayers.getBounds().isValid()) {
@@ -254,12 +252,10 @@ var WorkSpace = React.createClass({
       this.map.removeLayer(zoomToLayers)
       zoomToLayers = null
     }
-    return style
   },
   checkBaseMap: function() {
     if (this.map) {
       this.checkCurrentLayers()
-      mapStyle = this.addLayers()
       if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
         this.map.removeLayer(this.baseMap)
         if (baseMaps[this.props.baseMap].layer) {

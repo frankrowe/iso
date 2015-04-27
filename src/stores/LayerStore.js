@@ -78,6 +78,7 @@ function destroy(id) {
     _layers[id].mapLayer.clearLayers()
   }
   _layers[id].mapLayer = false
+  addUndo(id, _layers[id])
   delete _layers[id]
 }
 
@@ -121,8 +122,12 @@ function reorder(from, to) {
 
 function addUndo(id, updates) {
   var oldUpdates = {}
-  for (var key in updates) {
-    oldUpdates[key] = _layers[id][key]
+  if (_layers[id]) {
+    for (var key in updates) {
+      oldUpdates[key] = _layers[id][key]
+    }
+  } else {
+    oldUpdates = updates
   }
   if (undos.length === UNDO_LENGTH) {
     undos.shift()
@@ -132,11 +137,15 @@ function addUndo(id, updates) {
 
 function undo() {
   var op = undos[undos.length - 1]
-  if (_.has(op.updates, 'geojson')) {
-    _layers[op.id].mapLayer.clearLayers()
-    _layers[op.id].mapLayer = false
+  if (_layers[op.id]) {
+    if (_.has(op.updates, 'geojson')) {
+      _layers[op.id].mapLayer.clearLayers()
+      _layers[op.id].mapLayer = false
+    }
+    _layers[op.id] = assign({}, _layers[op.id], op.updates)
+  } else {
+    _layers[op.id] = op.updates
   }
-  _layers[op.id] = assign({}, _layers[op.id], op.updates)
   undos.pop()
 }
 
