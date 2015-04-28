@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.264",
+  "version": "0.3.267",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
