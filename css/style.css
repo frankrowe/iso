@@ -68,6 +68,8 @@ body {
   font-size: 18px;
   padding: 3px 5px 0 5px;
   text-shadow: 1px 1px 0px #000000;
+  width: 44px;
+  height: 21px;
 }
 .toolbar .toolbar-dropdown {
   float: left;

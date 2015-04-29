@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.268",
+  "version": "0.3.271",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -51001,7 +51001,7 @@ var Toolbar = React.createClass({displayName: "Toolbar",
     var config = this.findActive()
     return (
       React.createElement("div", {className: "toolbar"}, 
-        React.createElement("img", {className: "logo", src: "img/ugis.png"}), 
+        React.createElement("img", {className: "logo", src: "img/ugis2x.png"}), 
         React.createElement(LayerMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(FeatureMenu, React.__spread({},  this.props, {config: config})), 
         React.createElement(ViewMenu, React.__spread({},  this.props, {config: config})), 
