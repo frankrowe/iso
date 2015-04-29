@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.271",
+  "version": "0.3.275",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -49513,7 +49513,7 @@ var AddLayerButton = React.createClass({displayName: "AddLayerButton",
     var style = { display: 'none'}
     return (
       React.createElement("div", null, 
-        React.createElement(LayerButton, {img: "img/MActionAddOgrLayer.png", tooltip: 'Import Vector Layer', onClick: this.onClick}), 
+        React.createElement(LayerButton, {img: "img/MActionAddOgrLayer.svg", tooltip: 'Import Vector Layer', onClick: this.onClick}), 
         React.createElement("input", {ref: "addFile", type: "file", name: "addFile", style: style, onChange: this.onChange})
       )
     )
@@ -49528,7 +49528,7 @@ var NewLayerButton = React.createClass({displayName: "NewLayerButton",
   },
   render: function() {
     return (
-      React.createElement(LayerButton, {img: "img/MActionNewVectorLayer.png", tooltip: 'New Vector Layer', onClick: this.onClick})
+      React.createElement(LayerButton, {img: "img/MActionNewVectorLayer.svg", tooltip: 'New Vector Layer', onClick: this.onClick})
     )
   }
 })
@@ -49545,7 +49545,7 @@ var AddTileLayerButton = React.createClass({displayName: "AddTileLayerButton",
   },
   render: function() {
     return (
-      React.createElement(LayerButton, {img: "img/MActionAddRasterLayer.png", tooltip: 'New Tile Layer', onClick: this.onClick})
+      React.createElement(LayerButton, {img: "img/MActionAddRasterLayer.svg", tooltip: 'New Tile Layer', onClick: this.onClick})
     )
   }
 })
@@ -49556,7 +49556,7 @@ var RemoveLayerButton = React.createClass({displayName: "RemoveLayerButton",
   },
   render: function() {
     return (
-      React.createElement(LayerButton, {img: "img/MActionRemoveLayer.png", tooltip: 'Remove Layer', onClick: this.onClick})
+      React.createElement(LayerButton, {img: "img/MActionRemoveLayer.svg", tooltip: 'Remove Layer', onClick: this.onClick})
     )
   }
 })
