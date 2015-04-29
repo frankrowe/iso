@@ -223,6 +223,69 @@ var RandomPolys = React.createClass({
   }
 })
 
+var HexGrid = React.createClass({
+  onClick: function() {
+    vectorTools.grid(LayerStore.getSelected(), 'hex')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      <ToolbarItem text={'Hexagonal'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var PointGrid = React.createClass({
+  onClick: function() {
+    vectorTools.grid(LayerStore.getSelected(), 'point')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      <ToolbarItem text={'Point'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var SquareGrid = React.createClass({
+  onClick: function() {
+    vectorTools.grid(LayerStore.getSelected(), 'square')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      <ToolbarItem text={'Squares'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var TriangleGrid = React.createClass({
+  onClick: function() {
+    vectorTools.grid(LayerStore.getSelected(), 'triangle')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      <ToolbarItem text={'Triangles'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var Grids = React.createClass({
+  render: function() {
+    var active = true
+    var submenu = [
+      <HexGrid {...this.props} key={'HexGrid'}/>,
+      <PointGrid {...this.props} key={'PointGrid'}/>,
+      <SquareGrid {...this.props} key={'SquareGrid'}/>,
+      <TriangleGrid {...this.props} key={'TriangleGrid'}/>
+    ]
+    return (
+      <ToolbarSubmenu text={'Grids'} submenu={submenu} active={active}/>
+    )
+  }
+})
+
 var Transformation = React.createClass({
   render: function() {
     var active = true
@@ -286,6 +349,7 @@ var FeatureMenu = React.createClass({
     var submenu = [
       <Delete {...this.props} key={'deleteFeature'}/>,
       <Create {...this.props} key={'create'}/>,
+      <Grids {...this.props} key={'grids'}/>,
       <Measurement {...this.props} key={'Measurement'}/>,
       <Transformation {...this.props} key={'Transformation'}/>,
       <Misc {...this.props} key={'Misc='}/>

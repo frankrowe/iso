@@ -1,5 +1,15 @@
 var React = require('react')
+  , vectorTools = require('../utils/VectorTools')
   , pkg = require('../../package.json')
+
+var LIMIT = 10000
+
+function validateBBOX(bbox) {
+  if (_.compact(bbox).length !== 4) {
+    return 'Bounding box must be xLow, yLow, xHigh, yHigh'
+  }
+  return false
+}
 
 var Modals = {
 
@@ -241,7 +251,6 @@ var Modals = {
 
   getRandom: function(next) {
 
-    var LIMIT = 10000
     var el
     var Modal = React.createClass({
       render: function() {
@@ -270,6 +279,11 @@ var Modals = {
         var $vexContent = $(this).parent()
         var error = false
 
+        var bbox = this.bbox.value
+        bbox = bbox.split(',')
+        bbox = bbox.map(Number)
+        error = validateBBOX(bbox)
+
         var count = +this.count.value
         if (isNaN(count)) {
           error = 'That\'s not a number...'
@@ -277,13 +291,6 @@ var Modals = {
           error = <span>Are you <i>trying</i> to crash me?</span>
         } else if (count <= 0) {
           error = 'Count should be more than zero.'
-        }
-
-        var bbox = this.bbox.value
-        bbox = bbox.split(',')
-        bbox = bbox.map(Number)
-        if (_.compact(bbox).length !== 4) {
-          error = 'Bounding box must be xLow, yLow, xHigh, yHigh'
         }
 
         if (error) {
@@ -295,6 +302,84 @@ var Modals = {
             count: count
           }
           next(false, data)
+        }
+      }
+    })
+
+  },
+
+  getGrid: function(type, next) {
+
+    var LIMIT = 10000
+    var el
+    var defaults = {
+      hex: {
+        cellWidth: 50
+      },
+      point: {
+        cellWidth: 50
+      },
+      square: {
+        cellWidth: 50
+      },
+      triangle: {
+        cellWidth: 50
+      }
+    }
+    var Modal = React.createClass({
+      render: function() {
+        return (
+          <div>
+            <p>Bounding Box (xLow, yLow, xHigh, yHigh):</p>
+            <input name="bbox" type="text" defaultValue={this.props.bbox} />
+            <p>Cell Width:</p>
+            <input name="cellWidth" type="text" defaultValue={this.props.cellWidth} />
+            <select name="units" defaultValue={this.props.units}>
+              <option value="miles">Miles</option>
+              <option value="kilometers">kilometers</option>
+            </select>
+            <p className="error">{this.props.error}</p>
+          </div>
+        )
+      }
+    })
+
+    var dialog = vex.dialog.open({
+      message: 'Create Random Features',
+      afterOpen: function($vexContent) {
+        el = $vexContent.find('.vex-dialog-input').get(0)
+        React.render(<Modal cellWidth={defaults[type].cellWidth} bbox={'-96,31,-84,40'} units={'miles'}/>, el)
+      },
+      onSubmit: function(e) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        var $vexContent = $(this).parent()
+        var error = false
+
+        var bbox = this.bbox.value
+        bbox = bbox.split(',')
+        bbox = bbox.map(Number)
+        error = validateBBOX(bbox)
+
+        var cellWidth = this.cellWidth.value
+        if (cellWidth <= 0) {
+          error = 'Cell Width must be greater than zero.'
+        }
+        var data = {
+          bbox: bbox,
+          cellWidth: cellWidth,
+          units: this.units.value
+        }
+        var grid = vectorTools.createGrid(type, data)
+        if (grid.features.length > LIMIT) {
+          error = 'Too many features. Increase cell width or decrease bbox size.'
+        }
+        if (error) {
+          React.render(<Modal error={error} cellWidth={this.cellWidth.value} bbox={this.bbox.value} units={this.units.value}/>, el)
+        } else {
+          vex.close($vexContent.data().vex.id)
+          next(false, grid)
         }
       }
     })

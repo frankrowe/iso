@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.275",
+  "version": "0.3.310",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -49576,7 +49576,7 @@ var AddLayers = React.createClass({displayName: "AddLayers",
 
 module.exports = AddLayers
 
-},{"../actions/LayerActions":392,"../utils/DefaultLayer":415,"../utils/palette":418,"../utils/readfile":419,"./Modals.jsx":401,"./Tooltip":407,"geojson-normalize":74,"react":247}],394:[function(require,module,exports){
+},{"../actions/LayerActions":392,"../utils/DefaultLayer":415,"../utils/palette":419,"../utils/readfile":420,"./Modals.jsx":401,"./Tooltip":407,"geojson-normalize":74,"react":247}],394:[function(require,module,exports){
 var React = require('react')
   , FixedDataTable = require('fixed-data-table')
   , LayerActions = require('../actions/LayerActions')
@@ -49721,7 +49721,7 @@ var Editor = React.createClass({displayName: "Editor",
 
 module.exports = Editor
 
-},{"../utils/vectorTools":420,"geojsonhint":77,"react":247}],396:[function(require,module,exports){
+},{"../utils/vectorTools":421,"geojsonhint":77,"react":247}],396:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
@@ -49947,6 +49947,69 @@ var RandomPolys = React.createClass({displayName: "RandomPolys",
   }
 })
 
+var HexGrid = React.createClass({displayName: "HexGrid",
+  onClick: function() {
+    vectorTools.grid(LayerStore.getSelected(), 'hex')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      React.createElement(ToolbarItem, {text: 'Hexagonal', onClick: this.onClick, active: active})
+    )
+  }
+})
+
+var PointGrid = React.createClass({displayName: "PointGrid",
+  onClick: function() {
+    vectorTools.grid(LayerStore.getSelected(), 'point')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      React.createElement(ToolbarItem, {text: 'Point', onClick: this.onClick, active: active})
+    )
+  }
+})
+
+var SquareGrid = React.createClass({displayName: "SquareGrid",
+  onClick: function() {
+    vectorTools.grid(LayerStore.getSelected(), 'square')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      React.createElement(ToolbarItem, {text: 'Squares', onClick: this.onClick, active: active})
+    )
+  }
+})
+
+var TriangleGrid = React.createClass({displayName: "TriangleGrid",
+  onClick: function() {
+    vectorTools.grid(LayerStore.getSelected(), 'triangle')
+  },
+  render: function() {
+    var active = this.props.config.oneLayer
+    return (
+      React.createElement(ToolbarItem, {text: 'Triangles', onClick: this.onClick, active: active})
+    )
+  }
+})
+
+var Grids = React.createClass({displayName: "Grids",
+  render: function() {
+    var active = true
+    var submenu = [
+      React.createElement(HexGrid, React.__spread({},  this.props, {key: 'HexGrid'})),
+      React.createElement(PointGrid, React.__spread({},  this.props, {key: 'PointGrid'})),
+      React.createElement(SquareGrid, React.__spread({},  this.props, {key: 'SquareGrid'})),
+      React.createElement(TriangleGrid, React.__spread({},  this.props, {key: 'TriangleGrid'}))
+    ]
+    return (
+      React.createElement(ToolbarSubmenu, {text: 'Grids', submenu: submenu, active: active})
+    )
+  }
+})
+
 var Transformation = React.createClass({displayName: "Transformation",
   render: function() {
     var active = true
@@ -50010,6 +50073,7 @@ var FeatureMenu = React.createClass({displayName: "FeatureMenu",
     var submenu = [
       React.createElement(Delete, React.__spread({},  this.props, {key: 'deleteFeature'})),
       React.createElement(Create, React.__spread({},  this.props, {key: 'create'})),
+      React.createElement(Grids, React.__spread({},  this.props, {key: 'grids'})),
       React.createElement(Measurement, React.__spread({},  this.props, {key: 'Measurement'})),
       React.createElement(Transformation, React.__spread({},  this.props, {key: 'Transformation'})),
       React.createElement(Misc, React.__spread({},  this.props, {key: 'Misc='}))
@@ -50022,7 +50086,7 @@ var FeatureMenu = React.createClass({displayName: "FeatureMenu",
 
 module.exports = FeatureMenu
 
-},{"../actions/LayerActions":392,"../stores/LayerStore":413,"../utils/vectorTools":420,"./Modals.jsx":401,"./ToolbarDropdown.jsx":404,"./ToolbarItem.jsx":405,"./ToolbarSubmenu.jsx":406,"react":247}],397:[function(require,module,exports){
+},{"../actions/LayerActions":392,"../stores/LayerStore":413,"../utils/vectorTools":421,"./Modals.jsx":401,"./ToolbarDropdown.jsx":404,"./ToolbarItem.jsx":405,"./ToolbarSubmenu.jsx":406,"react":247}],397:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
@@ -50179,7 +50243,7 @@ var LayerList = React.createClass({displayName: "LayerList",
 
 module.exports = LayerList
 
-},{"../actions/LayerActions":392,"../utils/palette":418,"../utils/vectorTools":420,"./Modals.jsx":401,"color":11,"react":247}],399:[function(require,module,exports){
+},{"../actions/LayerActions":392,"../utils/palette":419,"../utils/vectorTools":421,"./Modals.jsx":401,"color":11,"react":247}],399:[function(require,module,exports){
 var React = require('react')
   , vectorTools = require('../utils/vectorTools')
   , Modals = require('./Modals.jsx')
@@ -50434,7 +50498,7 @@ var LayerMenu = React.createClass({displayName: "LayerMenu",
 
 module.exports = LayerMenu
 
-},{"../actions/LayerActions":392,"../stores/LayerStore":413,"../utils/DefaultLayer":415,"../utils/vectorTools":420,"./Modals.jsx":401,"./ToolbarDropdown.jsx":404,"./ToolbarItem.jsx":405,"./ToolbarSubmenu.jsx":406,"filesaver.js":19,"geojson2dsv":75,"react":247,"tokml":249,"wellknown":390}],400:[function(require,module,exports){
+},{"../actions/LayerActions":392,"../stores/LayerStore":413,"../utils/DefaultLayer":415,"../utils/vectorTools":421,"./Modals.jsx":401,"./ToolbarDropdown.jsx":404,"./ToolbarItem.jsx":405,"./ToolbarSubmenu.jsx":406,"filesaver.js":19,"geojson2dsv":75,"react":247,"tokml":249,"wellknown":390}],400:[function(require,module,exports){
 var React = require('react')
   , palette = require('../utils/palette')
   , gjutils = require('../utils/gjutils')
@@ -50476,9 +50540,19 @@ var MessageBar = React.createClass({displayName: "MessageBar",
 
 module.exports = MessageBar
 
-},{"../utils/gjutils":417,"../utils/palette":418,"react":247}],401:[function(require,module,exports){
+},{"../utils/gjutils":418,"../utils/palette":419,"react":247}],401:[function(require,module,exports){
 var React = require('react')
+  , vectorTools = require('../utils/VectorTools')
   , pkg = require('../../package.json')
+
+var LIMIT = 10000
+
+function validateBBOX(bbox) {
+  if (_.compact(bbox).length !== 4) {
+    return 'Bounding box must be xLow, yLow, xHigh, yHigh'
+  }
+  return false
+}
 
 var Modals = {
 
@@ -50720,7 +50794,6 @@ var Modals = {
 
   getRandom: function(next) {
 
-    var LIMIT = 10000
     var el
     var Modal = React.createClass({displayName: "Modal",
       render: function() {
@@ -50749,6 +50822,11 @@ var Modals = {
         var $vexContent = $(this).parent()
         var error = false
 
+        var bbox = this.bbox.value
+        bbox = bbox.split(',')
+        bbox = bbox.map(Number)
+        error = validateBBOX(bbox)
+
         var count = +this.count.value
         if (isNaN(count)) {
           error = 'That\'s not a number...'
@@ -50756,13 +50834,6 @@ var Modals = {
           error = React.createElement("span", null, "Are you ", React.createElement("i", null, "trying"), " to crash me?")
         } else if (count <= 0) {
           error = 'Count should be more than zero.'
-        }
-
-        var bbox = this.bbox.value
-        bbox = bbox.split(',')
-        bbox = bbox.map(Number)
-        if (_.compact(bbox).length !== 4) {
-          error = 'Bounding box must be xLow, yLow, xHigh, yHigh'
         }
 
         if (error) {
@@ -50774,6 +50845,84 @@ var Modals = {
             count: count
           }
           next(false, data)
+        }
+      }
+    })
+
+  },
+
+  getGrid: function(type, next) {
+
+    var LIMIT = 10000
+    var el
+    var defaults = {
+      hex: {
+        cellWidth: 50
+      },
+      point: {
+        cellWidth: 50
+      },
+      square: {
+        cellWidth: 50
+      },
+      triangle: {
+        cellWidth: 50
+      }
+    }
+    var Modal = React.createClass({displayName: "Modal",
+      render: function() {
+        return (
+          React.createElement("div", null, 
+            React.createElement("p", null, "Bounding Box (xLow, yLow, xHigh, yHigh):"), 
+            React.createElement("input", {name: "bbox", type: "text", defaultValue: this.props.bbox}), 
+            React.createElement("p", null, "Cell Width:"), 
+            React.createElement("input", {name: "cellWidth", type: "text", defaultValue: this.props.cellWidth}), 
+            React.createElement("select", {name: "units", defaultValue: this.props.units}, 
+              React.createElement("option", {value: "miles"}, "Miles"), 
+              React.createElement("option", {value: "kilometers"}, "kilometers")
+            ), 
+            React.createElement("p", {className: "error"}, this.props.error)
+          )
+        )
+      }
+    })
+
+    var dialog = vex.dialog.open({
+      message: 'Create Random Features',
+      afterOpen: function($vexContent) {
+        el = $vexContent.find('.vex-dialog-input').get(0)
+        React.render(React.createElement(Modal, {cellWidth: defaults[type].cellWidth, bbox: '-96,31,-84,40', units: 'miles'}), el)
+      },
+      onSubmit: function(e) {
+        e.preventDefault()
+        e.stopPropagation()
+
+        var $vexContent = $(this).parent()
+        var error = false
+
+        var bbox = this.bbox.value
+        bbox = bbox.split(',')
+        bbox = bbox.map(Number)
+        error = validateBBOX(bbox)
+
+        var cellWidth = this.cellWidth.value
+        if (cellWidth <= 0) {
+          error = 'Cell Width must be greater than zero.'
+        }
+        var data = {
+          bbox: bbox,
+          cellWidth: cellWidth,
+          units: this.units.value
+        }
+        var grid = vectorTools.createGrid(type, data)
+        if (grid.features.length > LIMIT) {
+          error = 'Too many features. Increase cell width or decrease bbox size.'
+        }
+        if (error) {
+          React.render(React.createElement(Modal, {error: error, cellWidth: this.cellWidth.value, bbox: this.bbox.value, units: this.units.value}), el)
+        } else {
+          vex.close($vexContent.data().vex.id)
+          next(false, grid)
         }
       }
     })
@@ -50810,7 +50959,7 @@ var Modals = {
 
 module.exports = Modals
 
-},{"../../package.json":391,"react":247}],402:[function(require,module,exports){
+},{"../../package.json":391,"../utils/VectorTools":416,"react":247}],402:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
@@ -50915,7 +51064,7 @@ var SelectMenu = React.createClass({displayName: "SelectMenu",
 
 module.exports = SelectMenu
 
-},{"../stores/LayerStore":413,"../utils/vectorTools":420,"./Modals.jsx":401,"./ToolbarDropdown.jsx":404,"./ToolbarItem.jsx":405,"react":247}],403:[function(require,module,exports){
+},{"../stores/LayerStore":413,"../utils/vectorTools":421,"./Modals.jsx":401,"./ToolbarDropdown.jsx":404,"./ToolbarItem.jsx":405,"react":247}],403:[function(require,module,exports){
 var React = require('react')
   , gjutils = require('../utils/gjutils')
   , LayerMenu = require('./LayerMenu.jsx')
@@ -51014,7 +51163,7 @@ var Toolbar = React.createClass({displayName: "Toolbar",
 
 module.exports = Toolbar
 
-},{"../utils/gjutils":417,"./FeatureMenu.jsx":396,"./HelpMenu.jsx":397,"./LayerMenu.jsx":399,"./SelectMenu.jsx":402,"./ViewMenu.jsx":409,"react":247}],404:[function(require,module,exports){
+},{"../utils/gjutils":418,"./FeatureMenu.jsx":396,"./HelpMenu.jsx":397,"./LayerMenu.jsx":399,"./SelectMenu.jsx":402,"./ViewMenu.jsx":409,"react":247}],404:[function(require,module,exports){
 var React = require('react')
 
 var ToolbarDropdown = React.createClass({displayName: "ToolbarDropdown",
@@ -51643,7 +51792,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
 
 module.exports = WorkSpace
 
-},{"../actions/LayerActions":392,"../stores/LayerStore":413,"../utils/baseMaps":416,"../utils/palette":418,"../utils/vectorTools":420,"numeral":80,"react":247}],411:[function(require,module,exports){
+},{"../actions/LayerActions":392,"../stores/LayerStore":413,"../utils/baseMaps":417,"../utils/palette":419,"../utils/vectorTools":421,"numeral":80,"react":247}],411:[function(require,module,exports){
 var keyMirror = require('keymirror')
 
 module.exports = keyMirror({
@@ -52008,267 +52157,7 @@ DefaultLayer.prototype = {
 
 module.exports = new DefaultLayer()
 
-},{"../utils/palette":418}],416:[function(require,module,exports){
-var options = {
-  detectRetina: true
-}
-
-module.exports = {
-  streets: {
-    name: 'Streets',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png', options)
-  },
-  simple: {
-    name: 'Simple',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png', options)
-  },
-  satellite: {
-    name: 'Satellite',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png', options)
-  },
-  satellitestreets: {
-    name: 'Satellite Streets',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png', options)
-  },
-  none: {
-    name: 'None',
-    layer: false
-  }
-}
-
-},{}],417:[function(require,module,exports){
-function GJUtils() {
-
-}
-
-GJUtils.prototype = {
-  findSelectedCount: function(gj) {
-    var count = 0
-    if (gj.type === 'FeatureCollection') {
-      gj.features.forEach(function(f) {
-        if (f.selected) count++
-      })
-    } else if (gj.type === 'Feature') {
-      if (gj.selected) count++
-    }
-    return count
-  },
-  newFeatureCollection: function() {
-    return {
-      "type": "FeatureCollection",
-      "features": []
-    }
-  }
-}
-
-module.exports = new GJUtils()
-
-},{}],418:[function(require,module,exports){
-// module.exports = {
-//   darkest: '#594F4F',
-//   dark: '#547980',
-//   medium: '#45ADA8',
-//   light: '#9DE0AD',
-//   lightest: '#E5FCC2'
-// }
-
-// module.exports = {
-//   darkest: '#343838',
-//   dark: '#005F6B',
-//   medium: '#008C9E',
-//   light: '#00B4CC',
-//   lightest: '#00DFFC'
-// }
-
-module.exports = {
-  darkest: '#303030',
-  dark: '#525252',
-  medium: '#636363',
-  light: '#7d7d7d',
-  lightest: '#D5D5D5',
-  green: '#428675'
-}
-
-},{}],419:[function(require,module,exports){
-var topojson = require('topojson'),
-    toGeoJSON = require('togeojson'),
-    csv2geojson = require('csv2geojson'),
-    osmtogeojson = require('osmtogeojson'),
-    polytogeojson = require('polytogeojson');
-
-module.exports.readDrop = readDrop;
-module.exports.readAsText = readAsText;
-module.exports.readFile = readFile;
-
-function readDrop(callback) {
-    return function() {
-        var results = [];
-        var errors = [];
-        var warnings = [];
-        if (d3.event.dataTransfer && d3.event.dataTransfer &&
-           d3.event.dataTransfer.files && d3.event.dataTransfer.files.length) {
-            d3.event.stopPropagation();
-            d3.event.preventDefault();
-            var remaining = d3.event.dataTransfer.files.length;
-            [].forEach.call(d3.event.dataTransfer.files, function(f) {
-                readAsText(f, function(err, text) {
-                    if (err) {
-                        errors.push(err);
-                        if (!--remaining) finish(errors, results);
-                    } else {
-                        readFile(f, text, function(err, res, war) {
-                            if (err) errors.push(err);
-                            if (res) results.push(res);
-                            if (war) results.push(war);
-                            if (!--remaining) finish(errors, results, war);
-                        });
-                    }
-                });
-            });
-        } else {
-            return callback({
-                message: 'No files were dropped'
-            });
-        }
-
-        function finish(errors, results, war) {
-            // if no conversions suceeded, return the first error
-            if (!results.length && errors.length) return callback(errors[0], null, war);
-            // otherwise combine results
-            return callback(null, {
-                type: 'FeatureCollection',
-                features: results.reduce(function(memo, r) {
-                    if (r.features) memo = memo.concat(r.features);
-                    else if (r.type === 'Feature') memo.push(r);
-                    return memo;
-                }, [])
-            }, war);
-        }
-    };
-}
-
-function readAsText(f, callback) {
-    try {
-        var reader = new FileReader();
-        reader.readAsText(f);
-        reader.onload = function(e) {
-            if (e.target && e.target.result) callback(null, e.target.result);
-            else callback({
-                message: 'Dropped file could not be loaded'
-            });
-        };
-        reader.onerror = function(e) {
-            callback({
-                message: 'Dropped file was unreadable'
-            });
-        };
-    } catch (e) {
-        callback({
-            message: 'Dropped file was unreadable'
-        });
-    }
-}
-
-function readFile(f, text, callback) {
-
-    var fileType = detectType(f);
-
-    if (!fileType) {
-        var filename = f.name ? f.name.toLowerCase() : '',
-            pts = filename.split('.');
-        return callback({
-            message: 'Could not detect file type'
-        });
-    } else if (fileType === 'kml') {
-        var kmldom = toDom(text);
-        if (!kmldom) {
-            return callback({
-                message: 'Invalid KML file: not valid XML'
-            });
-        }
-        var warning;
-        if (kmldom.getElementsByTagName('NetworkLink').length) {
-            warning = {
-                message: 'The KML file you uploaded included NetworkLinks: some content may not display. ' +
-                  'Please export and upload KML without NetworkLinks for optimal performance'
-            };
-        }
-        callback(null, toGeoJSON.kml(kmldom), warning);
-    } else if (fileType === 'xml') {
-        var xmldom = toDom(text),
-            result;
-        if (!xmldom) {
-            return callback({
-                message: 'Invalid XML file: not valid XML'
-            });
-        }
-        result = osmtogeojson.toGeojson(xmldom);
-        // only keep object tags as properties
-        result.features.forEach(function(feature) {
-            feature.properties = feature.properties.tags;
-        });
-        callback(null, result);
-    } else if (fileType === 'gpx') {
-        callback(null, toGeoJSON.gpx(toDom(text)));
-    } else if (fileType === 'geojson') {
-        try {
-            var gj = JSON.parse(text);
-            if (gj && gj.type === 'Topology' && gj.objects) {
-                var collection = { type: 'FeatureCollection', features: [] };
-                for (var o in gj.objects) {
-                    var ft = topojson.feature(gj, gj.objects[o]);
-                    if (ft.features) collection.features = collection.features.concat(ft.features);
-                    else collection.features = collection.features.concat([ft]);
-                }
-                return callback(null, collection);
-            } else {
-                return callback(null, gj);
-            }
-        } catch(err) {
-            alert('Invalid JSON file: ' + err);
-            return;
-        }
-    } else if (fileType === 'dsv') {
-        csv2geojson.csv2geojson(text, {
-            delimiter: 'auto'
-        }, function(err, result) {
-            if (err) {
-                return callback({
-                    type: 'geocode',
-                    result: result,
-                    raw: text
-                });
-            } else {
-                return callback(null, result);
-            }
-        });
-    } else if (fileType === 'poly') {
-        callback(null, polytogeojson(text));
-    }
-
-    function toDom(x) {
-        return (new DOMParser()).parseFromString(x, 'text/xml');
-    }
-
-    function detectType(f) {
-        var filename = f.name ? f.name.toLowerCase() : '';
-        function ext(_) {
-            return filename.indexOf(_) !== -1;
-        }
-        if (f.type === 'application/vnd.google-earth.kml+xml' || ext('.kml')) {
-            return 'kml';
-        }
-        if (ext('.gpx')) return 'gpx';
-        if (ext('.geojson') || ext('.json') || ext('.topojson')) return 'geojson';
-        if (f.type === 'text/csv' || ext('.csv') || ext('.tsv') || ext('.dsv')) {
-            return 'dsv';
-        }
-        if (ext('.xml') || ext('.osm')) return 'xml';
-        if (ext('.poly')) return 'poly';
-    }
-}
-
-},{"csv2geojson":16,"osmtogeojson":82,"polytogeojson":88,"togeojson":248,"topojson":251}],420:[function(require,module,exports){
+},{"../utils/palette":419}],416:[function(require,module,exports){
 var React = require('react')
   , numeral = require('numeral')
   , turf = require('turf')
@@ -52531,15 +52420,32 @@ VectorTools.prototype = {
       }
     })
   },
-  createHexGrid: function() {
+  createGrid: function(type, data) {
+    var grid
+    if (type === 'hex') {
+      grid = turf.hexGrid(data.bbox, data.cellWidth, data.units)
+    }
+    if (type === 'point') {
+      grid = turf.pointGrid(data.bbox, data.cellWidth, data.units)
+    }
+    if (type === 'square') {
+      grid = turf.squareGrid(data.bbox, data.cellWidth, data.units)
+    }
+    if (type === 'triangle') {
+      grid = turf.triangleGrid(data.bbox, data.cellWidth, data.units)
+    }
+    return grid
+  },
+  grid: function(layer, type) {
     var self = this
-    var bbox = [-96,31,-84,40];
-    var cellWidth = 50;
-    var units = 'miles';
-    var hexgrid = turf.hexgrid(bbox, cellWidth, units)
-    var newLayer = defaultLayer.generate()
-    newLayer.geojson = hexgrid
-    this.addLayer(newLayer)
+    Modals.getGrid(type, function(err, grid) {
+      var fc = gjutils.newFeatureCollection()
+      fc.features = fc.features.concat(layer.geojson.features)
+      fc.features = fc.features.concat(grid.features)
+      layer.mapLayer.clearLayers()
+      layer.mapLayer = false
+      LayerActions.update(layer.id, {geojson: fc})
+    })
   },
   zoomToLayer: function(layers) {
     var updates = {}
@@ -52697,4 +52603,710 @@ VectorTools.prototype = {
 
 module.exports = new VectorTools()
 
-},{"../actions/LayerActions":392,"../components/Modals.jsx":401,"./DefaultLayer":415,"./gjutils":417,"filesaver.js":19,"numeral":80,"react":247,"turf":283}]},{},[1]);
+},{"../actions/LayerActions":392,"../components/Modals.jsx":401,"./DefaultLayer":415,"./gjutils":418,"filesaver.js":19,"numeral":80,"react":247,"turf":283}],417:[function(require,module,exports){
+var options = {
+  detectRetina: true
+}
+
+module.exports = {
+  streets: {
+    name: 'Streets',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png', options)
+  },
+  simple: {
+    name: 'Simple',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png', options)
+  },
+  satellite: {
+    name: 'Satellite',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png', options)
+  },
+  satellitestreets: {
+    name: 'Satellite Streets',
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png', options)
+  },
+  none: {
+    name: 'None',
+    layer: false
+  }
+}
+
+},{}],418:[function(require,module,exports){
+function GJUtils() {
+
+}
+
+GJUtils.prototype = {
+  findSelectedCount: function(gj) {
+    var count = 0
+    if (gj.type === 'FeatureCollection') {
+      gj.features.forEach(function(f) {
+        if (f.selected) count++
+      })
+    } else if (gj.type === 'Feature') {
+      if (gj.selected) count++
+    }
+    return count
+  },
+  newFeatureCollection: function() {
+    return {
+      "type": "FeatureCollection",
+      "features": []
+    }
+  }
+}
+
+module.exports = new GJUtils()
+
+},{}],419:[function(require,module,exports){
+// module.exports = {
+//   darkest: '#594F4F',
+//   dark: '#547980',
+//   medium: '#45ADA8',
+//   light: '#9DE0AD',
+//   lightest: '#E5FCC2'
+// }
+
+// module.exports = {
+//   darkest: '#343838',
+//   dark: '#005F6B',
+//   medium: '#008C9E',
+//   light: '#00B4CC',
+//   lightest: '#00DFFC'
+// }
+
+module.exports = {
+  darkest: '#303030',
+  dark: '#525252',
+  medium: '#636363',
+  light: '#7d7d7d',
+  lightest: '#D5D5D5',
+  green: '#428675'
+}
+
+},{}],420:[function(require,module,exports){
+var topojson = require('topojson'),
+    toGeoJSON = require('togeojson'),
+    csv2geojson = require('csv2geojson'),
+    osmtogeojson = require('osmtogeojson'),
+    polytogeojson = require('polytogeojson');
+
+module.exports.readDrop = readDrop;
+module.exports.readAsText = readAsText;
+module.exports.readFile = readFile;
+
+function readDrop(callback) {
+    return function() {
+        var results = [];
+        var errors = [];
+        var warnings = [];
+        if (d3.event.dataTransfer && d3.event.dataTransfer &&
+           d3.event.dataTransfer.files && d3.event.dataTransfer.files.length) {
+            d3.event.stopPropagation();
+            d3.event.preventDefault();
+            var remaining = d3.event.dataTransfer.files.length;
+            [].forEach.call(d3.event.dataTransfer.files, function(f) {
+                readAsText(f, function(err, text) {
+                    if (err) {
+                        errors.push(err);
+                        if (!--remaining) finish(errors, results);
+                    } else {
+                        readFile(f, text, function(err, res, war) {
+                            if (err) errors.push(err);
+                            if (res) results.push(res);
+                            if (war) results.push(war);
+                            if (!--remaining) finish(errors, results, war);
+                        });
+                    }
+                });
+            });
+        } else {
+            return callback({
+                message: 'No files were dropped'
+            });
+        }
+
+        function finish(errors, results, war) {
+            // if no conversions suceeded, return the first error
+            if (!results.length && errors.length) return callback(errors[0], null, war);
+            // otherwise combine results
+            return callback(null, {
+                type: 'FeatureCollection',
+                features: results.reduce(function(memo, r) {
+                    if (r.features) memo = memo.concat(r.features);
+                    else if (r.type === 'Feature') memo.push(r);
+                    return memo;
+                }, [])
+            }, war);
+        }
+    };
+}
+
+function readAsText(f, callback) {
+    try {
+        var reader = new FileReader();
+        reader.readAsText(f);
+        reader.onload = function(e) {
+            if (e.target && e.target.result) callback(null, e.target.result);
+            else callback({
+                message: 'Dropped file could not be loaded'
+            });
+        };
+        reader.onerror = function(e) {
+            callback({
+                message: 'Dropped file was unreadable'
+            });
+        };
+    } catch (e) {
+        callback({
+            message: 'Dropped file was unreadable'
+        });
+    }
+}
+
+function readFile(f, text, callback) {
+
+    var fileType = detectType(f);
+
+    if (!fileType) {
+        var filename = f.name ? f.name.toLowerCase() : '',
+            pts = filename.split('.');
+        return callback({
+            message: 'Could not detect file type'
+        });
+    } else if (fileType === 'kml') {
+        var kmldom = toDom(text);
+        if (!kmldom) {
+            return callback({
+                message: 'Invalid KML file: not valid XML'
+            });
+        }
+        var warning;
+        if (kmldom.getElementsByTagName('NetworkLink').length) {
+            warning = {
+                message: 'The KML file you uploaded included NetworkLinks: some content may not display. ' +
+                  'Please export and upload KML without NetworkLinks for optimal performance'
+            };
+        }
+        callback(null, toGeoJSON.kml(kmldom), warning);
+    } else if (fileType === 'xml') {
+        var xmldom = toDom(text),
+            result;
+        if (!xmldom) {
+            return callback({
+                message: 'Invalid XML file: not valid XML'
+            });
+        }
+        result = osmtogeojson.toGeojson(xmldom);
+        // only keep object tags as properties
+        result.features.forEach(function(feature) {
+            feature.properties = feature.properties.tags;
+        });
+        callback(null, result);
+    } else if (fileType === 'gpx') {
+        callback(null, toGeoJSON.gpx(toDom(text)));
+    } else if (fileType === 'geojson') {
+        try {
+            var gj = JSON.parse(text);
+            if (gj && gj.type === 'Topology' && gj.objects) {
+                var collection = { type: 'FeatureCollection', features: [] };
+                for (var o in gj.objects) {
+                    var ft = topojson.feature(gj, gj.objects[o]);
+                    if (ft.features) collection.features = collection.features.concat(ft.features);
+                    else collection.features = collection.features.concat([ft]);
+                }
+                return callback(null, collection);
+            } else {
+                return callback(null, gj);
+            }
+        } catch(err) {
+            alert('Invalid JSON file: ' + err);
+            return;
+        }
+    } else if (fileType === 'dsv') {
+        csv2geojson.csv2geojson(text, {
+            delimiter: 'auto'
+        }, function(err, result) {
+            if (err) {
+                return callback({
+                    type: 'geocode',
+                    result: result,
+                    raw: text
+                });
+            } else {
+                return callback(null, result);
+            }
+        });
+    } else if (fileType === 'poly') {
+        callback(null, polytogeojson(text));
+    }
+
+    function toDom(x) {
+        return (new DOMParser()).parseFromString(x, 'text/xml');
+    }
+
+    function detectType(f) {
+        var filename = f.name ? f.name.toLowerCase() : '';
+        function ext(_) {
+            return filename.indexOf(_) !== -1;
+        }
+        if (f.type === 'application/vnd.google-earth.kml+xml' || ext('.kml')) {
+            return 'kml';
+        }
+        if (ext('.gpx')) return 'gpx';
+        if (ext('.geojson') || ext('.json') || ext('.topojson')) return 'geojson';
+        if (f.type === 'text/csv' || ext('.csv') || ext('.tsv') || ext('.dsv')) {
+            return 'dsv';
+        }
+        if (ext('.xml') || ext('.osm')) return 'xml';
+        if (ext('.poly')) return 'poly';
+    }
+}
+
+},{"csv2geojson":16,"osmtogeojson":82,"polytogeojson":88,"togeojson":248,"topojson":251}],421:[function(require,module,exports){
+var React = require('react')
+  , numeral = require('numeral')
+  , turf = require('turf')
+  , fileSaver = require('filesaver.js')
+  , defaultLayer = require('./DefaultLayer')
+  , gjutils =require('./gjutils')
+  , Modals = require('../components/Modals.jsx')
+  , LayerActions = require('../actions/LayerActions')
+
+function VectorTools () {
+  this.layers = []
+  this.oldLayers = []
+}
+
+VectorTools.prototype = {
+  editFeatures: function(layers, fn) {
+    var updates = {}
+    for (var id in layers) {
+      var layer = layers[id]
+      var newGj = gjutils.newFeatureCollection()
+      for (var j = 0; j < layer.geojson.features.length; j++) {
+        var newFeature = fn(_.cloneDeep(layer.geojson.features[j]), layer)
+        if (newFeature) {
+          if (newFeature.type === 'FeatureCollection') {
+            newGj.features = newGj.features.concat(newFeature.features)
+          } else {
+            newGj.features.push(newFeature)
+          }
+        }
+      }
+      if (layer.mapLayer) {
+        layer.mapLayer.clearLayers()
+        layer.mapLayer = false
+      }
+      updates[id] = {
+        geojson: newGj
+      }
+    }
+    return updates
+  },
+  selectAll: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      gj.selected = true
+      return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  selectPoints: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      if (gj.geometry.type.indexOf('Point') >= 0) {
+        gj.selected = true
+      }
+      return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  selectLines: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      if (gj.geometry.type.indexOf('Line') >= 0) {
+        gj.selected = true
+      }
+      return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  selectPolygons: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      if (gj.geometry.type.indexOf('Polygon') >= 0) {
+        gj.selected = true
+      }
+      return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  deselectAll: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      gj.selected = false
+      return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  selectBoxToggle: function(layers) {
+    var updates = {}
+    for (var id in layers) {
+      var layer = layers[id]
+      updates[id] = {
+        selectBox: !layer.selectBox
+      }
+    }
+    LayerActions.updateList(updates)
+  },
+  //TODO fix to support multifeatures
+  selectBox: function(layers, bbox) {
+    var updates = this.editFeatures(layers, function(bbox, gj, layer) {
+      if (gj.geometry.type === 'Point') {
+        if (turf.inside(gj, bbox)) {
+          gj.selected = true
+        }
+      } else if (gj.geometry.type === 'LineString') {
+        for (var i = 0; i < gj.geometry.coordinates.length; i++) {
+          var pt = turf.point(gj.geometry.coordinates[i])
+          if (turf.inside(pt, bbox)) {
+            gj.selected = true
+          }
+        }
+      } else if (gj.geometry.type === 'Polygon') {
+        if (turf.intersect(gj, bbox)) {
+          gj.selected = true
+        }
+      }
+      return gj
+    }.bind(null, bbox))
+    LayerActions.updateList(updates)
+  },
+  deleteFeature: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      if (layer.selected && gj.selected) {
+        return false
+      } else return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  buffer: function(layers) {
+    var self = this
+    Modals.getDistance(function(err, data) {
+      var updates = self.editFeatures(layers, function(gj, layer) {
+        if (gj.selected) {
+          var _gj = turf.buffer(gj, data.distance, data.unit)
+          _gj.selected = true
+          return _gj
+        } else return gj
+      })
+      LayerActions.updateList(updates)
+    })
+  },
+  simplify: function(layers) {
+    var self = this
+    Modals.getTolerance(function(err, data) {
+      var updates = self.editFeatures(layers, function(gj, layer) {
+        if (gj.selected) {
+          var _gj = turf.simplify(gj, data.tolerance, false)
+          _gj.selected = true
+          return _gj
+        } else return gj
+      })
+      LayerActions.updateList(updates)
+    })
+  },
+  flip: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      if (gj.selected) {
+        var _gj = turf.flip(gj)
+        _gj.selected = true
+        return _gj
+      } else return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  explode: function(layers) {
+    var updates = this.editFeatures(layers, function(gj, layer) {
+      if (gj.selected) {
+        var _gj = turf.explode(gj)
+        return _gj
+      } else return gj
+    })
+    LayerActions.updateList(updates)
+  },
+  combine: function() {
+  },
+  //make feature collection from selected features
+  merge: function(layers) {
+    var self = this
+    var updates = {}
+    for (var id in layers) {
+      var layer = layers[id]
+      var fc = gjutils.newFeatureCollection()
+      var newFeatures = []
+      if (layer.geojson.type === 'FeatureCollection') {
+        for (var i = 0; i < layer.geojson.features.length; i++) {
+          if (layer.geojson.features[i].selected) {
+            fc.features.push(layer.geojson.features[i])
+          } else {
+            newFeatures.push(layer.geojson.features[i])
+          }
+        }
+        newFeatures.push(turf.merge(fc))
+        var newGj = gjutils.newFeatureCollection()
+        newGj.features = newGj.features.concat(newFeatures)
+        layer.mapLayer.clearLayers()
+        layer.mapLayer = false
+        updates[id] = {
+          geojson: newGj
+        }
+      }
+    }
+    LayerActions.updateList(updates)
+  },
+  erase: function(layers) {
+    var self = this
+    var updates = {}
+    for (var id in layers) {
+      var layer = layers[id]
+      var fc = gjutils.newFeatureCollection()
+      var polys = []
+      var newFeatures = []
+      if (layer.geojson.type === 'FeatureCollection') {
+        for (var i = 0; i < layer.geojson.features.length; i++) {
+          if (layer.geojson.features[i].selected) {
+            polys.push(layer.geojson.features[i])
+          } else {
+            newFeatures.push(layer.geojson.features[i])
+          }
+        }
+        newFeatures.push(turf.erase(polys[0], polys[1]))
+        var newGj = gjutils.newFeatureCollection()
+        newGj.features = newGj.features.concat(newFeatures)
+        layer.mapLayer.clearLayers()
+        layer.mapLayer = false
+        updates[id] = {
+          geojson: newGj
+        }
+      }
+    }
+    LayerActions.updateList(updates)
+  },
+  intersect: function(layers) {
+    var self = this
+    var updates = {}
+    for (var id in layers) {
+      var layer = layers[id]
+      var fc = gjutils.newFeatureCollection()
+      var polys = []
+      var newFeatures = []
+      if (layer.geojson.type === 'FeatureCollection') {
+        for (var i = 0; i < layer.geojson.features.length; i++) {
+          if (layer.geojson.features[i].selected) {
+            polys.push(layer.geojson.features[i])
+          } else {
+            newFeatures.push(layer.geojson.features[i])
+          }
+        }
+        newFeatures.push(turf.intersect(polys[0], polys[1]))
+        var newGj = gjutils.newFeatureCollection()
+        newGj.features = newGj.features.concat(newFeatures)
+        layer.mapLayer.clearLayers()
+        layer.mapLayer = false
+        updates[id] = {
+          geojson: newGj
+        }
+      }
+    }
+    LayerActions.updateList(updates)
+  },
+  quantile: function() {
+    var self = this
+    this.layers.forEach(function(layer) {
+      if (layer.selected) {
+        var breaks = turf.quantile(layer.geojson, 'population', [25, 50, 75, 99])
+        console.log(breaks)
+      }
+    })
+  },
+  createGrid: function(type, data) {
+    var grid
+    if (type === 'hex') {
+      grid = turf.hexGrid(data.bbox, data.cellWidth, data.units)
+    }
+    if (type === 'point') {
+      grid = turf.pointGrid(data.bbox, data.cellWidth, data.units)
+    }
+    if (type === 'square') {
+      grid = turf.squareGrid(data.bbox, data.cellWidth, data.units)
+    }
+    if (type === 'triangle') {
+      grid = turf.triangleGrid(data.bbox, data.cellWidth, data.units)
+    }
+    return grid
+  },
+  grid: function(layer, type) {
+    var self = this
+    Modals.getGrid(type, function(err, grid) {
+      var fc = gjutils.newFeatureCollection()
+      fc.features = fc.features.concat(layer.geojson.features)
+      fc.features = fc.features.concat(grid.features)
+      layer.mapLayer.clearLayers()
+      layer.mapLayer = false
+      LayerActions.update(layer.id, {geojson: fc})
+    })
+  },
+  zoomToLayer: function(layers) {
+    var updates = {}
+    for (var id in layers) {
+      updates[id] = {
+        zoomTo: layers[id].selected ? true : false
+      }
+    }
+    LayerActions.updateList(updates)
+  },
+  area: function(layers) {
+    var fc = gjutils.newFeatureCollection()
+    for (var id in layers) {
+      var layer = layers[id]
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          fc.features = fc.features.concat(selected)
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            fc.features.push(layer.geojson.feature)
+          }
+        }
+      }
+    }
+    var area = turf.area(fc)
+    var msg = '<p>Area</p><p>' + numeral(area).format('0.0000') + ' m<sup>2</sup></p>'
+    vex.dialog.alert(msg)
+  },
+  bearing: function(layers) {
+    var points = []
+    for (var id in layers) {
+      var layer = layers[id]
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          selected.forEach(function(f) {
+            if (f.geometry.type === 'Point') {
+              points.push(f)
+            }
+          })
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            if (layer.geojson.feature.geometry.type === 'Point') {
+              points.push(f)
+            }
+          }
+        }
+      }
+    }
+    var bearing = turf.bearing(points[0], points[1])
+    var msg = '<p>Bearing</p><p>' + numeral(bearing).format('0.0000') + '&deg;'
+    vex.dialog.alert(msg)
+  },
+  distance: function(layers) {
+    var points = []
+    for (var id in layers) {
+      var layer = layers[id]
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          selected.forEach(function(f) {
+            if (f.geometry.type === 'Point') {
+              points.push(f)
+            }
+          })
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            if (layer.geojson.feature.geometry.type === 'Point') {
+              points.push(layer.geojson.feature)
+            }
+          }
+        }
+      }
+    }
+    var bearing = turf.distance(points[0], points[1], 'miles')
+    var msg = '<p>Distance</p><p>' + numeral(bearing).format('0.0000') + ' mi'
+    vex.dialog.alert(msg)
+  },
+  lineLength: function(layers) {
+    var lines = []
+    for (var id in layers) {
+      var layer = layers[id]
+      if (layer.geojson) {
+        if (layer.geojson.features) {
+          var selected = _.where(layer.geojson.features, {selected: true})
+          selected.forEach(function(f) {
+            if (f.geometry.type === 'LineString') {
+              lines.push(f)
+            }
+          })
+        }
+        if (layer.geojson.feature) {
+          if (layer.geojson.feature.selected) {
+            if (layer.geojson.feature.geometry.type === 'LineString') {
+              lines.push(layer.geojson.feature)
+            }
+          }
+        }
+      }
+    }
+    var distance = 0
+    lines.forEach(function(line) {
+      distance += turf.lineDistance(line, 'miles')
+    })
+    var msg = '<p>Length</p><p>' + numeral(distance).format('0.0000') + ' mi'
+    vex.dialog.alert(msg)
+  },
+  updateStyle: function(layer, style) {
+    var newStyle = _.cloneDeep(layer.style)
+    for (var prop in newStyle) {
+      if (style[prop]) {
+        newStyle[prop] = style[prop]
+      }
+    }
+    return newStyle
+  },
+  clean: function(gj) {
+    gj.features = gj.features.map(function(f) {
+      if (f.selected !== 'undefined') delete f.selected
+        return f
+    })
+    return gj
+  },
+  random: function(layer, type) {
+    Modals.getRandom(function(err, data) {
+      console.log(data)
+      var fc = turf.random(type, data.count, {
+        bbox: data.bbox
+      })
+      fc.features = fc.features.concat(layer.geojson.features)
+      layer.mapLayer.clearLayers()
+      layer.mapLayer = false
+      LayerActions.update(layer.id, {geojson: fc})
+    })
+  },
+  layerFromSelection: function(layers) {
+    var gj = gjutils.newFeatureCollection()
+    for (var key in layers) {
+      var layer = layers[key]
+      if (layer.geojson && layer.geojson.features) {
+        layer.geojson.features.forEach(function(feature) {
+          if (feature.selected) {
+            gj.features.push(feature)
+          }
+        })
+      }
+    }
+    return gj
+  }
+}
+
+module.exports = new VectorTools()
+
+},{"../actions/LayerActions":392,"../components/Modals.jsx":401,"./DefaultLayer":415,"./gjutils":418,"filesaver.js":19,"numeral":80,"react":247,"turf":283}]},{},[1]);

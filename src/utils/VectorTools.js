@@ -260,15 +260,32 @@ VectorTools.prototype = {
       }
     })
   },
-  createHexGrid: function() {
+  createGrid: function(type, data) {
+    var grid
+    if (type === 'hex') {
+      grid = turf.hexGrid(data.bbox, data.cellWidth, data.units)
+    }
+    if (type === 'point') {
+      grid = turf.pointGrid(data.bbox, data.cellWidth, data.units)
+    }
+    if (type === 'square') {
+      grid = turf.squareGrid(data.bbox, data.cellWidth, data.units)
+    }
+    if (type === 'triangle') {
+      grid = turf.triangleGrid(data.bbox, data.cellWidth, data.units)
+    }
+    return grid
+  },
+  grid: function(layer, type) {
     var self = this
-    var bbox = [-96,31,-84,40];
-    var cellWidth = 50;
-    var units = 'miles';
-    var hexgrid = turf.hexgrid(bbox, cellWidth, units)
-    var newLayer = defaultLayer.generate()
-    newLayer.geojson = hexgrid
-    this.addLayer(newLayer)
+    Modals.getGrid(type, function(err, grid) {
+      var fc = gjutils.newFeatureCollection()
+      fc.features = fc.features.concat(layer.geojson.features)
+      fc.features = fc.features.concat(grid.features)
+      layer.mapLayer.clearLayers()
+      layer.mapLayer = false
+      LayerActions.update(layer.id, {geojson: fc})
+    })
   },
   zoomToLayer: function(layers) {
     var updates = {}
