@@ -49331,7 +49331,7 @@ function stringify(gj) {
 },{}],391:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.267",
+  "version": "0.3.268",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -51933,22 +51933,26 @@ AppDispatcher.register(function(action) {
 module.exports = LayerStore
 
 },{"../constants/LayerConstants":411,"../dispatcher/AppDispatcher":412,"../utils/DefaultLayer":415,"events":8,"object-assign":81}],414:[function(require,module,exports){
+var options = {
+  detectRetina: true
+}
+
 module.exports = {
   streets: {
     name: 'Streets',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png', options)
   },
   simple: {
     name: 'Simple',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png', options)
   },
   satellite: {
     name: 'Satellite',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png', options)
   },
   satellitestreets: {
     name: 'Satellite Streets',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png', options)
   },
   none: {
     name: 'None',
@@ -52005,22 +52009,26 @@ DefaultLayer.prototype = {
 module.exports = new DefaultLayer()
 
 },{"../utils/palette":418}],416:[function(require,module,exports){
+var options = {
+  detectRetina: true
+}
+
 module.exports = {
   streets: {
     name: 'Streets',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png')
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png', options)
   },
   simple: {
     name: 'Simple',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png')
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.lkf1pigd/{z}/{x}/{y}.png', options)
   },
   satellite: {
     name: 'Satellite',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png')
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05elkbi/{z}/{x}/{y}.png', options)
   },
   satellitestreets: {
     name: 'Satellite Streets',
-    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png')
+    layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05ep5bc/{z}/{x}/{y}.png', options)
   },
   none: {
     name: 'None',
