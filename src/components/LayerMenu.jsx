@@ -41,6 +41,18 @@ var RenameLayer = React.createClass({
   }
 })
 
+var Combine = React.createClass({
+  onClick: function() {
+    vectorTools.combine(LayerStore.getAllSelected())
+  },
+  render: function() {
+    var active = this.props.config.multiLayer
+    return (
+      <ToolbarItem text={'Combine'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
 var Style = React.createClass({
   onClick: function() {
     var layer = LayerStore.getSelected()
@@ -242,6 +254,7 @@ var LayerMenu = React.createClass({
       <SaveAs {...this.props} key={'saveAs'}/>,
       <RenameLayer {...this.props} key={'renameLayer'}/>,
       <Style {...this.props} key={'style'}/>,
+      <Combine {...this.props} key={'combine'}/>,
       <ZoomToLayer {...this.props} key={'zoomToLayer'}/>
       ]
     return (

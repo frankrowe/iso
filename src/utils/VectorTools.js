@@ -438,6 +438,16 @@ VectorTools.prototype = {
       }
     }
     return gj
+  },
+  combine: function(layers) {
+    var newLayer = defaultLayer.generate()
+    newLayer.vector = true
+    for (var key in layers) {
+      if (layers[key].geojson) {
+        newLayer.geojson.features = newLayer.geojson.features.concat(layers[key].geojson.features)
+      }
+    }
+    LayerActions.importLayer(newLayer)
   }
 }
 
