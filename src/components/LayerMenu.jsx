@@ -46,7 +46,7 @@ var Combine = React.createClass({
     vectorTools.combine(LayerStore.getAllSelected())
   },
   render: function() {
-    var active = this.props.config.multiLayer
+    var active = this.props.config.numVector >= 2
     return (
       <ToolbarItem text={'Combine'} onClick={this.onClick} active={active}/>
     )

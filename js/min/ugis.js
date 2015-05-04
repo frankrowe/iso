@@ -49332,7 +49332,7 @@ function stringify(gj) {
 },{}],376:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.317",
+  "version": "0.3.319",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
@@ -49540,6 +49540,7 @@ var AddTileLayerButton = React.createClass({displayName: "AddTileLayerButton",
     Modals.getTileURL(function(err, url) {
       var newLayer = defaultLayer.generate()
       newLayer.tile = true
+      newLayer.vector = false
       newLayer.tileURL = url
       LayerActions.importLayer(newLayer)
     })
@@ -50293,7 +50294,7 @@ var Combine = React.createClass({displayName: "Combine",
     vectorTools.combine(LayerStore.getAllSelected())
   },
   render: function() {
-    var active = this.props.config.multiLayer
+    var active = this.props.config.numVector >= 2
     return (
       React.createElement(ToolbarItem, {text: 'Combine', onClick: this.onClick, active: active})
     )
@@ -51106,7 +51107,8 @@ var Toolbar = React.createClass({displayName: "Toolbar",
       multipoly: false,
       multiline: false,
       vector: false,
-      tile: false
+      tile: false,
+      numVector: 0
     }
     var selected = _.where(this.props.layers, {selected: true})
     var selectedFeatures = []
@@ -51139,6 +51141,10 @@ var Toolbar = React.createClass({displayName: "Toolbar",
     if (selected.length > 1) {
       config.multiLayer = true
     }
+
+    var vector = _.where(this.props.layers, {vector: true})
+    config.numVector = vector.length
+
     var totalSelectedFeatures = 0
     for (var key in this.props.layers) {
       var layer = this.props.layers[key]
@@ -52617,7 +52623,7 @@ VectorTools.prototype = {
     var newLayer = defaultLayer.generate()
     newLayer.vector = true
     for (var key in layers) {
-      if (layers[key].geojson) {
+      if (layers[key].vector) {
         newLayer.geojson.features = newLayer.geojson.features.concat(layers[key].geojson.features)
       }
     }
@@ -53333,7 +53339,7 @@ VectorTools.prototype = {
     var newLayer = defaultLayer.generate()
     newLayer.vector = true
     for (var key in layers) {
-      if (layers[key].geojson) {
+      if (layers[key].vector) {
         newLayer.geojson.features = newLayer.geojson.features.concat(layers[key].geojson.features)
       }
     }

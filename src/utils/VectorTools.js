@@ -443,7 +443,7 @@ VectorTools.prototype = {
     var newLayer = defaultLayer.generate()
     newLayer.vector = true
     for (var key in layers) {
-      if (layers[key].geojson) {
+      if (layers[key].vector) {
         newLayer.geojson.features = newLayer.geojson.features.concat(layers[key].geojson.features)
       }
     }

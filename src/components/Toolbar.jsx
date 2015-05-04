@@ -25,7 +25,8 @@ var Toolbar = React.createClass({
       multipoly: false,
       multiline: false,
       vector: false,
-      tile: false
+      tile: false,
+      numVector: 0
     }
     var selected = _.where(this.props.layers, {selected: true})
     var selectedFeatures = []
@@ -58,6 +59,10 @@ var Toolbar = React.createClass({
     if (selected.length > 1) {
       config.multiLayer = true
     }
+
+    var vector = _.where(this.props.layers, {vector: true})
+    config.numVector = vector.length
+
     var totalSelectedFeatures = 0
     for (var key in this.props.layers) {
       var layer = this.props.layers[key]

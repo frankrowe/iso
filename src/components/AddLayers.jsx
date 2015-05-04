@@ -86,6 +86,7 @@ var AddTileLayerButton = React.createClass({
     Modals.getTileURL(function(err, url) {
       var newLayer = defaultLayer.generate()
       newLayer.tile = true
+      newLayer.vector = false
       newLayer.tileURL = url
       LayerActions.importLayer(newLayer)
     })
