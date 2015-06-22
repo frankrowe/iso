@@ -49332,7 +49332,7 @@ function stringify(gj) {
 },{}],376:[function(require,module,exports){
 module.exports={
   "name": "ugis",
-  "version": "0.3.319",
+  "version": "0.3.320",
   "private": true,
   "scripts": {},
   "author": "frankrowe",
