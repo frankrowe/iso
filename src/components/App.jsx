@@ -43,6 +43,7 @@ var App = React.createClass({
     newLayer.vector = true
     newLayer.name = 'Default Layer'
     newLayer.editGeoJSON = true
+    newLayer.editing = true
     LayerActions.importLayer(newLayer)
   },
 

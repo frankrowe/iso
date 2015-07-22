@@ -146,7 +146,6 @@ var WorkSpace = React.createClass({
   addDrawControl: function(layer) {
     if (layer.vector && layer.selected) {
       if (layer.editing) {
-        console.log(layer.name)
         if (this.drawControl) {
           this.map.removeControl(this.drawControl)
         }
