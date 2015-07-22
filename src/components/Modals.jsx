@@ -17,16 +17,16 @@ var Modals = {
     render: function() {
       return (
         <div>
-          <h2>ugis</h2>
-          <p>ugis is a lightweight, web based, GeoJSON + Javascript GIS engine.</p>
+          <h2>iso</h2>
+          <p>iso is a lightweight, web based, GeoJSON + Javascript GIS engine.</p>
           <p>Formats currently supported:
             <ul>
               <li>Loading: GeoJSON, KML</li>
               <li>Saving: GeoJSON, KML, CSV, WKT, Shapefile</li>
             </ul>
           </p>
-          <p>ugis is open source: <a href="https://github.com/frankrowe/ugis">github.com/frankrowe/ugis</a></p>
-          <p>ugis is built on open source components, including:
+          <p>iso is open source: <a href="https://github.com/frankrowe/iso">github.com/frankrowe/iso</a></p>
+          <p>iso is built on open source components, including:
             <ul>
               <li><a href="http://leafletjs.com/" target="_blank">Leaflet</a></li>
               <li><a href="http://turfjs.org/" target="_blank">Turf</a></li>

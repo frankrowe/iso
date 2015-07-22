@@ -1,13 +1,14 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 var React = require('react')
-  , UGISApp = require('./components/UGISApp.jsx')
+  , App = require('./components/App.jsx')
 
 React.render(
-  React.createElement(UGISApp, null),
-  document.getElementById('ugis')
+  React.createElement(App, null),
+  document.getElementById('iso')
 )
 
-},{"./components/UGISApp.jsx":393,"react":247}],2:[function(require,module,exports){
+
+},{"./components/App.jsx":379,"react":247}],2:[function(require,module,exports){
 
 },{}],3:[function(require,module,exports){
 arguments[4][2][0].apply(exports,arguments)
@@ -49331,7 +49332,7 @@ function stringify(gj) {
 
 },{}],376:[function(require,module,exports){
 module.exports={
-  "name": "ugis",
+  "name": "iso",
   "version": "0.3.322",
   "private": true,
   "scripts": {},
@@ -49578,7 +49579,102 @@ var AddLayers = React.createClass({displayName: "AddLayers",
 
 module.exports = AddLayers
 
-},{"../actions/LayerActions":377,"../utils/DefaultLayer":400,"../utils/palette":404,"../utils/readfile":405,"./Modals.jsx":386,"./Tooltip":392,"geojson-normalize":74,"react":247}],379:[function(require,module,exports){
+},{"../actions/LayerActions":377,"../utils/DefaultLayer":400,"../utils/palette":404,"../utils/readfile":405,"./Modals.jsx":387,"./Tooltip":393,"geojson-normalize":74,"react":247}],379:[function(require,module,exports){
+var React = require('react')
+  , Toolbar = require('./Toolbar.jsx')
+  , AddLayers = require('./AddLayers.jsx')
+  , LayerList = require('./LayerList.jsx')
+  , WorkSpace = require('./WorkSpace.jsx')
+  , AttributeTable = require('./AttributeTable.jsx')
+  , Editor = require('./Editor.jsx')
+  , MessageBar = require('./MessageBar.jsx')
+  , LayerStore = require('../stores/LayerStore')
+
+function getLayerState() {
+  return {
+    layers: LayerStore.getAll()
+  }
+}
+
+var editor = false
+  , attributeTable = false
+
+var App = React.createClass({displayName: "App",
+
+  getInitialState: function() {
+    return {
+      layers: LayerStore.getAll(),
+      error: false,
+      baseMap: 'streets'
+    }
+  },
+
+  updateError: function(error) {
+    this.setState({error: error})
+  },
+
+  updateBaseMap: function(id) {
+    this.setState({baseMap: id})
+  },
+
+  componentDidMount: function() {
+    LayerStore.addChangeListener(this._onChange)
+  },
+
+  componentWillUnmount: function() {
+    LayerStore.removeChangeListener(this._onChange)
+  },
+
+  componentWillUpdate: function(nextProps, nextState) {
+    var editLayer = _.findWhere(nextState.layers, {editGeoJSON: true})
+    if (editLayer) {
+      editor = React.createElement(Editor, {layer: editLayer, updateError: this.updateError})
+    } else {
+      editor = false
+    }
+
+    var attributesLayer = _.findWhere(nextState.layers, {viewAttributes: true})
+    if (attributesLayer) {
+      attributeTable = React.createElement(AttributeTable, {layer: attributesLayer})
+    } else {
+      attributeTable = false
+    }
+  },
+
+  render: function() {
+    return (
+      React.createElement("div", {className: "app"}, 
+        React.createElement(Toolbar, {layers: this.state.layers, updateError: this.updateError, updateBaseMap: this.updateBaseMap, baseMap: this.state.baseMap}), 
+        React.createElement("div", {className: "flex-row"}, 
+          React.createElement(AddLayers, null), 
+          React.createElement(LayerList, {layers: this.state.layers}), 
+          React.createElement("div", {className: "right-pane"}, 
+            React.createElement(WorkSpace, {layers: this.state.layers, baseMap: this.state.baseMap}), 
+            attributeTable, 
+            editor
+          )
+
+        ), 
+        React.createElement(MessageBar, {layers: this.state.layers, error: this.state.error})
+      )
+    )
+  },
+
+  /**
+   * Event handler for 'change' events coming from the LayerStore
+   */
+  _onChange: function() {
+    this.setState({
+      layers: LayerStore.getAll()
+    })
+  }
+
+})
+
+module.exports = App
+
+
+},{"../stores/LayerStore":398,"./AddLayers.jsx":378,"./AttributeTable.jsx":380,"./Editor.jsx":381,"./LayerList.jsx":384,"./MessageBar.jsx":386,"./Toolbar.jsx":389,"./WorkSpace.jsx":395,"react":247}],380:[function(require,module,exports){
 var React = require('react')
   , FixedDataTable = require('fixed-data-table')
   , LayerActions = require('../actions/LayerActions')
@@ -49650,7 +49746,7 @@ var AttributeTable = React.createClass({displayName: "AttributeTable",
 
 module.exports = AttributeTable
 
-},{"../actions/LayerActions":377,"fixed-data-table":70,"react":247}],380:[function(require,module,exports){
+},{"../actions/LayerActions":377,"fixed-data-table":70,"react":247}],381:[function(require,module,exports){
 var React = require('react')
   , geojsonhint = require('geojsonhint')
   , vectorTools = require('../utils/vectorTools')
@@ -49723,7 +49819,7 @@ var Editor = React.createClass({displayName: "Editor",
 
 module.exports = Editor
 
-},{"../utils/vectorTools":406,"geojsonhint":77,"react":247}],381:[function(require,module,exports){
+},{"../utils/vectorTools":406,"geojsonhint":77,"react":247}],382:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
@@ -50088,7 +50184,7 @@ var FeatureMenu = React.createClass({displayName: "FeatureMenu",
 
 module.exports = FeatureMenu
 
-},{"../actions/LayerActions":377,"../stores/LayerStore":398,"../utils/vectorTools":406,"./Modals.jsx":386,"./ToolbarDropdown.jsx":389,"./ToolbarItem.jsx":390,"./ToolbarSubmenu.jsx":391,"react":247}],382:[function(require,module,exports){
+},{"../actions/LayerActions":377,"../stores/LayerStore":398,"../utils/vectorTools":406,"./Modals.jsx":387,"./ToolbarDropdown.jsx":390,"./ToolbarItem.jsx":391,"./ToolbarSubmenu.jsx":392,"react":247}],383:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
@@ -50101,7 +50197,7 @@ var About = React.createClass({displayName: "About",
   render: function() {
     var active = true
     return (
-      React.createElement(ToolbarItem, {text: 'About ugis', onClick: this.onClick, active: active})
+      React.createElement(ToolbarItem, {text: 'About iso', onClick: this.onClick, active: active})
     )
   }
 })
@@ -50121,7 +50217,8 @@ var HelpMenu = React.createClass({displayName: "HelpMenu",
 
 module.exports = HelpMenu
 
-},{"./Modals.jsx":386,"./ToolbarDropdown.jsx":389,"./ToolbarItem.jsx":390,"react":247}],383:[function(require,module,exports){
+
+},{"./Modals.jsx":387,"./ToolbarDropdown.jsx":390,"./ToolbarItem.jsx":391,"react":247}],384:[function(require,module,exports){
 var React = require('react')
   , Color = require("color")
   , palette = require('../utils/palette')
@@ -50245,7 +50342,7 @@ var LayerList = React.createClass({displayName: "LayerList",
 
 module.exports = LayerList
 
-},{"../actions/LayerActions":377,"../utils/palette":404,"../utils/vectorTools":406,"./Modals.jsx":386,"color":11,"react":247}],384:[function(require,module,exports){
+},{"../actions/LayerActions":377,"../utils/palette":404,"../utils/vectorTools":406,"./Modals.jsx":387,"color":11,"react":247}],385:[function(require,module,exports){
 var React = require('react')
   , vectorTools = require('../utils/vectorTools')
   , Modals = require('./Modals.jsx')
@@ -50513,7 +50610,7 @@ var LayerMenu = React.createClass({displayName: "LayerMenu",
 
 module.exports = LayerMenu
 
-},{"../actions/LayerActions":377,"../stores/LayerStore":398,"../utils/DefaultLayer":400,"../utils/vectorTools":406,"./Modals.jsx":386,"./ToolbarDropdown.jsx":389,"./ToolbarItem.jsx":390,"./ToolbarSubmenu.jsx":391,"filesaver.js":19,"geojson2dsv":75,"react":247,"tokml":249,"wellknown":375}],385:[function(require,module,exports){
+},{"../actions/LayerActions":377,"../stores/LayerStore":398,"../utils/DefaultLayer":400,"../utils/vectorTools":406,"./Modals.jsx":387,"./ToolbarDropdown.jsx":390,"./ToolbarItem.jsx":391,"./ToolbarSubmenu.jsx":392,"filesaver.js":19,"geojson2dsv":75,"react":247,"tokml":249,"wellknown":375}],386:[function(require,module,exports){
 var React = require('react')
   , palette = require('../utils/palette')
   , gjutils = require('../utils/gjutils')
@@ -50555,7 +50652,7 @@ var MessageBar = React.createClass({displayName: "MessageBar",
 
 module.exports = MessageBar
 
-},{"../utils/gjutils":403,"../utils/palette":404,"react":247}],386:[function(require,module,exports){
+},{"../utils/gjutils":403,"../utils/palette":404,"react":247}],387:[function(require,module,exports){
 var React = require('react')
   , vectorTools = require('../utils/VectorTools')
   , pkg = require('../../package.json')
@@ -50575,16 +50672,16 @@ var Modals = {
     render: function() {
       return (
         React.createElement("div", null, 
-          React.createElement("h2", null, "ugis"), 
-          React.createElement("p", null, "ugis is a lightweight, web based, GeoJSON + Javascript GIS engine."), 
+          React.createElement("h2", null, "iso"), 
+          React.createElement("p", null, "iso is a lightweight, web based, GeoJSON + Javascript GIS engine."), 
           React.createElement("p", null, "Formats currently supported:", 
             React.createElement("ul", null, 
               React.createElement("li", null, "Loading: GeoJSON, KML"), 
               React.createElement("li", null, "Saving: GeoJSON, KML, CSV, WKT, Shapefile")
             )
           ), 
-          React.createElement("p", null, "ugis is open source: ", React.createElement("a", {href: "https://github.com/frankrowe/ugis"}, "github.com/frankrowe/ugis")), 
-          React.createElement("p", null, "ugis is built on open source components, including:", 
+          React.createElement("p", null, "iso is open source: ", React.createElement("a", {href: "https://github.com/frankrowe/iso"}, "github.com/frankrowe/iso")), 
+          React.createElement("p", null, "iso is built on open source components, including:", 
             React.createElement("ul", null, 
               React.createElement("li", null, React.createElement("a", {href: "http://leafletjs.com/", target: "_blank"}, "Leaflet")), 
               React.createElement("li", null, React.createElement("a", {href: "http://turfjs.org/", target: "_blank"}, "Turf")), 
@@ -50974,7 +51071,8 @@ var Modals = {
 
 module.exports = Modals
 
-},{"../../package.json":376,"../utils/VectorTools":401,"react":247}],387:[function(require,module,exports){
+
+},{"../../package.json":376,"../utils/VectorTools":401,"react":247}],388:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
@@ -51079,7 +51177,7 @@ var SelectMenu = React.createClass({displayName: "SelectMenu",
 
 module.exports = SelectMenu
 
-},{"../stores/LayerStore":398,"../utils/vectorTools":406,"./Modals.jsx":386,"./ToolbarDropdown.jsx":389,"./ToolbarItem.jsx":390,"react":247}],388:[function(require,module,exports){
+},{"../stores/LayerStore":398,"../utils/vectorTools":406,"./Modals.jsx":387,"./ToolbarDropdown.jsx":390,"./ToolbarItem.jsx":391,"react":247}],389:[function(require,module,exports){
 var React = require('react')
   , gjutils = require('../utils/gjutils')
   , LayerMenu = require('./LayerMenu.jsx')
@@ -51184,7 +51282,7 @@ var Toolbar = React.createClass({displayName: "Toolbar",
 module.exports = Toolbar
 
 
-},{"../utils/gjutils":403,"./FeatureMenu.jsx":381,"./HelpMenu.jsx":382,"./LayerMenu.jsx":384,"./SelectMenu.jsx":387,"./ViewMenu.jsx":394,"react":247}],389:[function(require,module,exports){
+},{"../utils/gjutils":403,"./FeatureMenu.jsx":382,"./HelpMenu.jsx":383,"./LayerMenu.jsx":385,"./SelectMenu.jsx":388,"./ViewMenu.jsx":394,"react":247}],390:[function(require,module,exports){
 var React = require('react')
 
 var ToolbarDropdown = React.createClass({displayName: "ToolbarDropdown",
@@ -51230,7 +51328,7 @@ var ToolbarDropdown = React.createClass({displayName: "ToolbarDropdown",
 
 module.exports = ToolbarDropdown
 
-},{"react":247}],390:[function(require,module,exports){
+},{"react":247}],391:[function(require,module,exports){
 var React = require('react')
 
 var ToolbarItem = React.createClass({displayName: "ToolbarItem",
@@ -51265,7 +51363,7 @@ var ToolbarItem = React.createClass({displayName: "ToolbarItem",
 
 module.exports = ToolbarItem
 
-},{"react":247}],391:[function(require,module,exports){
+},{"react":247}],392:[function(require,module,exports){
 var React = require('react')
 
 var ToolbarSubmenu = React.createClass({displayName: "ToolbarSubmenu",
@@ -51309,7 +51407,7 @@ var ToolbarSubmenu = React.createClass({displayName: "ToolbarSubmenu",
 
 module.exports = ToolbarSubmenu
 
-},{"react":247}],392:[function(require,module,exports){
+},{"react":247}],393:[function(require,module,exports){
 var React = require('react')
 
 var Tooltip = React.createClass({displayName: "Tooltip",
@@ -51326,101 +51424,7 @@ var Tooltip = React.createClass({displayName: "Tooltip",
 
 module.exports = Tooltip
 
-},{"react":247}],393:[function(require,module,exports){
-var React = require('react')
-  , Toolbar = require('./Toolbar.jsx')
-  , AddLayers = require('./AddLayers.jsx')
-  , LayerList = require('./LayerList.jsx')
-  , WorkSpace = require('./WorkSpace.jsx')
-  , AttributeTable = require('./AttributeTable.jsx')
-  , Editor = require('./Editor.jsx')
-  , MessageBar = require('./MessageBar.jsx')
-  , LayerStore = require('../stores/LayerStore')
-
-function getLayerState() {
-  return {
-    layers: LayerStore.getAll()
-  }
-}
-
-var editor = false
-  , attributeTable = false
-
-var UGISApp = React.createClass({displayName: "UGISApp",
-
-  getInitialState: function() {
-    return {
-      layers: LayerStore.getAll(),
-      error: false,
-      baseMap: 'streets'
-    }
-  },
-
-  updateError: function(error) {
-    this.setState({error: error})
-  },
-
-  updateBaseMap: function(id) {
-    this.setState({baseMap: id})
-  },
-
-  componentDidMount: function() {
-    LayerStore.addChangeListener(this._onChange)
-  },
-
-  componentWillUnmount: function() {
-    LayerStore.removeChangeListener(this._onChange)
-  },
-
-  componentWillUpdate: function(nextProps, nextState) {
-    var editLayer = _.findWhere(nextState.layers, {editGeoJSON: true})
-    if (editLayer) {
-      editor = React.createElement(Editor, {layer: editLayer, updateError: this.updateError})
-    } else {
-      editor = false
-    }
-
-    var attributesLayer = _.findWhere(nextState.layers, {viewAttributes: true})
-    if (attributesLayer) {
-      attributeTable = React.createElement(AttributeTable, {layer: attributesLayer})
-    } else {
-      attributeTable = false
-    }
-  },
-
-  render: function() {
-    return (
-      React.createElement("div", {className: "app"}, 
-        React.createElement(Toolbar, {layers: this.state.layers, updateError: this.updateError, updateBaseMap: this.updateBaseMap, baseMap: this.state.baseMap}), 
-        React.createElement("div", {className: "flex-row"}, 
-          React.createElement(AddLayers, null), 
-          React.createElement(LayerList, {layers: this.state.layers}), 
-          React.createElement("div", {className: "right-pane"}, 
-            React.createElement(WorkSpace, {layers: this.state.layers, baseMap: this.state.baseMap}), 
-            attributeTable, 
-            editor
-          )
-          
-        ), 
-        React.createElement(MessageBar, {layers: this.state.layers, error: this.state.error})
-      )
-    )
-  },
-
-  /**
-   * Event handler for 'change' events coming from the LayerStore
-   */
-  _onChange: function() {
-    this.setState({
-      layers: LayerStore.getAll()
-    })
-  }
-
-})
-
-module.exports = UGISApp
-
-},{"../stores/LayerStore":398,"./AddLayers.jsx":378,"./AttributeTable.jsx":379,"./Editor.jsx":380,"./LayerList.jsx":383,"./MessageBar.jsx":385,"./Toolbar.jsx":388,"./WorkSpace.jsx":395,"react":247}],394:[function(require,module,exports){
+},{"react":247}],394:[function(require,module,exports){
 var React = require('react')
   , Modals = require('./Modals.jsx')
   , ToolbarItem = require('./ToolbarItem.jsx')
@@ -51533,7 +51537,7 @@ var ViewMenu = React.createClass({displayName: "ViewMenu",
 
 module.exports = ViewMenu
 
-},{"../actions/LayerActions":377,"../stores/LayerStore":398,"../utils/BaseMaps":399,"./Modals.jsx":386,"./ToolbarDropdown.jsx":389,"./ToolbarItem.jsx":390,"./ToolbarSubmenu.jsx":391,"react":247}],395:[function(require,module,exports){
+},{"../actions/LayerActions":377,"../stores/LayerStore":398,"../utils/BaseMaps":399,"./Modals.jsx":387,"./ToolbarDropdown.jsx":390,"./ToolbarItem.jsx":391,"./ToolbarSubmenu.jsx":392,"react":247}],395:[function(require,module,exports){
 var React = require('react')
   , numeral = require('numeral')
   , LayerActions = require('../actions/LayerActions')
@@ -52634,7 +52638,7 @@ VectorTools.prototype = {
 
 module.exports = new VectorTools()
 
-},{"../actions/LayerActions":377,"../components/Modals.jsx":386,"./DefaultLayer":400,"./gjutils":403,"filesaver.js":19,"numeral":80,"react":247,"turf":252}],402:[function(require,module,exports){
+},{"../actions/LayerActions":377,"../components/Modals.jsx":387,"./DefaultLayer":400,"./gjutils":403,"filesaver.js":19,"numeral":80,"react":247,"turf":252}],402:[function(require,module,exports){
 var options = {
   detectRetina: true
 }
@@ -53350,4 +53354,4 @@ VectorTools.prototype = {
 
 module.exports = new VectorTools()
 
-},{"../actions/LayerActions":377,"../components/Modals.jsx":386,"./DefaultLayer":400,"./gjutils":403,"filesaver.js":19,"numeral":80,"react":247,"turf":252}]},{},[1]);
+},{"../actions/LayerActions":377,"../components/Modals.jsx":387,"./DefaultLayer":400,"./gjutils":403,"filesaver.js":19,"numeral":80,"react":247,"turf":252}]},{},[1]);

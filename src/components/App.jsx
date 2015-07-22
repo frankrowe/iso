@@ -17,7 +17,7 @@ function getLayerState() {
 var editor = false
   , attributeTable = false
 
-var UGISApp = React.createClass({
+var App = React.createClass({
 
   getInitialState: function() {
     return {
@@ -71,7 +71,7 @@ var UGISApp = React.createClass({
             {attributeTable}
             {editor}
           </div>
-          
+
         </div>
         <MessageBar layers={this.state.layers} error={this.state.error}/>
       </div>
@@ -89,4 +89,4 @@ var UGISApp = React.createClass({
 
 })
 
-module.exports = UGISApp
+module.exports = App

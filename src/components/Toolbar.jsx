@@ -88,8 +88,7 @@ var Toolbar = React.createClass({
     var config = this.findActive()
     return (
       <div className="toolbar">
-        
-        <h2>Map</h2>
+        <h2>iso</h2>
         <LayerMenu {...this.props} config={config} />
         <FeatureMenu {...this.props} config={config} />
         <ViewMenu {...this.props} config={config} />

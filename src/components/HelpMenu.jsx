@@ -10,7 +10,7 @@ var About = React.createClass({
   render: function() {
     var active = true
     return (
-      <ToolbarItem text={'About ugis'} onClick={this.onClick} active={active}/>
+      <ToolbarItem text={'About iso'} onClick={this.onClick} active={active}/>
     )
   }
 })
