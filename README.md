@@ -8,7 +8,7 @@ Formats currently supported:
 iso is built on open source components, including:
   - [Leaflet](http://leafletjs.com/)
   - [Turf](http://turfjs.org/)
-  - [React](https://facebook.github.io/react/index.html_
+  - [React](https://facebook.github.io/react/index.html)
   - [CodeMirror](https://codemirror.net/)
   - [geojsonhint](https://github.com/mapbox/geojsonhint)
   - [csv2geojson](https://github.com/mapbox/csv2geojson)
