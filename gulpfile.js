@@ -65,9 +65,9 @@ gulp.task('compress', function() {
 
 gulp.task('watch', function() {
   livereload.listen()
-  gulp.watch('./css/*.less', ['bump', 'css'])
-  gulp.watch(['./src/**/*.js', './src/**/*.jsx'], ['bump', 'js'])
+  gulp.watch('./css/*.less', ['css'])
+  gulp.watch(['./src/**/*.js', './src/**/*.jsx'], ['js'])
 })
 
-gulp.task('default', ['watch', 'bump', 'css', 'js', 'html'])
+gulp.task('default', ['watch', 'css', 'js', 'html'])
 gulp.task('prod', ['bump', 'css', 'js', 'html'])

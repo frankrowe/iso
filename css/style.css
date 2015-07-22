@@ -61,7 +61,8 @@ body {
   background: #303030;
   width: 100%;
 }
-.toolbar img.logo {
+.toolbar img.logo,
+.toolbar h2 {
   margin: 0;
   float: left;
   color: white;
