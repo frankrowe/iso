@@ -5,6 +5,7 @@ var React = require('react')
   , vectorTools = require('../utils/vectorTools')
   , palette = require('../utils/palette')
   , baseMaps = require('../utils/baseMaps')
+  , defaultLayer = require('../utils/DefaultLayer')
 
 var selectedStyle = {
   color: '#f00',
@@ -23,8 +24,8 @@ var WorkSpace = React.createClass({
     this.map.invalidateSize()
   },
   updateCoords: function(x, y, z) {
-    document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML = 
-      'x: ' + numeral(x).format('0,0.0000') + ' ' + 
+    document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML =
+      'x: ' + numeral(x).format('0,0.0000') + ' ' +
       'y: ' + numeral(y).format('0,0.0000') + ' ' +
       'z: ' + z
   },
@@ -36,7 +37,7 @@ var WorkSpace = React.createClass({
 
     this.baseMap = baseMaps[this.props.baseMap].layer
     this.baseMap.addTo(this.map)
-    
+
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
 
@@ -189,7 +190,7 @@ var WorkSpace = React.createClass({
         })
       } else {
         layer.mapLayer.setStyle(this.styleFeature.bind(this, layer))
-      } 
+      }
     } else if (layer.tile) {
       if (!layer.mapLayer) {
         layer.mapLayer = L.tileLayer(layer.tileURL)

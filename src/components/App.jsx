@@ -7,6 +7,8 @@ var React = require('react')
   , Editor = require('./Editor.jsx')
   , MessageBar = require('./MessageBar.jsx')
   , LayerStore = require('../stores/LayerStore')
+  , defaultLayer = require('../utils/DefaultLayer')
+  , LayerActions = require('../actions/LayerActions')
 
 function getLayerState() {
   return {
@@ -37,6 +39,11 @@ var App = React.createClass({
 
   componentDidMount: function() {
     LayerStore.addChangeListener(this._onChange)
+    var newLayer = defaultLayer.generate()
+    newLayer.vector = true
+    newLayer.name = 'Default Layer'
+    newLayer.editGeoJSON = true
+    LayerActions.importLayer(newLayer)
   },
 
   componentWillUnmount: function() {

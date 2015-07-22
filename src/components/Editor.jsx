@@ -16,11 +16,25 @@ var Editor = React.createClass({
       if (changeObj.origin !== 'setValue') {
         var gj = editor.doc.getValue()
         self.cursorPosition = editor.doc.getCursor()
+        if (gj === '') {
+          gj = {
+            "type": "FeatureCollection",
+            "features": []
+          }
+          editor.doc.setValue(JSON.stringify(gj, null, 2))
+        }
         try {
           gj = JSON.parse(gj)
           var isEqual = _.isEqual(gj, self.props.layer.geojson)
           if (!isEqual) {
-            self.props.layer.geojson = gj
+            if (!gj.features) {
+              self.props.layer.geojson = {
+                "type": "FeatureCollection",
+                "features": [gj]
+              }
+            } else {
+              self.props.layer.geojson = gj
+            }
             var err = geojsonhint.hint(gj)
             if (err.length) {
               self.props.updateError(err[0].message)

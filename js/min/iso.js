@@ -49589,6 +49589,8 @@ var React = require('react')
   , Editor = require('./Editor.jsx')
   , MessageBar = require('./MessageBar.jsx')
   , LayerStore = require('../stores/LayerStore')
+  , defaultLayer = require('../utils/DefaultLayer')
+  , LayerActions = require('../actions/LayerActions')
 
 function getLayerState() {
   return {
@@ -49619,6 +49621,11 @@ var App = React.createClass({displayName: "App",
 
   componentDidMount: function() {
     LayerStore.addChangeListener(this._onChange)
+    var newLayer = defaultLayer.generate()
+    newLayer.vector = true
+    newLayer.name = 'Default Layer'
+    newLayer.editGeoJSON = true
+    LayerActions.importLayer(newLayer)
   },
 
   componentWillUnmount: function() {
@@ -49674,7 +49681,7 @@ var App = React.createClass({displayName: "App",
 module.exports = App
 
 
-},{"../stores/LayerStore":398,"./AddLayers.jsx":378,"./AttributeTable.jsx":380,"./Editor.jsx":381,"./LayerList.jsx":384,"./MessageBar.jsx":386,"./Toolbar.jsx":389,"./WorkSpace.jsx":395,"react":247}],380:[function(require,module,exports){
+},{"../actions/LayerActions":377,"../stores/LayerStore":398,"../utils/DefaultLayer":400,"./AddLayers.jsx":378,"./AttributeTable.jsx":380,"./Editor.jsx":381,"./LayerList.jsx":384,"./MessageBar.jsx":386,"./Toolbar.jsx":389,"./WorkSpace.jsx":395,"react":247}],380:[function(require,module,exports){
 var React = require('react')
   , FixedDataTable = require('fixed-data-table')
   , LayerActions = require('../actions/LayerActions')
@@ -49765,11 +49772,25 @@ var Editor = React.createClass({displayName: "Editor",
       if (changeObj.origin !== 'setValue') {
         var gj = editor.doc.getValue()
         self.cursorPosition = editor.doc.getCursor()
+        if (gj === '') {
+          gj = {
+            "type": "FeatureCollection",
+            "features": []
+          }
+          editor.doc.setValue(JSON.stringify(gj, null, 2))
+        }
         try {
           gj = JSON.parse(gj)
           var isEqual = _.isEqual(gj, self.props.layer.geojson)
           if (!isEqual) {
-            self.props.layer.geojson = gj
+            if (!gj.features) {
+              self.props.layer.geojson = {
+                "type": "FeatureCollection",
+                "features": [gj]
+              }
+            } else {
+              self.props.layer.geojson = gj
+            }
             var err = geojsonhint.hint(gj)
             if (err.length) {
               self.props.updateError(err[0].message)
@@ -49818,6 +49839,7 @@ var Editor = React.createClass({displayName: "Editor",
 })
 
 module.exports = Editor
+
 
 },{"../utils/vectorTools":406,"geojsonhint":77,"react":247}],382:[function(require,module,exports){
 var React = require('react')
@@ -51545,6 +51567,7 @@ var React = require('react')
   , vectorTools = require('../utils/vectorTools')
   , palette = require('../utils/palette')
   , baseMaps = require('../utils/baseMaps')
+  , defaultLayer = require('../utils/DefaultLayer')
 
 var selectedStyle = {
   color: '#f00',
@@ -51563,8 +51586,8 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
     this.map.invalidateSize()
   },
   updateCoords: function(x, y, z) {
-    document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML = 
-      'x: ' + numeral(x).format('0,0.0000') + ' ' + 
+    document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML =
+      'x: ' + numeral(x).format('0,0.0000') + ' ' +
       'y: ' + numeral(y).format('0,0.0000') + ' ' +
       'z: ' + z
   },
@@ -51576,7 +51599,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
 
     this.baseMap = baseMaps[this.props.baseMap].layer
     this.baseMap.addTo(this.map)
-    
+
     this.workingLayers = L.featureGroup()
     this.map.addLayer(this.workingLayers)
 
@@ -51729,7 +51752,7 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
         })
       } else {
         layer.mapLayer.setStyle(this.styleFeature.bind(this, layer))
-      } 
+      }
     } else if (layer.tile) {
       if (!layer.mapLayer) {
         layer.mapLayer = L.tileLayer(layer.tileURL)
@@ -51817,7 +51840,8 @@ var WorkSpace = React.createClass({displayName: "WorkSpace",
 
 module.exports = WorkSpace
 
-},{"../actions/LayerActions":377,"../stores/LayerStore":398,"../utils/baseMaps":402,"../utils/palette":404,"../utils/vectorTools":406,"numeral":80,"react":247}],396:[function(require,module,exports){
+
+},{"../actions/LayerActions":377,"../stores/LayerStore":398,"../utils/DefaultLayer":400,"../utils/baseMaps":402,"../utils/palette":404,"../utils/vectorTools":406,"numeral":80,"react":247}],396:[function(require,module,exports){
 var keyMirror = require('keymirror')
 
 module.exports = keyMirror({
@@ -52105,6 +52129,7 @@ AppDispatcher.register(function(action) {
 })
 
 module.exports = LayerStore
+
 
 },{"../constants/LayerConstants":396,"../dispatcher/AppDispatcher":397,"../utils/DefaultLayer":400,"events":8,"object-assign":81}],399:[function(require,module,exports){
 var options = {

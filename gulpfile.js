@@ -44,7 +44,7 @@ gulp.task('js', function() {
     .bundle()
     .pipe(source(pkg.name + '.js'))
     .pipe(gulp.dest('./js/min'))
-    .pipe(livereload())
+    //.pipe(livereload())
 })
 
 gulp.task('html', function() {
@@ -64,7 +64,7 @@ gulp.task('compress', function() {
 })
 
 gulp.task('watch', function() {
-  livereload.listen()
+  //livereload.listen()
   gulp.watch('./css/*.less', ['css'])
   gulp.watch(['./src/**/*.js', './src/**/*.jsx'], ['js'])
 })
