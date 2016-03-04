@@ -60,7 +60,7 @@ var AddLayerButton = React.createClass({
     var style = { display: 'none'}
     return (
       <div>
-        <LayerButton img={"img/MActionAddOgrLayer.svg"} tooltip={'Import Vector Layer'} onClick={this.onClick}/>
+        <LayerButton img={"img/AddVectorLayer.svg"} tooltip={'Import Vector Layer'} onClick={this.onClick}/>
         <input ref="addFile" type="file" name="addFile" style={style} onChange={this.onChange}/>
       </div>
     )
@@ -75,7 +75,7 @@ var NewLayerButton = React.createClass({
   },
   render: function() {
     return (
-      <LayerButton img={"img/MActionNewVectorLayer.svg"} tooltip={'New Vector Layer'} onClick={this.onClick}/>
+      <LayerButton img={"img/NewVectorLayer.svg"} tooltip={'New Vector Layer'} onClick={this.onClick}/>
     )
   }
 })
@@ -93,7 +93,7 @@ var AddTileLayerButton = React.createClass({
   },
   render: function() {
     return (
-      <LayerButton img={"img/MActionAddRasterLayer.svg"} tooltip={'New Tile Layer'} onClick={this.onClick}/>
+      <LayerButton img={"img/AddRasterLayer.svg"} tooltip={'New Tile Layer'} onClick={this.onClick}/>
     )
   }
 })
@@ -104,7 +104,7 @@ var RemoveLayerButton = React.createClass({
   },
   render: function() {
     return (
-      <LayerButton img={"img/MActionRemoveLayer.svg"} tooltip={'Remove Layer'} onClick={this.onClick}/>
+      <LayerButton img={"img/RemoveLayer.svg"} tooltip={'Remove Layer'} onClick={this.onClick}/>
     )
   }
 })
