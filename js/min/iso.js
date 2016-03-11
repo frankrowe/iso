@@ -60410,7 +60410,7 @@ var RemoveLayerButton = React.createClass({displayName: "RemoveLayerButton",
     var layers = LayerStore.getAllSelected()
     this.active = _.keys(layers).length > 0
     return (
-      React.createElement(LayerButton, {img: "img/RemoveLayer.svg", tooltip: 'Remove Layer', onClick: this.onClick, active: this.active})
+      React.createElement(LayerButton, {img: "img/RemoveLayer.svg", tooltip: 'Remove Selected Layers', onClick: this.onClick, active: this.active})
     )
   }
 })
@@ -60445,7 +60445,7 @@ var SaveLayerButton = React.createClass({displayName: "SaveLayerButton",
     var layers = LayerStore.getAllSelected()
     this.active = _.keys(layers).length > 0
     return (
-      React.createElement(LayerButton, {img: "img/SaveLayer.svg", tooltip: 'Save Layer', onClick: this.onClick, active: this.active})
+      React.createElement(LayerButton, {img: "img/SaveLayer.svg", tooltip: 'Save Selected Layers', onClick: this.onClick, active: this.active})
     )
   }
 })
@@ -61144,7 +61144,8 @@ var Layer = React.createClass({displayName: "Layer",
     }
   },
   onClick: function(e) {
-    if (e.target.className === 'layer' || e.target.className === 'layer-name') {
+    console.log(e.target.className);
+    if (e.target.className === 'selector') {
       var update = {}
       update.selected = !this.props.layer.selected
       if (!update.selected) {
@@ -61192,19 +61193,27 @@ var Layer = React.createClass({displayName: "Layer",
   render: function() {
     var layerStyle = {
       color: this.props.layer.selected ? 'white': palette.light,
-      textDecoration: this.props.layer.selected ? 'underline': 'none',
-      backgroundColor: this.state.dragEnter ? 'red' : palette.dark
+      textDecoration: this.props.layer.selected ? 'underline': 'none'
     }
-    var backgroundColor = Color(this.props.layer.style.fillColor).rgb()
-    backgroundColor.a = this.props.layer.style.fillOpacity
-    backgroundColor = Color(backgroundColor).rgbString()
+    var backgroundColor = palette.dark
+    if (this.state.dragEnter) {
+      backgroundColor = 'red'
+    }
+    if (this.props.layer.selected) {
+      //backgroundColor = '#e5e5e5'
+    }
+    layerStyle.backgroundColor = backgroundColor
+
+    var swatchBackgroundColor = Color(this.props.layer.style.fillColor).rgb()
+    swatchBackgroundColor.a = this.props.layer.style.fillOpacity
+    swatchBackgroundColor = Color(swatchBackgroundColor).rgbString()
 
     var borderColor = Color(this.props.layer.style.color).rgb()
     borderColor.a = this.props.layer.style.opacity
     borderColor = Color(borderColor).rgbString()
 
     var swatchStyle = {
-      backgroundColor: backgroundColor,
+      backgroundColor: swatchBackgroundColor,
       borderColor: borderColor,
       borderWidth: this.props.layer.style.weight
     }
@@ -61214,9 +61223,10 @@ var Layer = React.createClass({displayName: "Layer",
     } else {
       var swatch = false
     }
+    var selector = React.createElement("img", {className: "selector", onClick: this.onClick, 
+      src: this.props.layer.selected ? "img/selected.png" : "img/unselected.png"})
     return (
       React.createElement("div", {className: "layer", style: layerStyle, draggable: "true", 
-        onClick: this.onClick, 
         onDragStart: this.onDragStart, 
         onDragEnter: this.onDragEnter, 
         onDragOver: this.onDragOver, 
@@ -61225,6 +61235,7 @@ var Layer = React.createClass({displayName: "Layer",
         onDrop: this.onDrop}, 
         React.createElement("input", {type: "checkbox", ref: "checkbox", checked: this.props.layer.enabled, onChange: this.onChange}), 
         React.createElement("span", {className: "layer-name"}, this.props.layer.name), 
+        selector, 
         swatch
       )
     )
@@ -61252,6 +61263,7 @@ var LayerList = React.createClass({displayName: "LayerList",
 })
 
 module.exports = LayerList
+
 
 },{"../actions/LayerActions":437,"../utils/palette":465,"../utils/vectorTools":467,"./Modals.jsx":447,"color":15,"react":252}],445:[function(require,module,exports){
 var React = require('react')

@@ -191,17 +191,26 @@ body {
   padding: 10px;
   border-bottom: 1px solid #7d7d7d;
 }
-.layer-list .layer:hover {
-  cursor: pointer;
-}
 .layer-list .layer span {
   padding-left: 5px;
+}
+.layer-list .layer .selector {
+  width: 15px;
+  position: absolute;
+  top: 12px;
+  right: 30px;
+}
+.layer-list .layer .selector:hover {
+  cursor: pointer;
 }
 .layer-list .layer .swatch-wrap {
   position: absolute;
   top: 10px;
   right: 10px;
   background-color: #bbb;
+}
+.layer-list .layer .swatch-wrap:hover {
+  cursor: pointer;
 }
 .layer-list .layer .color-swatch {
   background: #636363;

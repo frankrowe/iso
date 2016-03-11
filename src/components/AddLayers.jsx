@@ -112,7 +112,7 @@ var RemoveLayerButton = React.createClass({
     var layers = LayerStore.getAllSelected()
     this.active = _.keys(layers).length > 0
     return (
-      <LayerButton img={"img/RemoveLayer.svg"} tooltip={'Remove Layer'} onClick={this.onClick} active={this.active}/>
+      <LayerButton img={"img/RemoveLayer.svg"} tooltip={'Remove Selected Layers'} onClick={this.onClick} active={this.active}/>
     )
   }
 })
@@ -147,7 +147,7 @@ var SaveLayerButton = React.createClass({
     var layers = LayerStore.getAllSelected()
     this.active = _.keys(layers).length > 0
     return (
-      <LayerButton img={"img/SaveLayer.svg"} tooltip={'Save Layer'} onClick={this.onClick} active={this.active}/>
+      <LayerButton img={"img/SaveLayer.svg"} tooltip={'Save Selected Layers'} onClick={this.onClick} active={this.active}/>
     )
   }
 })

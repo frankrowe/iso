@@ -12,7 +12,8 @@ var Layer = React.createClass({
     }
   },
   onClick: function(e) {
-    if (e.target.className === 'layer' || e.target.className === 'layer-name') {
+    console.log(e.target.className);
+    if (e.target.className === 'selector') {
       var update = {}
       update.selected = !this.props.layer.selected
       if (!update.selected) {
@@ -60,19 +61,27 @@ var Layer = React.createClass({
   render: function() {
     var layerStyle = {
       color: this.props.layer.selected ? 'white': palette.light,
-      textDecoration: this.props.layer.selected ? 'underline': 'none',
-      backgroundColor: this.state.dragEnter ? 'red' : palette.dark
+      textDecoration: this.props.layer.selected ? 'underline': 'none'
     }
-    var backgroundColor = Color(this.props.layer.style.fillColor).rgb()
-    backgroundColor.a = this.props.layer.style.fillOpacity
-    backgroundColor = Color(backgroundColor).rgbString()
+    var backgroundColor = palette.dark
+    if (this.state.dragEnter) {
+      backgroundColor = 'red'
+    }
+    if (this.props.layer.selected) {
+      //backgroundColor = '#e5e5e5'
+    }
+    layerStyle.backgroundColor = backgroundColor
+
+    var swatchBackgroundColor = Color(this.props.layer.style.fillColor).rgb()
+    swatchBackgroundColor.a = this.props.layer.style.fillOpacity
+    swatchBackgroundColor = Color(swatchBackgroundColor).rgbString()
 
     var borderColor = Color(this.props.layer.style.color).rgb()
     borderColor.a = this.props.layer.style.opacity
     borderColor = Color(borderColor).rgbString()
 
     var swatchStyle = {
-      backgroundColor: backgroundColor,
+      backgroundColor: swatchBackgroundColor,
       borderColor: borderColor,
       borderWidth: this.props.layer.style.weight
     }
@@ -82,9 +91,10 @@ var Layer = React.createClass({
     } else {
       var swatch = false
     }
+    var selector = <img className="selector" onClick={this.onClick}
+      src={this.props.layer.selected ? "img/selected.png" : "img/unselected.png"}/>
     return (
       <div className="layer" style={layerStyle} draggable="true"
-        onClick={this.onClick}
         onDragStart={this.onDragStart}
         onDragEnter={this.onDragEnter}
         onDragOver={this.onDragOver}
@@ -93,6 +103,7 @@ var Layer = React.createClass({
         onDrop={this.onDrop}>
         <input type="checkbox" ref="checkbox" checked={this.props.layer.enabled} onChange={this.onChange} />
         <span className="layer-name">{this.props.layer.name}</span>
+        {selector}
         {swatch}
       </div>
     )
