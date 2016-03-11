@@ -160,6 +160,22 @@ body {
 }
 .add-layers .add-layer-item:hover {
   background-color: #636363;
+  -webkit-filter: none;
+  filter: none;
+  cursor: pointer;
+}
+.add-layers .add-layer-item.disabled img {
+  -webkit-filter: gray;
+  filter: gray;
+  /* IE6-9 */
+  filter: grayscale(1);
+  /* Microsoft Edge and Firefox 35+ */
+  -webkit-filter: grayscale(1);
+  /* Google Chrome, Safari 6+ & Opera 15+ */
+}
+.add-layers .add-layer-item.disabled:hover {
+  background-color: inherit;
+  cursor: auto;
 }
 .layer-list {
   min-height: 100px;

@@ -145,6 +145,19 @@
     }
     &:hover {
       background-color: @medium;
+      filter: none;
+      cursor: pointer;
+    }
+    &.disabled {
+      img {
+        filter: gray; /* IE6-9 */
+        filter: grayscale(1); /* Microsoft Edge and Firefox 35+ */
+        -webkit-filter: grayscale(1); /* Google Chrome, Safari 6+ & Opera 15+ */
+      }
+      &:hover {
+        background-color: inherit;
+        cursor: auto;
+      }
     }
   }
 }

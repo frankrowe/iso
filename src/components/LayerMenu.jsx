@@ -6,11 +6,8 @@ var React = require('react')
   , ToolbarDropdown = require('./ToolbarDropdown.jsx')
   , LayerActions = require('../actions/LayerActions')
   , LayerStore = require('../stores/LayerStore')
-  , fileSaver = require('filesaver.js')
-  , tokml = require('tokml')
-  , geojson2dsv = require('geojson2dsv')
-  , wellknown = require('wellknown')
   , defaultLayer = require('../utils/DefaultLayer')
+  , layerSaver = require('../utils/LayerSaver')
 
 var Undo = React.createClass({
   onClick: function() {
@@ -131,16 +128,7 @@ var SaveAs = React.createClass({
 
 var SaveAsGeoJSON = React.createClass({
   onClick: function() {
-    var layers = LayerStore.getAllSelected()
-    for (var id in layers) {
-      var layer = layers[id]
-      if (layer.selected) {
-        var content = JSON.stringify(vectorTools.clean(layer.geojson))
-        fileSaver(new Blob([content], {
-            type: 'text/plain;charset=utf-8'
-        }), layer.name + '.geojson')
-      }
-    }
+    layerSaver.geojson()
   },
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector
@@ -152,16 +140,7 @@ var SaveAsGeoJSON = React.createClass({
 
 var SaveAsKML = React.createClass({
   onClick: function() {
-    var layers = LayerStore.getAllSelected()
-    for (var id in layers) {
-      var layer = layers[id]
-      if (layer.selected) {
-        var content = tokml(vectorTools.clean(layer.geojson))
-        fileSaver(new Blob([content], {
-            type: 'text/plain;charset=utf-8'
-        }), layer.name + '.kml')
-      }
-    }
+    layerSaver.kml()
   },
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector
@@ -173,17 +152,7 @@ var SaveAsKML = React.createClass({
 
 var SaveAsWKT = React.createClass({
   onClick: function() {
-    var layers = LayerStore.getAllSelected()
-    for (var id in layers) {
-      var layer = layers[id]
-      if (layer.selected) {
-        var features = vectorTools.clean(layer.geojson).features
-        var content = features.map(wellknown.stringify).join('\n')
-        fileSaver(new Blob([content], {
-            type: 'text/plain;charset=utf-8'
-        }), layer.name + '.wkt')
-      }
-    }
+    layerSaver.wkt()
   },
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector
@@ -195,16 +164,7 @@ var SaveAsWKT = React.createClass({
 
 var SaveAsCSV = React.createClass({
   onClick: function() {
-    var layers = LayerStore.getAllSelected()
-    for (var id in layers) {
-      var layer = layers[id]
-      if (layer.selected) {
-        var content = geojson2dsv(vectorTools.clean(layer.geojson))
-        fileSaver(new Blob([content], {
-            type: 'text/plain;charset=utf-8'
-        }), layer.name + '.csv')
-      }
-    }
+    layerSaver.csv()
   },
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector
@@ -216,13 +176,7 @@ var SaveAsCSV = React.createClass({
 
 var SaveAsShp = React.createClass({
   onClick: function() {
-    var layers = LayerStore.getAllSelected()
-    for (var id in layers) {
-      var layer = layers[id]
-      if (layer.selected) {
-        shpwrite.download(layer.geojson)
-      }
-    }
+    layerSaver.shp()
   },
   render: function() {
     var active = this.props.config.oneLayer && this.props.config.vector

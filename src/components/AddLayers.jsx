@@ -1,11 +1,13 @@
 var React = require('react')
   , LayerActions = require('../actions/LayerActions')
+  , LayerStore = require('../stores/LayerStore')
   , Tooltip = require('./Tooltip')
   , palette = require('../utils/palette')
   , readFile = require('../utils/readfile')
   , defaultLayer = require('../utils/DefaultLayer')
   , Modals = require('./Modals.jsx')
   , normalize = require('geojson-normalize')
+  , layerSaver = require('../utils/LayerSaver')
 
 var LayerButton = React.createClass({
   getInitialState: function() {
@@ -24,8 +26,12 @@ var LayerButton = React.createClass({
     if (this.state.open) {
       tooltip = <Tooltip text={this.props.tooltip} />
     }
+    var className = "add-layer-item"
+    if (!this.props.active) {
+      className += ' disabled'
+    }
     return (
-        <div className="add-layer-item" ref="addLayer" onClick={this.props.onClick} onMouseEnter={this.onMouseEnter} onMouseLeave={this.onMouseLeave}>
+        <div className={className} ref="addLayer" onClick={this.props.onClick} onMouseEnter={this.onMouseEnter} onMouseLeave={this.onMouseLeave}>
           <img src={this.props.img} />
           {tooltip}
         </div>
@@ -60,7 +66,7 @@ var AddLayerButton = React.createClass({
     var style = { display: 'none'}
     return (
       <div>
-        <LayerButton img={"img/AddVectorLayer.svg"} tooltip={'Import Vector Layer'} onClick={this.onClick}/>
+        <LayerButton img={"img/AddVectorLayer.svg"} tooltip={'Import Vector Layer'} onClick={this.onClick} active={true}/>
         <input ref="addFile" type="file" name="addFile" style={style} onChange={this.onChange}/>
       </div>
     )
@@ -75,7 +81,7 @@ var NewLayerButton = React.createClass({
   },
   render: function() {
     return (
-      <LayerButton img={"img/NewVectorLayer.svg"} tooltip={'New Vector Layer'} onClick={this.onClick}/>
+      <LayerButton img={"img/NewVectorLayer.svg"} tooltip={'New Vector Layer'} onClick={this.onClick} active={true}/>
     )
   }
 })
@@ -93,7 +99,7 @@ var AddTileLayerButton = React.createClass({
   },
   render: function() {
     return (
-      <LayerButton img={"img/AddRasterLayer.svg"} tooltip={'New Tile Layer'} onClick={this.onClick}/>
+      <LayerButton img={"img/AddRasterLayer.svg"} tooltip={'New Tile Layer'} onClick={this.onClick} active={true}/>
     )
   }
 })
@@ -103,8 +109,42 @@ var RemoveLayerButton = React.createClass({
     LayerActions.destroySelected()
   },
   render: function() {
+    var layers = LayerStore.getAllSelected()
+    var active = _.keys(layers).length > 0
     return (
-      <LayerButton img={"img/RemoveLayer.svg"} tooltip={'Remove Layer'} onClick={this.onClick}/>
+      <LayerButton img={"img/RemoveLayer.svg"} tooltip={'Remove Layer'} onClick={this.onClick} active={active}/>
+    )
+  }
+})
+
+var SaveLayerButton = React.createClass({
+  onClick: function() {
+    var self = this
+    Modals.getSaveType(function(err, saveType) {
+      switch (saveType) {
+        case 'geojson':
+          layerSaver.geojson()
+          break;
+        case 'kml':
+          layerSaver.kml()
+          break;
+        case 'csv':
+          layerSaver.csv()
+          break;
+        case 'wkt':
+          layerSaver.wkt()
+          break;
+        case 'shp':
+          layerSaver.shp()
+          break;
+      }
+    })
+  },
+  render: function() {
+    var layers = LayerStore.getAllSelected()
+    var active = _.keys(layers).length > 0
+    return (
+      <LayerButton img={"img/SaveLayer.svg"} tooltip={'Save Layer'} onClick={this.onClick} active={active}/>
     )
   }
 })
@@ -117,6 +157,7 @@ var AddLayers = React.createClass({
         <AddLayerButton />
         <AddTileLayerButton />
         <RemoveLayerButton />
+        <SaveLayerButton />
       </div>
     )
   }

@@ -411,6 +411,38 @@ var Modals = {
         next(false, data.url)
       }
     })
+  },
+
+  getSaveType: function(next) {
+
+    var SaveType = React.createClass({
+      render: function() {
+        return (
+          <div>
+            <select name="type" defaultValue={this.props.type}>
+              <option value="geojson">GeoJSON</option>
+              <option value="kml">KML</option>
+              <option value="wkt">WKT</option>
+              <option value="csv">CSV (points)</option>
+              <option value="shp">Shapefile</option>
+            </select>
+          </div>
+        )
+      }
+    })
+
+    vex.dialog.open({
+      message: 'Save Layer As',
+      afterOpen: function($vexContent) {
+        React.render(<SaveType />, $vexContent.find('.vex-dialog-input').get(0))
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        next(false, data.type)
+      }
+    })
   }
 }
 
