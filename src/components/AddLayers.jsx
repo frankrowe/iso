@@ -110,9 +110,9 @@ var RemoveLayerButton = React.createClass({
   },
   render: function() {
     var layers = LayerStore.getAllSelected()
-    var active = _.keys(layers).length > 0
+    this.active = _.keys(layers).length > 0
     return (
-      <LayerButton img={"img/RemoveLayer.svg"} tooltip={'Remove Layer'} onClick={this.onClick} active={active}/>
+      <LayerButton img={"img/RemoveLayer.svg"} tooltip={'Remove Layer'} onClick={this.onClick} active={this.active}/>
     )
   }
 })
@@ -120,6 +120,9 @@ var RemoveLayerButton = React.createClass({
 var SaveLayerButton = React.createClass({
   onClick: function() {
     var self = this
+    if (!this.active) {
+      return
+    }
     Modals.getSaveType(function(err, saveType) {
       switch (saveType) {
         case 'geojson':
@@ -142,9 +145,9 @@ var SaveLayerButton = React.createClass({
   },
   render: function() {
     var layers = LayerStore.getAllSelected()
-    var active = _.keys(layers).length > 0
+    this.active = _.keys(layers).length > 0
     return (
-      <LayerButton img={"img/SaveLayer.svg"} tooltip={'Save Layer'} onClick={this.onClick} active={active}/>
+      <LayerButton img={"img/SaveLayer.svg"} tooltip={'Save Layer'} onClick={this.onClick} active={this.active}/>
     )
   }
 })

@@ -60408,9 +60408,9 @@ var RemoveLayerButton = React.createClass({displayName: "RemoveLayerButton",
   },
   render: function() {
     var layers = LayerStore.getAllSelected()
-    var active = _.keys(layers).length > 0
+    this.active = _.keys(layers).length > 0
     return (
-      React.createElement(LayerButton, {img: "img/RemoveLayer.svg", tooltip: 'Remove Layer', onClick: this.onClick, active: active})
+      React.createElement(LayerButton, {img: "img/RemoveLayer.svg", tooltip: 'Remove Layer', onClick: this.onClick, active: this.active})
     )
   }
 })
@@ -60418,6 +60418,9 @@ var RemoveLayerButton = React.createClass({displayName: "RemoveLayerButton",
 var SaveLayerButton = React.createClass({displayName: "SaveLayerButton",
   onClick: function() {
     var self = this
+    if (!this.active) {
+      return
+    }
     Modals.getSaveType(function(err, saveType) {
       switch (saveType) {
         case 'geojson':
@@ -60440,9 +60443,9 @@ var SaveLayerButton = React.createClass({displayName: "SaveLayerButton",
   },
   render: function() {
     var layers = LayerStore.getAllSelected()
-    var active = _.keys(layers).length > 0
+    this.active = _.keys(layers).length > 0
     return (
-      React.createElement(LayerButton, {img: "img/SaveLayer.svg", tooltip: 'Save Layer', onClick: this.onClick, active: active})
+      React.createElement(LayerButton, {img: "img/SaveLayer.svg", tooltip: 'Save Layer', onClick: this.onClick, active: this.active})
     )
   }
 })
