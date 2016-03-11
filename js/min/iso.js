@@ -61913,7 +61913,7 @@ var Modals = {
       render: function() {
         return (
           React.createElement("div", null, 
-            React.createElement("p", null, '(http://tile.stamen.com/toner/{z}/{x}/{y}.jpg)'), 
+            React.createElement("p", null, '(http://{s}.tile.stamen.com/toner/{z}/{x}/{y}.png)'), 
             React.createElement("input", {name: "url", type: "text", defaultValue: ""})
           )
         )
