@@ -61166,7 +61166,7 @@ var Layer = React.createClass({displayName: "Layer",
   onChange: function(e) {
     var update = {}
     update.enabled = !this.props.layer.enabled
-    if (!update.enabled) update.selected = false
+    //if (!update.enabled) update.selected = false
     LayerActions.update(this.props.layer.id, update)
   },
   onDragStart: function(e) {
