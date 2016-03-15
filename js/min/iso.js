@@ -60078,65 +60078,89 @@ var Table = FixedDataTable.Table;
 var Column = FixedDataTable.Column;
 var Cell = FixedDataTable.Cell;
 
-var PropertyCell = React.createClass({
-  displayName: 'PropertyCell',
+var PropertyCell = function (_React$Component) {
+  _inherits(PropertyCell, _React$Component);
 
-  _getMyDataForIndex: function _getMyDataForIndex(idx, field) {
-    return this.props.layer.geojson.features[idx].properties[field];
-  },
-  render: function render() {
-    return React.createElement(
-      Cell,
-      this.props,
-      this._getMyDataForIndex(this.props.rowIndex, this.props.field)
-    );
+  function PropertyCell() {
+    _classCallCheck(this, PropertyCell);
+
+    return _possibleConstructorReturn(this, Object.getPrototypeOf(PropertyCell).apply(this, arguments));
   }
-});
 
-var IndexCell = React.createClass({
-  displayName: 'IndexCell',
+  _createClass(PropertyCell, [{
+    key: '_getMyDataForIndex',
+    value: function _getMyDataForIndex(idx, field) {
+      return this.props.layer.geojson.features[idx].properties[field];
+    }
+  }, {
+    key: 'render',
+    value: function render() {
+      return React.createElement(
+        Cell,
+        this.props,
+        this._getMyDataForIndex(this.props.rowIndex, this.props.field)
+      );
+    }
+  }]);
 
-  render: function render() {
-    return React.createElement(
-      Cell,
-      this.props,
-      this.props.rowIndex
-    );
+  return PropertyCell;
+}(React.Component);
+
+var IndexCell = function (_React$Component2) {
+  _inherits(IndexCell, _React$Component2);
+
+  function IndexCell() {
+    _classCallCheck(this, IndexCell);
+
+    return _possibleConstructorReturn(this, Object.getPrototypeOf(IndexCell).apply(this, arguments));
   }
-});
 
-var AttributeTable = function (_React$Component) {
-  _inherits(AttributeTable, _React$Component);
+  _createClass(IndexCell, [{
+    key: 'render',
+    value: function render() {
+      return React.createElement(
+        Cell,
+        this.props,
+        this.props.rowIndex
+      );
+    }
+  }]);
+
+  return IndexCell;
+}(React.Component);
+
+var AttributeTable = function (_React$Component3) {
+  _inherits(AttributeTable, _React$Component3);
 
   function AttributeTable(props) {
     _classCallCheck(this, AttributeTable);
 
-    var _this = _possibleConstructorReturn(this, Object.getPrototypeOf(AttributeTable).call(this, props));
+    var _this3 = _possibleConstructorReturn(this, Object.getPrototypeOf(AttributeTable).call(this, props));
 
-    _this.onRowClick = _this.onRowClick.bind(_this);
-    _this.rowClassNameGetter = _this.rowClassNameGetter.bind(_this);
-    _this._onColumnResizeEndCallback = _this._onColumnResizeEndCallback.bind(_this);
+    _this3.onRowClick = _this3.onRowClick.bind(_this3);
+    _this3.rowClassNameGetter = _this3.rowClassNameGetter.bind(_this3);
+    _this3._onColumnResizeEndCallback = _this3._onColumnResizeEndCallback.bind(_this3);
 
-    _this.setTableWidth();
+    _this3.setTableWidth();
 
     //make equal size columns for all feature props
     var columnWidths = {
       index: 50
     };
-    _this.columnLabels = _.pluck(_this.props.layer.geojson.features, 'properties');
-    _this.columnLabels = _this.columnLabels.map(function (c) {
+    _this3.columnLabels = _.pluck(_this3.props.layer.geojson.features, 'properties');
+    _this3.columnLabels = _this3.columnLabels.map(function (c) {
       return _.keys(c);
     });
-    _this.columnLabels = _.uniq(_.flatten(_this.columnLabels));
-    var columnWidth = (_this.tableWidth - columnWidths.index) / _this.columnLabels.length;
-    _this.columnLabels.forEach(function (label) {
+    _this3.columnLabels = _.uniq(_.flatten(_this3.columnLabels));
+    var columnWidth = (_this3.tableWidth - columnWidths.index) / _this3.columnLabels.length;
+    _this3.columnLabels.forEach(function (label) {
       columnWidths[label] = columnWidth;
     });
 
-    _this.state = {
+    _this3.state = {
       columnWidths: columnWidths
     };
-    return _this;
+    return _this3;
   }
 
   _createClass(AttributeTable, [{
@@ -60167,7 +60191,7 @@ var AttributeTable = function (_React$Component) {
   }, {
     key: 'makeColumns',
     value: function makeColumns() {
-      var _this2 = this;
+      var _this4 = this;
 
       this.setTableWidth();
       this.columns = this.columnLabels.map(function (label, idx) {
@@ -60177,8 +60201,8 @@ var AttributeTable = function (_React$Component) {
             null,
             label
           ),
-          cell: React.createElement(PropertyCell, _extends({}, _this2.props, { field: label })),
-          width: _this2.state.columnWidths[label],
+          cell: React.createElement(PropertyCell, _extends({}, _this4.props, { field: label })),
+          width: _this4.state.columnWidths[label],
           isResizable: true,
           columnKey: label,
           key: idx + 1 });

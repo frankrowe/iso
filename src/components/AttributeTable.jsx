@@ -6,28 +6,28 @@ var Table = FixedDataTable.Table
 var Column = FixedDataTable.Column
 var Cell = FixedDataTable.Cell
 
-var PropertyCell = React.createClass({
-  _getMyDataForIndex: function(idx, field) {
+class PropertyCell extends React.Component {
+  _getMyDataForIndex(idx, field) {
     return this.props.layer.geojson.features[idx].properties[field]
-  },
-  render: function() {
+  }
+  render() {
     return (
       <Cell {...this.props}>
         {this._getMyDataForIndex(this.props.rowIndex, this.props.field)}
       </Cell>
     )
   }
-})
+}
 
-var IndexCell = React.createClass({
-  render: function() {
+class IndexCell extends React.Component {
+  render() {
     return (
       <Cell {...this.props}>
         {this.props.rowIndex}
       </Cell>
     )
   }
-})
+}
 
 class AttributeTable extends React.Component {
   constructor(props) {
