@@ -4,67 +4,118 @@ var React = require('react')
 
 var Table = FixedDataTable.Table
 var Column = FixedDataTable.Column
+var Cell = FixedDataTable.Cell
 
-var AttributeTable = React.createClass({
-  rowGetter: function(rowIndex) {
-    return this.rowValues[rowIndex]
-  },
-  rowClassNameGetter: function(rowIndex) {
-    var feature = this.props.layer.geojson.features[rowIndex]
-    return feature.selected ? 'selected' : null
-  },
-  onRowClick: function(e, rowIndex) {
-    var feature = this.props.layer.geojson.features[rowIndex]
-    feature.selected = !feature.selected
-    LayerActions.update(this.props.layer.id, {geojson: this.props.layer.geojson})
-  },
-  makeTable: function() {
-    this.tableWidth = $('.work-space').innerWidth() - 4
-    this.tableHeight = 200
-    var indexColumnWidth = 30
-    var columnLabels = _.pluck(this.props.layer.geojson.features, 'properties')
-    columnLabels = columnLabels.map(function(c) { return _.keys(c) })
-    columnLabels = _.uniq(_.flatten(columnLabels))
-    var columnWidth = (this.tableWidth - indexColumnWidth)/columnLabels.length
-    this.columns = columnLabels.map(function(label, idx) {
-      return <Column
-               label={label}
-               width={columnWidth}
-               dataKey={idx+1}
-               key={idx+1} />
-    })
-    this.columns.unshift(
-      <Column
-        label={'idx'}
-        width={indexColumnWidth}
-        dataKey={0}
-        key={0} />
-    )
-
-    this.rowValues = this.props.layer.geojson.features.map(function(f, idx) {
-      var row = _.values(f.properties)
-      row.unshift(idx)
-      return row
-    })
+var PropertyCell = React.createClass({
+  _getMyDataForIndex: function(idx, field) {
+    return this.props.layer.geojson.features[idx].properties[field]
   },
   render: function() {
-    this.makeTable()
     return (
-      <div className="attribute-table">
-        <Table
-            rowHeight={20}
-            rowGetter={this.rowGetter}
-            rowClassNameGetter={this.rowClassNameGetter}
-            onRowClick={this.onRowClick}
-            rowsCount={this.props.layer.geojson.features.length}
-            width={this.tableWidth}
-            maxHeight={this.tableHeight}
-            headerHeight={20}>
-            {this.columns}
-          </Table>
-      </div>
+      <Cell {...this.props}>
+        {this._getMyDataForIndex(this.props.rowIndex, this.props.field)}
+      </Cell>
     )
   }
 })
+
+var IndexCell = React.createClass({
+  render: function() {
+    return (
+      <Cell {...this.props}>
+        {this.props.rowIndex}
+      </Cell>
+    )
+  }
+})
+
+class AttributeTable extends React.Component {
+  constructor(props) {
+    super(props)
+
+    this.onRowClick = this.onRowClick.bind(this)
+    this.rowClassNameGetter = this.rowClassNameGetter.bind(this)
+    this._onColumnResizeEndCallback = this._onColumnResizeEndCallback.bind(this)
+
+    this.setTableWidth()
+
+    //make equal size columns for all feature props
+    var columnWidths = {
+      index: 50
+    }
+    this.columnLabels = _.pluck(this.props.layer.geojson.features, 'properties')
+    this.columnLabels = this.columnLabels.map(function(c) { return _.keys(c) })
+    this.columnLabels = _.uniq(_.flatten(this.columnLabels))
+    var columnWidth = (this.tableWidth - columnWidths.index)/this.columnLabels.length
+    this.columnLabels.forEach((label) => {
+      columnWidths[label] = columnWidth
+    })
+
+    this.state = {
+      columnWidths: columnWidths
+    }
+  }
+  setTableWidth() {
+    this.tableWidth = $('.work-space').innerWidth() - 2
+  }
+  _onColumnResizeEndCallback(newColumnWidth, columnKey) {
+    var columnWidths = this.state.columnWidths
+    columnWidths[columnKey] = newColumnWidth
+    this.setState({columnWidths: columnWidths})
+  }
+  rowClassNameGetter(rowIndex) {
+    var feature = this.props.layer.geojson.features[rowIndex]
+    return feature.selected ? 'selected' : null
+  }
+  onRowClick(e, rowIndex) {
+    var feature = this.props.layer.geojson.features[rowIndex]
+    feature.selected = !feature.selected
+    LayerActions.update(this.props.layer.id, {geojson: this.props.layer.geojson})
+
+  }
+  makeColumns() {
+    this.setTableWidth()
+    this.columns = this.columnLabels.map((label, idx) => {
+      return (
+        <Column
+         header={<Cell>{label}</Cell>}
+         cell={<PropertyCell {...this.props} field={label} />}
+         width={this.state.columnWidths[label]}
+         isResizable={true}
+         columnKey={label}
+         key={idx+1} />
+      )
+    })
+    this.columns.unshift(
+      <Column
+        header={<Cell>idx</Cell>}
+        cell={<IndexCell {...this.props} />}
+        width={this.state.columnWidths.index}
+        isResizable={true}
+        fixed={true}
+        columnKey="index"
+        key={0} />
+    )
+  }
+  render() {
+    this.makeColumns()
+    return (
+      <div className="attribute-table">
+        <Table
+          rowsCount={this.props.layer.geojson.features.length}
+          rowHeight={30}
+          headerHeight={30}
+          width={this.tableWidth}
+          maxHeight={300}
+          onRowClick={this.onRowClick}
+          onColumnResizeEndCallback={this._onColumnResizeEndCallback}
+          isColumnResizing={false}
+          rowClassNameGetter={this.rowClassNameGetter}>
+          {this.columns}
+        </Table>
+      </div>
+    )
+  }
+}
 
 module.exports = AttributeTable

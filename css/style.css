@@ -20,22 +20,22 @@ body {
   display: -ms-flexbox;
   display: flex;
   -webkit-flex-direction: column;
-  -ms-flex-direction: column;
-  flex-direction: column;
+      -ms-flex-direction: column;
+          flex-direction: column;
   -webkit-justify-content: flex-start;
-  -ms-flex-pack: start;
-  justify-content: flex-start;
+      -ms-flex-pack: start;
+          justify-content: flex-start;
   -webkit-align-items: stretch;
-  -ms-flex-align: stretch;
-  align-items: stretch;
+      -ms-flex-align: stretch;
+          align-items: stretch;
   -webkit-align-content: stretch;
-  -ms-flex-line-pack: stretch;
-  align-content: stretch;
+      -ms-flex-line-pack: stretch;
+          align-content: stretch;
 }
 #iso .app .flex-row {
   -webkit-flex: 1;
-  -ms-flex: 1;
-  flex: 1;
+      -ms-flex: 1;
+          flex: 1;
   display: -webkit-flex;
   display: -ms-flexbox;
   display: flex;
@@ -107,7 +107,7 @@ body {
   background-color: #303030;
   border-width: 0;
   border-radius: 0px;
-  border-color: #d5d5d5;
+  border-color: #D5D5D5;
   font-size: 14px;
   color: #7d7d7d;
 }
@@ -141,8 +141,8 @@ body {
   min-height: 100px;
   padding-top: 5px;
   -webkit-flex: none;
-  -ms-flex: none;
-  flex: none;
+      -ms-flex: none;
+          flex: none;
   border-right: 1px solid #7d7d7d;
   background: #525252;
 }
@@ -161,12 +161,12 @@ body {
 .add-layers .add-layer-item:hover {
   background-color: #636363;
   -webkit-filter: none;
-  filter: none;
+          filter: none;
   cursor: pointer;
 }
 .add-layers .add-layer-item.disabled img {
   -webkit-filter: gray;
-  filter: gray;
+          filter: gray;
   /* IE6-9 */
   filter: grayscale(1);
   /* Microsoft Edge and Firefox 35+ */
@@ -180,9 +180,9 @@ body {
 .layer-list {
   min-height: 100px;
   -webkit-flex: none;
-  -ms-flex: none;
-  flex: none;
-  border-right: 1px solid #d5d5d5;
+      -ms-flex: none;
+          flex: none;
+  border-right: 1px solid #D5D5D5;
   background: #636363;
 }
 .layer-list .layer {
@@ -227,11 +227,11 @@ body {
   min-width: 400px;
   position: relative;
   -webkit-flex: 1;
-  -ms-flex: 1;
-  flex: 1;
+      -ms-flex: 1;
+          flex: 1;
   -webkit-flex-direction: column;
-  -ms-flex-direction: column;
-  flex-direction: column;
+      -ms-flex-direction: column;
+          flex-direction: column;
   display: -webkit-flex;
   display: -ms-flexbox;
   display: flex;
@@ -240,16 +240,20 @@ body {
   min-height: 100px;
   min-width: 400px;
   -webkit-flex: 1;
-  -ms-flex: 1;
-  flex: 1;
+      -ms-flex: 1;
+          flex: 1;
 }
 .work-space.active {
   cursor: crosshair;
 }
 .attribute-table {
   -webkit-flex: none;
-  -ms-flex: none;
-  flex: none;
+      -ms-flex: none;
+          flex: none;
+  font-size: 12px;
+}
+.attribute-table .selected .public_fixedDataTableCell_main {
+  background: #ff6262;
 }
 .message-bar {
   height: 20px;
@@ -288,8 +292,8 @@ body {
 .editor {
   width: 400px;
   -webkit-flex: none;
-  -ms-flex: none;
-  flex: none;
+      -ms-flex: none;
+          flex: none;
   background: #262626;
   position: absolute;
   top: 0;
@@ -354,7 +358,7 @@ body {
 
 */
 .cm-s-tomorrow-night-bright.CodeMirror {
-  background: #d5d5d5;
+  background: #D5D5D5;
   color: #525252;
 }
 .cm-s-tomorrow-night-bright div.CodeMirror-selected {

@@ -30,7 +30,7 @@ var WorkSpace = React.createClass({
       'z: ' + z
   },
   makeMap: function() {
-    this.map = L.map(this.refs.workspace.getDOMNode(), {
+    this.map = L.map(this.refs.workspace, {
       attributionControl: false,
       zoomControl: false
     }).setView([30, 20], 2)

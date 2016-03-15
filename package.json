@@ -2,14 +2,21 @@
   "name": "iso",
   "version": "0.3.324",
   "private": true,
-  "scripts": {},
+  "scripts": {
+    "watch-css": "onchange 'css/*.less' -- npm run build-css",
+    "watch-js": "watchify -v -t [ babelify --presets [ es2015 react ] ] ./src/index.js -o ./js/min/iso.js",
+    "watch": "npm run watch-css & npm run watch-js",
+    "build-css": "lessc --autoprefix='last 2 versions' css/style.less css/style.css",
+    "build-js": "browserify --fast -t [ babelify --presets [ es2015 react ] ] src/index.js -o js/min/iso.js",
+    "build": "npm run build-css && npm run build-js"
+  },
   "author": "frankrowe",
   "dependencies": {
     "brfs": "^1.4.0",
     "color": "^0.8.0",
     "csv2geojson": "^4.0.0",
     "filesaver.js": "^0.1.1",
-    "fixed-data-table": "^0.1.2",
+    "fixed-data-table": "^0.6.0",
     "flux": "^2.0.1",
     "geojson2dsv": "0.0.0",
     "geojsonhint": "^1.0.0",
@@ -27,20 +34,17 @@
     "wellknown": "^0.3.1"
   },
   "devDependencies": {
+    "babel-preset-es2015": "^6.5.0",
+    "babel-preset-react": "^6.5.0",
+    "babelify": "^7.2.0",
     "browserify": "^9.0.3",
     "envify": "^3.4.0",
     "geojson-normalize": "0.0.0",
-    "gulp": "^3.8.11",
-    "gulp-autoprefixer": "^2.1.0",
-    "gulp-bump": "^0.3.0",
-    "gulp-compile-handlebars": "^0.4.4",
-    "gulp-handlebars": "^4.0.0",
-    "gulp-less": "^3.0.2",
-    "gulp-livereload": "^3.8.0",
-    "gulp-rename": "^1.2.2",
-    "gulp-uglify": "^1.2.0",
-    "react": "^0.13.1",
-    "reactify": "^1.1.0",
-    "vinyl-source-stream": "^1.1.0"
+    "less": "^2.6.1",
+    "less-plugin-autoprefix": "^1.5.1",
+    "onchange": "^2.1.2",
+    "react": "^0.14.7",
+    "vinyl-source-stream": "^1.1.0",
+    "watchify": "^3.7.0"
   }
 }

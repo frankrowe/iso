@@ -5,7 +5,7 @@ var React = require('react')
 var Editor = React.createClass({
   componentDidMount: function() {
     var self = this
-    this.editor = CodeMirror.fromTextArea(this.refs.textarea.getDOMNode(), {
+    this.editor = CodeMirror.fromTextArea(this.refs.textarea, {
       lineNumbers: true,
       mode: 'application/json',
       theme: 'tomorrow-night-bright'

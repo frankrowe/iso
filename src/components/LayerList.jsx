@@ -12,7 +12,6 @@ var Layer = React.createClass({
     }
   },
   onClick: function(e) {
-    console.log(e.target.className);
     if (e.target.className === 'selector') {
       var update = {}
       update.selected = !this.props.layer.selected
@@ -67,9 +66,7 @@ var Layer = React.createClass({
     if (this.state.dragEnter) {
       backgroundColor = 'red'
     }
-    if (this.props.layer.selected) {
-      //backgroundColor = '#e5e5e5'
-    }
+
     layerStyle.backgroundColor = backgroundColor
 
     var swatchBackgroundColor = Color(this.props.layer.style.fillColor).rgb()

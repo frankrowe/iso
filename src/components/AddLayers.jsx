@@ -1,4 +1,5 @@
 var React = require('react')
+  , ReactDOM = require('react-dom')
   , LayerActions = require('../actions/LayerActions')
   , LayerStore = require('../stores/LayerStore')
   , Tooltip = require('./Tooltip')
@@ -41,12 +42,12 @@ var LayerButton = React.createClass({
 
 var AddLayerButton = React.createClass({
   onClick: function(e) {
-    var form = React.findDOMNode(this.refs.addFile)
+    var form = ReactDOM.findDOMNode(this.refs.addFile)
     form.click()
   },
   onChange: function(e) {
     var self = this
-    var form = React.findDOMNode(this.refs.addFile)
+    var form = ReactDOM.findDOMNode(this.refs.addFile)
     var files = form.files
     if (!(files && files[0])) return;
     readFile.readAsText(files[0], function(err, text) {
