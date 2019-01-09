@@ -1,8 +1,5 @@
-var React = require('react')
-  , ReactDOM = require('react-dom')
-  , App = require('./components/App.jsx')
+import React from 'react';
+import ReactDOM from 'react-dom';
+import App from './components/App';
 
-ReactDOM.render(
-  <App />,
-  document.getElementById('iso')
-)
+ReactDOM.render(<App />, document.getElementById('iso'));

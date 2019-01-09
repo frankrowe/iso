@@ -1,8 +1,8 @@
-var options = {
+let options = {
   detectRetina: true
-}
+};
 
-module.exports = {
+export default {
   streets: {
     name: 'Streets',
     layer: L.tileLayer('http://{s}.tiles.mapbox.com/v3/fsrw.m05f0k04/{z}/{x}/{y}.png', options)
@@ -23,4 +23,4 @@ module.exports = {
     name: 'None',
     layer: false
   }
-}
+};

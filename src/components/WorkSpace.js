@@ -1,35 +1,38 @@
-var React = require('react')
-  , numeral = require('numeral')
-  , LayerActions = require('../actions/LayerActions')
-  , LayerStore = require('../stores/LayerStore')
-  , vectorTools = require('../utils/vectorTools')
-  , palette = require('../utils/palette')
-  , baseMaps = require('../utils/baseMaps')
-  , defaultLayer = require('../utils/DefaultLayer')
+import React from 'react';
+import numeral from 'numeral';
+import LayerActions from '../actions/LayerActions';
+import LayerStore from '../stores/LayerStore';
+import vectorTools from '../utils/vectorTools';
+import palette from '../utils/palette';
+import baseMaps from '../utils/baseMaps';
+import defaultLayer from '../utils/DefaultLayer';
 
-var selectedStyle = {
+let selectedStyle = {
   color: '#f00',
   fillColor: '#f00',
   fillOpacity: 0.8,
   opacity: 1
-}
+};
 
-var mapStyle = {}
+let mapStyle = {};
 
-var WorkSpace = React.createClass({
-  componentDidMount: function() {
+class WorkSpace extends React.Component {
+  componentDidMount() {
     this.makeMap()
-  },
-  componentDidUpdate: function() {
+  }
+
+  componentDidUpdate() {
     this.map.invalidateSize()
-  },
-  updateCoords: function(x, y, z) {
+  }
+
+  updateCoords = (x, y, z) => {
     document.getElementsByClassName('message-bar-item coordinates')[0].innerHTML =
       'x: ' + numeral(x).format('0,0.0000') + ' ' +
       'y: ' + numeral(y).format('0,0.0000') + ' ' +
       'z: ' + z
-  },
-  makeMap: function() {
+  };
+
+  makeMap = () => {
     this.map = L.map(this.refs.workspace, {
       attributionControl: false,
       zoomControl: false
@@ -62,10 +65,10 @@ var WorkSpace = React.createClass({
     }, this)
 
     this.map.on('draw:created', function (e) {
-      for (var id in this.props.layers) {
-        var layer = this.props.layers[id]
+      for (let id in this.props.layers) {
+        let layer = this.props.layers[id];
         if (layer.selected && layer.vector) {
-          var gj = _.cloneDeep(layer.geojson)
+          let gj = _.cloneDeep(layer.geojson);
           gj.features.push(e.layer.toGeoJSON())
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
@@ -75,19 +78,20 @@ var WorkSpace = React.createClass({
     }, this)
 
     this.map.on('draw:edited', function (e) {
-      for (var id in this.props.layers) {
-        var layer = this.props.layers[id]
+      for (let id in this.props.layers) {
+        let layer = this.props.layers[id];
         if (layer.selected && layer.vector) {
-          var gj = layer.mapLayer.toGeoJSON()
+          let gj = layer.mapLayer.toGeoJSON();
           layer.mapLayer.clearLayers()
           layer.mapLayer = false
           LayerActions.update(layer.id, {geojson: gj, mapLayer: layer.mapLayer})
         }
       }
     }, this)
-  },
-  featureOnClick: function(_layer, feature, mapLayer) {
-    var layer = LayerStore.getById(_layer.id)
+  };
+
+  featureOnClick = (_layer, feature, mapLayer) => {
+    let layer = LayerStore.getById(_layer.id);
     if (layer.selected) {
       if (!feature.selected) {
         feature.selected = true
@@ -96,37 +100,42 @@ var WorkSpace = React.createClass({
       }
       LayerActions.update(layer.id, {geojson: layer.geojson})
     }
-  },
-  styleFeature: function(layer, feature) {
+  };
+
+  styleFeature = (layer, feature) => {
     if (feature.selected) {
       return selectedStyle
     } else {
       return layer.style
     }
-  },
-  selectBoxMouseDown: function(e) {
+  };
+
+  selectBoxMouseDown = (e) => {
     this.map.dragging.disable()
     this.rectangleStart = e.latlng
     bounds = L.latLngBounds(this.rectangleStart, this.rectangleStart)
     this.rectangle = L.rectangle(bounds, {color: "#f00", weight: 1})
     this.rectangle.addTo(this.map)
-  },
-  selectBoxMouseMove: function(e) {
+  };
+
+  selectBoxMouseMove = (e) => {
     if (this.rectangle) {
       bounds = L.latLngBounds(this.rectangleStart, e.latlng)
       this.rectangle.setBounds(bounds)
     }
-  },
-  selectBoxMouseUp: function(e) {
+  };
+
+  selectBoxMouseUp = (e) => {
     this.map.dragging.enable()
     if (this.rectangle) {
-      var rectangleBounds = this.rectangle.getBounds()
+      let rectangleBounds = this.rectangle.getBounds();
       vectorTools.selectBox(LayerStore.getAllSelected(), this.rectangle.toGeoJSON())
       this.map.removeLayer(this.rectangle)
       this.rectangle = false
     }
-  },
-  selectBox: function(on) {
+  };
+
+  selectBox = (on) => {
     if (on) {
       if (!this.selectBoxActive) {
         this.selectBoxActive = true
@@ -142,8 +151,9 @@ var WorkSpace = React.createClass({
         this.map.off('mouseup', this.selectBoxMouseUp, this)
       }
     }
-  },
-  addDrawControl: function(layer) {
+  };
+
+  addDrawControl = (layer) => {
     if (layer.vector && layer.selected) {
       if (layer.editing) {
         if (this.drawControl) {
@@ -174,14 +184,13 @@ var WorkSpace = React.createClass({
         }
       }
     }
-  },
-  addLeafletLayer: function(layer) {
+  };
+
+  addLeafletLayer = (layer) => {
     if (layer.vector) {
       if (!layer.mapLayer) {
         layer.mapLayer = L.geoJson(layer.geojson, {
-          pointToLayer: function(layer, feature, latlng) {
-            return L.circleMarker(latlng, layer.style)
-          }.bind(this, layer),
+          pointToLayer: ((layer, feature, latlng) => L.circleMarker(latlng, layer.style)).bind(this, layer),
           style: this.styleFeature.bind(this, layer),
           onEachFeature: function (layer, feature, mapLayer) {
             mapLayer.on('click', this.featureOnClick.bind(this, layer, feature, mapLayer))
@@ -196,8 +205,9 @@ var WorkSpace = React.createClass({
       }
     }
     layer.mapLayerId = L.stamp(layer.mapLayer)
-  },
-  enableLayer: function(layer, zoomToLayers) {
+  };
+
+  enableLayer = (layer, zoomToLayers) => {
     if (layer.enabled) {
       if (layer.vector && layer.zoomTo) {
         zoomToLayers.addLayer(layer.mapLayer)
@@ -211,26 +221,28 @@ var WorkSpace = React.createClass({
         this.workingLayers.removeLayer(layer.mapLayer)
       }
     }
-  },
+  };
+
   /**
    * Remove any layers from the map that aren't in props
    */
-  checkCurrentLayers: function() {
+  checkCurrentLayers = () => {
     this.workingLayers.eachLayer(function(layer) {
-      var ids = _.pluck(this.props.layers, 'mapLayerId')
+      let ids = _.pluck(this.props.layers, 'mapLayerId');
       if (ids.indexOf(L.stamp(layer)) < 0) {
         this.workingLayers.removeLayer(layer)
       }
     }, this)
-  },
-  addLayers: function(layer) {
+  };
+
+  addLayers = (layer) => {
     mapStyle = {}
-    var selectBoxActive = false
-    var zoomToLayers = L.featureGroup()
-    var layers = _.values(this.props.layers)
+    let selectBoxActive = false;
+    let zoomToLayers = L.featureGroup();
+    let layers = _.values(this.props.layers);
     layers = _.sortBy(layers, 'order')
-    for (var i = 0; i < layers.length; i++) {
-      var layer = layers[i]
+    for (let i = 0; i < layers.length; i++) {
+      let layer = layers[i];
       if (layer.editGeoJSON) {
         mapStyle.marginRight = 400
       }
@@ -252,8 +264,9 @@ var WorkSpace = React.createClass({
       this.map.removeLayer(zoomToLayers)
       zoomToLayers = null
     }
-  },
-  checkBaseMap: function() {
+  };
+
+  checkBaseMap = () => {
     if (this.map) {
       this.checkCurrentLayers()
       if (this.baseMap && !this.map.hasLayer(baseMaps[this.props.baseMap].layer)) {
@@ -264,8 +277,9 @@ var WorkSpace = React.createClass({
         }
       }
     }
-  },
-  render: function() {
+  };
+
+  render() {
     this.addLayers()
     this.checkBaseMap()
     return (
@@ -273,6 +287,6 @@ var WorkSpace = React.createClass({
       </div>
     )
   }
-})
+}
 
-module.exports = WorkSpace
+export default WorkSpace;

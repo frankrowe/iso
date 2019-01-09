@@ -1,10 +1,10 @@
-var React = require('react')
-  , geojsonhint = require('geojsonhint')
-  , vectorTools = require('../utils/vectorTools')
+import React from 'react';
+import geojsonhint from 'geojsonhint';
+import vectorTools from '../utils/vectorTools';
 
-var Editor = React.createClass({
-  componentDidMount: function() {
-    var self = this
+class Editor extends React.Component {
+  componentDidMount() {
+    let self = this;
     this.editor = CodeMirror.fromTextArea(this.refs.textarea, {
       lineNumbers: true,
       mode: 'application/json',
@@ -14,7 +14,7 @@ var Editor = React.createClass({
     this.editor.refresh()
     this.editor.on('change', function(editor, changeObj) {
       if (changeObj.origin !== 'setValue') {
-        var gj = editor.doc.getValue()
+        let gj = editor.doc.getValue();
         self.cursorPosition = editor.doc.getCursor()
         if (gj === '') {
           gj = {
@@ -25,7 +25,7 @@ var Editor = React.createClass({
         }
         try {
           gj = JSON.parse(gj)
-          var isEqual = _.isEqual(gj, self.props.layer.geojson)
+          let isEqual = _.isEqual(gj, self.props.layer.geojson);
           if (!isEqual) {
             if (!gj.features) {
               self.props.layer.geojson = {
@@ -35,7 +35,7 @@ var Editor = React.createClass({
             } else {
               self.props.layer.geojson = gj
             }
-            var err = geojsonhint.hint(gj)
+            let err = geojsonhint.hint(gj);
             if (err.length) {
               self.props.updateError(err[0].message)
             } else {
@@ -51,8 +51,9 @@ var Editor = React.createClass({
         }
       }
     })
-  },
-  componentDidUpdate: function() {
+  }
+
+  componentDidUpdate() {
     if (this.editor && this.props.layer) {
       this.editor.setValue(JSON.stringify(this.props.layer.geojson, null, 2))
       if (this.cursorPosition) {
@@ -60,26 +61,28 @@ var Editor = React.createClass({
       }
       this.editor.refresh()
     }
-  },
+  }
+
   //only update editor if geojson is new
-  shouldComponentUpdate: function(nextProps) {
+  shouldComponentUpdate(nextProps) {
     try {
-      var gj = JSON.parse(this.editor.doc.getValue())
+      let gj = JSON.parse(this.editor.doc.getValue());
       return _.isEqual(nextProps.layer.mapLayer.toGeoJSON(), gj) == false
     } catch (e) {
       return false
     }
-  },
-  render: function() {
-    var textareaStyle = {
+  }
+
+  render() {
+    let textareaStyle = {
       display: 'none'
-    }
+    };
     return (
       <div className="editor">
         <textarea ref="textarea" style={textareaStyle}></textarea>
       </div>
     )
   }
-})
+}
 
-module.exports = Editor
+export default Editor;

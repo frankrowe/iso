@@ -1,23 +1,21 @@
-var topojson = require('topojson'),
-    toGeoJSON = require('togeojson'),
-    csv2geojson = require('csv2geojson'),
-    osmtogeojson = require('osmtogeojson'),
-    polytogeojson = require('polytogeojson');
+import topojson from 'topojson';
+import toGeoJSON from 'togeojson';
+import csv2geojson from 'csv2geojson';
+import osmtogeojson from 'osmtogeojson';
+import polytogeojson from 'polytogeojson';
 
-module.exports.readDrop = readDrop;
-module.exports.readAsText = readAsText;
-module.exports.readFile = readFile;
+export { readDrop, readAsText, readFile };
 
 function readDrop(callback) {
     return function() {
-        var results = [];
-        var errors = [];
-        var warnings = [];
+        let results = [];
+        let errors = [];
+        let warnings = [];
         if (d3.event.dataTransfer && d3.event.dataTransfer &&
            d3.event.dataTransfer.files && d3.event.dataTransfer.files.length) {
             d3.event.stopPropagation();
             d3.event.preventDefault();
-            var remaining = d3.event.dataTransfer.files.length;
+            let remaining = d3.event.dataTransfer.files.length;
             [].forEach.call(d3.event.dataTransfer.files, function(f) {
                 readAsText(f, function(err, text) {
                     if (err) {
@@ -57,7 +55,7 @@ function readDrop(callback) {
 
 function readAsText(f, callback) {
     try {
-        var reader = new FileReader();
+        let reader = new FileReader();
         reader.readAsText(f);
         reader.onload = function(e) {
             if (e.target && e.target.result) callback(null, e.target.result);
@@ -79,22 +77,21 @@ function readAsText(f, callback) {
 
 function readFile(f, text, callback) {
 
-    var fileType = detectType(f);
+    let fileType = detectType(f);
 
     if (!fileType) {
-        var filename = f.name ? f.name.toLowerCase() : '',
-            pts = filename.split('.');
+        let filename = f.name ? f.name.toLowerCase() : '', pts = filename.split('.');
         return callback({
             message: 'Could not detect file type'
         });
     } else if (fileType === 'kml') {
-        var kmldom = toDom(text);
+        let kmldom = toDom(text);
         if (!kmldom) {
             return callback({
                 message: 'Invalid KML file: not valid XML'
             });
         }
-        var warning;
+        let warning;
         if (kmldom.getElementsByTagName('NetworkLink').length) {
             warning = {
                 message: 'The KML file you uploaded included NetworkLinks: some content may not display. ' +
@@ -103,8 +100,7 @@ function readFile(f, text, callback) {
         }
         callback(null, toGeoJSON.kml(kmldom), warning);
     } else if (fileType === 'xml') {
-        var xmldom = toDom(text),
-            result;
+        let xmldom = toDom(text), result;
         if (!xmldom) {
             return callback({
                 message: 'Invalid XML file: not valid XML'
@@ -120,11 +116,11 @@ function readFile(f, text, callback) {
         callback(null, toGeoJSON.gpx(toDom(text)));
     } else if (fileType === 'geojson') {
         try {
-            var gj = JSON.parse(text);
+            let gj = JSON.parse(text);
             if (gj && gj.type === 'Topology' && gj.objects) {
-                var collection = { type: 'FeatureCollection', features: [] };
-                for (var o in gj.objects) {
-                    var ft = topojson.feature(gj, gj.objects[o]);
+                let collection = { type: 'FeatureCollection', features: [] };
+                for (let o in gj.objects) {
+                    let ft = topojson.feature(gj, gj.objects[o]);
                     if (ft.features) collection.features = collection.features.concat(ft.features);
                     else collection.features = collection.features.concat([ft]);
                 }
@@ -159,7 +155,7 @@ function readFile(f, text, callback) {
     }
 
     function detectType(f) {
-        var filename = f.name ? f.name.toLowerCase() : '';
+        let filename = f.name ? f.name.toLowerCase() : '';
         function ext(_) {
             return filename.indexOf(_) !== -1;
         }

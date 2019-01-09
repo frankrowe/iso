@@ -1,0 +1,500 @@
+import React from 'react';
+import ReactDOM from 'react-dom';
+import vectorTools from '../utils/VectorTools';
+import pkg from '../../package.json';
+
+let LIMIT = 10000;
+
+function validateBBOX(bbox) {
+  if (_.compact(bbox).length !== 4) {
+    return 'Bounding box must be xLow, yLow, xHigh, yHigh';
+  }
+  return false;
+}
+
+let Modals = {
+  About: class extends React.Component {
+    render() {
+      return (
+        <div>
+          <h2>iso</h2>
+          <p>iso is a lightweight, web based, GeoJSON + Javascript GIS engine.</p>
+          <p>
+            Formats currently supported:
+            <ul>
+              <li>Loading: GeoJSON, KML</li>
+              <li>Saving: GeoJSON, KML, CSV, WKT, Shapefile</li>
+            </ul>
+          </p>
+          <p>
+            iso is open source:{' '}
+            <a href="https://github.com/frankrowe/iso">github.com/frankrowe/iso</a>
+          </p>
+          <p>
+            iso is built on open source components, including:
+            <ul>
+              <li>
+                <a href="http://leafletjs.com/" target="_blank">
+                  Leaflet
+                </a>
+              </li>
+              <li>
+                <a href="http://turfjs.org/" target="_blank">
+                  Turf
+                </a>
+              </li>
+              <li>
+                <a href="https://facebook.github.io/react/index.html" target="_blank">
+                  React
+                </a>
+              </li>
+              <li>
+                <a href="https://codemirror.net/" target="_blank">
+                  CodeMirror
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/mapbox/geojsonhint" target="_blank">
+                  geojsonhint
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/mapbox/csv2geojson" target="_blank">
+                  csv2geojson
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/mapbox/togeojson" target="_blank">
+                  togeojson
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/mapbox/shp-write" target="_blank">
+                  shp-write
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/HubSpot/vex" target="_blank">
+                  vex
+                </a>
+              </li>
+              <li>
+                <a href="https://github.com/qgis/QGIS" target="_blank">
+                  QGIS (icons)
+                </a>
+              </li>
+            </ul>
+          </p>
+          <p>
+            Version <b>{pkg.version}</b>
+          </p>
+        </div>
+      );
+    }
+  },
+
+  ViewGeoJSON: class extends React.Component {
+    render() {
+      return (
+        <div>
+          <textarea defaultValue={JSON.stringify(this.props.layer.geojson)} />
+        </div>
+      );
+    }
+  },
+
+  AttributeTable: class extends React.Component {
+    render() {
+      let columns = _.pluck(this.props.layer.geojson.features, 'properties');
+      columns = columns.map(c => _.keys(c));
+      columns = _.uniq(_.flatten(columns));
+      console.log(columns);
+      let th = columns.map(c => <th>{c}</th>);
+      let rows = this.props.layer.geojson.features.map(function(f) {
+        let fields = columns.map(c => <td>{f.properties[c]}</td>);
+        return <tr>{fields}</tr>;
+      });
+      return (
+        <div>
+          <table>
+            <tr>{th}</tr>
+            {rows}
+          </table>
+        </div>
+      );
+    }
+  },
+
+  getTolerance: function(next) {
+    let el;
+
+    class Modal extends React.Component {
+      render() {
+        return (
+          <div>
+            <input name="tolerance" type="text" defaultValue={this.props.tolerance} />
+            <p className="error">{this.props.error}</p>
+          </div>
+        );
+      }
+    }
+
+    vex.dialog.open({
+      message: 'Select tolerance.',
+      afterOpen: function($vexContent) {
+        el = $vexContent.find('.vex-dialog-input').get(0);
+        ReactDOM.render(<Modal tolerance={'0.1'} />, el);
+      },
+      onSubmit: function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        let error = false;
+        let $vexContent = $(this).parent();
+
+        let tolerance = +this.tolerance.value;
+        if (isNaN(tolerance)) {
+          error = 'Tolerance must be a number.';
+        } else if (tolerance <= 0) {
+          error = 'Tolerance must be greater than zero.';
+        }
+
+        if (error) {
+          ReactDOM.render(<Modal error={error} tolerance={this.tolerance.value} />, el);
+        } else {
+          vex.close($vexContent.data().vex.id);
+          let data = {
+            tolerance: tolerance,
+          };
+          next(false, data);
+        }
+      },
+    });
+  },
+
+  getDistance: function(next) {
+    let el;
+
+    class Modal extends React.Component {
+      render() {
+        return (
+          <div>
+            <input name="distance" type="text" defaultValue={this.props.distance} />
+            <select name="units" defaultValue={this.props.units}>
+              <option value="miles">Miles</option>
+              <option value="feet">feet</option>
+              <option value="kilometers">kilometers</option>
+              <option value="meters">meters</option>
+              <option value="degrees">degrees</option>
+            </select>
+            <p className="error">{this.props.error}</p>
+          </div>
+        );
+      }
+    }
+
+    vex.dialog.open({
+      message: 'Select distance.',
+      afterOpen: function($vexContent) {
+        el = $vexContent.find('.vex-dialog-input').get(0);
+        ReactDOM.render(<Modal distance={'1'} units={'miles'} />, el);
+      },
+      onSubmit: function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        let error = false;
+        let $vexContent = $(this).parent();
+
+        let distance = +this.distance.value;
+        if (isNaN(distance)) {
+          error = 'Distance must be a number.';
+        } else if (distance <= 0) {
+          error = 'Distance must be greater than zero.';
+        }
+
+        if (error) {
+          ReactDOM.render(
+            <Modal error={error} distance={this.distance.value} units={this.units.value} />,
+            el
+          );
+        } else {
+          vex.close($vexContent.data().vex.id);
+          let data = {
+            distance: distance,
+            units: this.units.value,
+          };
+          next(false, data);
+        }
+      },
+    });
+  },
+
+  getName: function(layername, next) {
+    class Modal extends React.Component {
+      render() {
+        return <input name="layername" type="text" defaultValue={this.props.layername} />;
+      }
+    }
+
+    let dialog = vex.dialog.open({
+      message: 'Enter New Layer Name',
+      afterOpen: function($vexContent) {
+        ReactDOM.render(<Modal layername={layername} />, $vexContent.find('.vex-dialog-input').get(0));
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        let err = false;
+        next(err, data.layername);
+      },
+    });
+  },
+
+  getStyle: function(style, next) {
+    class Modal extends React.Component {
+      render() {
+        return (
+          <div className={'style-form'}>
+            <p>fill color:</p>
+            <input name="fillColor" type="color" defaultValue={this.props.style.fillColor} />
+            <p>color:</p>
+            <input name="color" type="color" defaultValue={this.props.style.color} />
+            <p>radius:</p>
+            <input name="radius" type="text" defaultValue={this.props.style.radius} />
+            <p>weight:</p>
+            <input name="weight" type="text" defaultValue={this.props.style.weight} />
+            <p>opacity:</p>
+            <input name="opacity" type="text" defaultValue={this.props.style.opacity} />
+            <p>fillOpacity:</p>
+            <input name="fillOpacity" type="text" defaultValue={this.props.style.fillOpacity} />
+          </div>
+        );
+      }
+    }
+
+    let dialog = vex.dialog.open({
+      message: 'Update Layer Style',
+      afterOpen: function($vexContent) {
+        ReactDOM.render(<Modal style={style} />, $vexContent.find('.vex-dialog-input').get(0));
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        let err = false;
+        next(err, data);
+      },
+    });
+  },
+
+  getRandom: function(next) {
+    let el;
+
+    class Modal extends React.Component {
+      render() {
+        return (
+          <div>
+            <p>Count:</p>
+            <input name="count" type="text" defaultValue={this.props.count} />
+            <p>Bounding Box (xLow, yLow, xHigh, yHigh):</p>
+            <input name="bbox" type="text" defaultValue={this.props.bbox} />
+            <p className="error">{this.props.error}</p>
+          </div>
+        );
+      }
+    }
+
+    let dialog = vex.dialog.open({
+      message: 'Create Random Features',
+      afterOpen: function($vexContent) {
+        el = $vexContent.find('.vex-dialog-input').get(0);
+        ReactDOM.render(<Modal count={'10'} bbox={'-180, -90, 180, 90'} />, el);
+      },
+      onSubmit: function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        let $vexContent = $(this).parent();
+        let error = false;
+
+        let bbox = this.bbox.value;
+        bbox = bbox.split(',');
+        bbox = bbox.map(Number);
+        error = validateBBOX(bbox);
+
+        let count = +this.count.value;
+        if (isNaN(count)) {
+          error = "That's not a number...";
+        } else if (count > LIMIT) {
+          error = (
+            <span>
+              Are you <i>trying</i> to crash me?
+            </span>
+          );
+        } else if (count <= 0) {
+          error = 'Count should be more than zero.';
+        }
+
+        if (error) {
+          ReactDOM.render(<Modal error={error} count={this.count.value} bbox={this.bbox.value} />, el);
+        } else {
+          vex.close($vexContent.data().vex.id);
+          let data = {
+            bbox: bbox,
+            count: count,
+          };
+          next(false, data);
+        }
+      },
+    });
+  },
+
+  getGrid: function(type, next) {
+    let LIMIT = 10000;
+    let el;
+    let defaults = {
+      hex: {
+        cellWidth: 50,
+      },
+      point: {
+        cellWidth: 50,
+      },
+      square: {
+        cellWidth: 50,
+      },
+      triangle: {
+        cellWidth: 50,
+      },
+    };
+
+    class Modal extends React.Component {
+      render() {
+        return (
+          <div>
+            <p>Bounding Box (xLow, yLow, xHigh, yHigh):</p>
+            <input name="bbox" type="text" defaultValue={this.props.bbox} />
+            <p>Cell Width:</p>
+            <input name="cellWidth" type="text" defaultValue={this.props.cellWidth} />
+            <select name="units" defaultValue={this.props.units}>
+              <option value="miles">Miles</option>
+              <option value="kilometers">kilometers</option>
+            </select>
+            <p className="error">{this.props.error}</p>
+          </div>
+        );
+      }
+    }
+
+    let dialog = vex.dialog.open({
+      message: 'Create Random Features',
+      afterOpen: function($vexContent) {
+        el = $vexContent.find('.vex-dialog-input').get(0);
+        ReactDOM.render(
+          <Modal cellWidth={defaults[type].cellWidth} bbox={'-96,31,-84,40'} units={'miles'} />,
+          el
+        );
+      },
+      onSubmit: function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        let $vexContent = $(this).parent();
+        let error = false;
+
+        let bbox = this.bbox.value;
+        bbox = bbox.split(',');
+        bbox = bbox.map(Number);
+        error = validateBBOX(bbox);
+
+        let cellWidth = this.cellWidth.value;
+        if (cellWidth <= 0) {
+          error = 'Cell Width must be greater than zero.';
+        }
+        let data = {
+          bbox: bbox,
+          cellWidth: cellWidth,
+          units: this.units.value,
+        };
+        let grid = vectorTools.createGrid(type, data);
+        if (grid.features.length > LIMIT) {
+          error = 'Too many features. Increase cell width or decrease bbox size.';
+        }
+        if (error) {
+          ReactDOM.render(
+            <Modal
+              error={error}
+              cellWidth={this.cellWidth.value}
+              bbox={this.bbox.value}
+              units={this.units.value}
+            />,
+            el
+          );
+        } else {
+          vex.close($vexContent.data().vex.id);
+          next(false, grid);
+        }
+      },
+    });
+  },
+
+  getTileURL: function(next) {
+    class TileLayer extends React.Component {
+      render() {
+        return (
+          <div>
+            <p>{'(http://{s}.tile.stamen.com/toner/{z}/{x}/{y}.png)'}</p>
+            <input name="url" type="text" defaultValue="" />
+          </div>
+        );
+      }
+    }
+
+    vex.dialog.open({
+      message: 'Enter TileLayer URL',
+      afterOpen: function($vexContent) {
+        ReactDOM.render(<TileLayer />, $vexContent.find('.vex-dialog-input').get(0));
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        next(false, data.url);
+      },
+    });
+  },
+
+  getSaveType: function(next) {
+    class SaveType extends React.Component {
+      render() {
+        return (
+          <div>
+            <select name="type" defaultValue={this.props.type}>
+              <option value="geojson">GeoJSON</option>
+              <option value="kml">KML</option>
+              <option value="wkt">WKT</option>
+              <option value="csv">CSV (points)</option>
+              <option value="shp">Shapefile</option>
+            </select>
+          </div>
+        );
+      }
+    }
+
+    vex.dialog.open({
+      message: 'Save Layer As',
+      afterOpen: function($vexContent) {
+        ReactDOM.render(<SaveType />, $vexContent.find('.vex-dialog-input').get(0));
+      },
+      callback: function(data) {
+        if (data === false) {
+          return console.log('Cancelled');
+        }
+        next(false, data.type);
+      },
+    });
+  },
+};
+
+export default Modals;

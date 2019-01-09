@@ -1,12 +1,11 @@
-var React = require('react')
+import React from 'react';
 
-var ToolbarItem = React.createClass({
-  getDefaultProps: function() {
-    return {
-      active: false
-    }
-  },
-  onClick: function() {
+class ToolbarItem extends React.Component {
+  static defaultProps = {
+    active: false
+  };
+
+  onClick = () => {
     if (this.props.active) {
       this.props.onClick()
     } else {
@@ -14,12 +13,13 @@ var ToolbarItem = React.createClass({
         this.props.disabledClick()
       }
     }
-  },
-  render: function() {
-    var style = {}
-    var className = 'toolbar-item'
+  };
+
+  render() {
+    let style = {};
+    let className = 'toolbar-item';
     if (this.props.active) className += ' active'
-    var img = this.props.img ? <img src={this.props.img} /> : false
+    let img = this.props.img ? <img src={this.props.img} /> : false;
     return (
       <div className={className} style={style} onClick={this.onClick}>
         <span className="descriptor-icon"></span>
@@ -28,6 +28,6 @@ var ToolbarItem = React.createClass({
       </div>
     )
   }
-})
+}
 
-module.exports = ToolbarItem
+export default ToolbarItem;

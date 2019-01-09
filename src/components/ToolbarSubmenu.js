@@ -1,27 +1,28 @@
-var React = require('react')
+import React from 'react';
 
-var ToolbarSubmenu = React.createClass({
-  getInitialState: function() {
-    return {
-      open: false
-    }
-  },
-  onMouseEnter: function(e) {
+class ToolbarSubmenu extends React.Component {
+  state = {
+    open: false
+  };
+
+  onMouseEnter = (e) => {
     if (this.props.active) {
       this.setState({open: true})
     }
-  },
-  onMouseLeave: function(e) {
+  };
+
+  onMouseLeave = (e) => {
     if (this.props.active) {
       this.setState({open: false})
     }
-  },
-  subMenuClick: function(e) {
+  };
+
+  subMenuClick = (e) => {
     this.setState({open: false})
-  },
-  render: function() {
-    var className = 'toolbar-item toolbar-submenu',
-      submenu = ''
+  };
+
+  render() {
+    let className = 'toolbar-item toolbar-submenu', submenu = '';
     if (this.props.active) {
       className += ' active'
     }
@@ -37,6 +38,6 @@ var ToolbarSubmenu = React.createClass({
       </div>
     )
   }
-})
+}
 
-module.exports = ToolbarSubmenu
+export default ToolbarSubmenu;

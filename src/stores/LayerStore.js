@@ -2,25 +2,26 @@
  * Layer Store
  */
 
-var AppDispatcher = require('../dispatcher/AppDispatcher')
-  , EventEmitter = require('events').EventEmitter
-  , LayerConstants = require('../constants/LayerConstants')
-  , assign = require('object-assign')
-  , DefaultLayer = require('../utils/DefaultLayer')
+import AppDispatcher from '../dispatcher/AppDispatcher';
 
-var CHANGE_EVENT = 'change'
+import { EventEmitter } from 'events';
+import LayerConstants from '../constants/LayerConstants';
+import assign from 'object-assign';
+import DefaultLayer from '../utils/DefaultLayer';
 
-var _layers = {}
+let CHANGE_EVENT = 'change';
 
-var undos = []
+let _layers = {};
 
-var UNDO_LENGTH = 10
+let undos = [];
+
+let UNDO_LENGTH = 10;
 
 /**
  * Create a Layer.
  */
 function create() {
-  var layer = DefaultLayer.generate()
+  let layer = DefaultLayer.generate();
   layer.order = Object.keys(_layers).length
   _layers[layer.id] = layer
 }
@@ -42,7 +43,7 @@ function update(id, updates) {
  * update objects
  */
 function updateList(updates) {
-  for (var id in updates) {
+  for (let id in updates) {
     update(id, updates[id])
   }
 }
@@ -54,7 +55,7 @@ function updateList(updates) {
  *     updated.
  */
 function updateAll(updates) {
-  for (var id in _layers) {
+  for (let id in _layers) {
     update(id, updates)
   }
 }
@@ -86,7 +87,7 @@ function destroy(id) {
  * Delete all the selected Layers.
  */
 function destroySelected() {
-  for (var id in _layers) {
+  for (let id in _layers) {
     if (_layers[id].selected) {
       destroy(id)
     }
@@ -99,19 +100,19 @@ function destroySelected() {
  * @param  {number} the position to move the layer
  */
 function reorder(from, to) {
-  var orders = _.range(Object.keys(_layers).length)
+  let orders = _.range(Object.keys(_layers).length);
   orders.splice(to, 0, orders.splice(from, 1)[0])
 
-  var updates = {}
+  let updates = {};
   orders.forEach(function(order, idx) {
-    var layer = _.findWhere(_layers, {order: order})
+    let layer = _.findWhere(_layers, {order: order});
     updates[layer.id] = {
       order: idx
     }
   })
   updateList(updates)
 
-  for (var id in _layers) {
+  for (let id in _layers) {
     if (_layers[id].vector) {
       _layers[id].mapLayer.clearLayers()
     }
@@ -121,9 +122,9 @@ function reorder(from, to) {
 }
 
 function addUndo(id, updates) {
-  var oldUpdates = {}
+  let oldUpdates = {};
   if (_layers[id]) {
-    for (var key in updates) {
+    for (let key in updates) {
       oldUpdates[key] = _layers[id][key]
     }
   } else {
@@ -136,7 +137,7 @@ function addUndo(id, updates) {
 }
 
 function undo() {
-  var op = undos[undos.length - 1]
+  let op = undos[undos.length - 1];
   if (_layers[op.id]) {
     if (_.has(op.updates, 'geojson')) {
       _layers[op.id].mapLayer.clearLayers()
@@ -149,23 +150,21 @@ function undo() {
   undos.pop()
 }
 
-var LayerStore = assign({}, EventEmitter.prototype, {
+let LayerStore = assign({}, EventEmitter.prototype, {
 
   /**
    * Get the entire collection of layers.
    * @return {object}
    */
-  getAll: function() {
-    return _layers
-  },
+  getAll: () => _layers,
 
   /**
    * Get all selected layers
    * @return {object}
    */
   getAllSelected: function() {
-    var selected = {}
-    for (var id in _layers) {
+    let selected = {};
+    for (let id in _layers) {
       if (_layers[id].selected) {
         selected[id] = _layers[id]
       }
@@ -174,7 +173,7 @@ var LayerStore = assign({}, EventEmitter.prototype, {
   },
 
   getById: function(_id) {
-    for (var id in _layers) {
+    for (let id in _layers) {
       if (id === _id) return _layers[id]
     }
     return false
@@ -184,17 +183,13 @@ var LayerStore = assign({}, EventEmitter.prototype, {
    * Get all selected layers
    * @return {object}
    */
-  getSelected: function() {
-    return _.findWhere(_layers, {selected: true})
-  },
+  getSelected: () => _.findWhere(_layers, {selected: true}),
 
   /**
    * Get all selected layers
    * @return {object}
    */
-  getUndoLength: function() {
-    return undos.length
-  },
+  getUndoLength: () => undos.length,
 
   emitChange: function() {
     this.emit(CHANGE_EVENT)
@@ -214,7 +209,7 @@ var LayerStore = assign({}, EventEmitter.prototype, {
     this.removeListener(CHANGE_EVENT, callback)
   }
 
-})
+});
 
 // Register callback to handle all updates
 AppDispatcher.register(function(action) {
@@ -265,4 +260,4 @@ AppDispatcher.register(function(action) {
   }
 })
 
-module.exports = LayerStore
+export default LayerStore;

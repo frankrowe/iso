@@ -1,6 +1,6 @@
-var keyMirror = require('keymirror')
+import keyMirror from 'keymirror';
 
-module.exports = keyMirror({
+export default keyMirror({
   LAYER_CREATE: null,
   LAYER_UPDATE: null,
   LAYER_IMPORT: null,
@@ -9,4 +9,4 @@ module.exports = keyMirror({
   LAYER_DESTROY: null,
   LAYER_DESTROY_SELECTED: null,
   LAYER_UPDATE_LIST: null,
-})
+});

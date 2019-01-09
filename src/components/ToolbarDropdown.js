@@ -1,27 +1,28 @@
-var React = require('react')
+import React from 'react';
 
-var ToolbarDropdown = React.createClass({
-  getInitialState: function() {
-    return {
-      open: false
-    }
-  },
-  onMouseEnter: function(e) {
+class ToolbarDropdown extends React.Component {
+  state = {
+    open: false
+  };
+
+  onMouseEnter = (e) => {
     if (this.props.active) {
       this.setState({open: true})
     }
-  },
-  onMouseLeave: function(e) {
+  };
+
+  onMouseLeave = (e) => {
     if (this.props.active) {
       this.setState({open: false})
     }
-  },
-  subMenuClick: function(e) {
+  };
+
+  subMenuClick = (e) => {
     this.setState({open: false})
-  },
-  render: function() {
-    var className = 'toolbar-item',
-      submenu = ''
+  };
+
+  render() {
+    let className = 'toolbar-item', submenu = '';
     if (this.props.active) {
       className += ' active'
     }
@@ -39,6 +40,6 @@ var ToolbarDropdown = React.createClass({
       </div>
     )
   }
-})
+}
 
-module.exports = ToolbarDropdown
+export default ToolbarDropdown;

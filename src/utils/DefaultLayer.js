@@ -1,4 +1,4 @@
-var palette = require('../utils/palette')
+import palette from '../utils/palette';
 
 function DefaultLayer() {
   this.defaultLayer = {
@@ -28,14 +28,10 @@ function DefaultLayer() {
 }
 
 DefaultLayer.prototype = {
-  generateID: function() {
-    return (+new Date() + Math.floor(Math.random() * 999999)).toString(36)
-  },
-  generateColor: function() {
-    return "#" + Math.random().toString(16).slice(2, 8)
-  },
+  generateID: () => (+new Date() + Math.floor(Math.random() * 999999)).toString(36),
+  generateColor: () => "#" + Math.random().toString(16).slice(2, 8),
   generate: function() {
-    var layer = JSON.parse(JSON.stringify(this.defaultLayer))
+    let layer = JSON.parse(JSON.stringify(this.defaultLayer));
     layer.id = this.generateID()
     layer.style.color = this.generateColor()
     layer.style.fillColor = layer.style.color
@@ -43,4 +39,4 @@ DefaultLayer.prototype = {
   }
 }
 
-module.exports = new DefaultLayer()
+export default new DefaultLayer();

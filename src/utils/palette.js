@@ -14,11 +14,11 @@
 //   lightest: '#00DFFC'
 // }
 
-module.exports = {
+export default {
   darkest: '#303030',
   dark: '#525252',
   medium: '#636363',
   light: '#7d7d7d',
   lightest: '#D5D5D5',
   green: '#428675'
-}
+};

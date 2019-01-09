@@ -1,14 +1,14 @@
-var React = require('react')
-  , palette = require('../utils/palette')
-  , gjutils = require('../utils/gjutils')
+import React from 'react';
+import palette from '../utils/palette';
+import gjutils from '../utils/gjutils';
 
-var MessageBar = React.createClass({
-  layerMessage: function() {
-    var message = ''
+class MessageBar extends React.Component {
+  layerMessage = () => {
+    let message = '';
     if (Object.keys(this.props.layers).length === 0) {
       message = '0 layers added.'
     } else {
-      var selected = _.where(this.props.layers, {selected: true})
+      let selected = _.where(this.props.layers, {selected: true});
       if (selected.length == 0) {
         message = '0 layers selected.'
       } else if (selected.length == 1) {
@@ -16,17 +16,18 @@ var MessageBar = React.createClass({
       } else {
         message = selected.length + ' layers selected.'
       }
-      var selectedFeatureCount = 0
-      for (var id in this.props.layers) {
+      let selectedFeatureCount = 0;
+      for (let id in this.props.layers) {
         selectedFeatureCount += gjutils.findSelectedCount(this.props.layers[id].geojson)
       }
       message += ' ' + selectedFeatureCount + ' '
       message += (selectedFeatureCount == 1) ? 'feature selected.' : 'features selected.'
     }
     return message
-  },
-  render: function() {
-    var msg = this.layerMessage()
+  };
+
+  render() {
+    let msg = this.layerMessage();
     return (
       <div className="message-bar">
         <div className="message-bar-item message">{msg}</div>
@@ -35,6 +36,6 @@ var MessageBar = React.createClass({
       </div>
     )
   }
-})
+}
 
-module.exports = MessageBar
+export default MessageBar;

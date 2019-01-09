@@ -1,7 +1,7 @@
-var AppDispatcher = require('../dispatcher/AppDispatcher')
-  , LayerConstants = require('../constants/LayerConstants')
+import AppDispatcher from '../dispatcher/AppDispatcher';
+import LayerConstants from '../constants/LayerConstants';
 
-var LayerActions = {
+let LayerActions = {
 
   create: function() {
     AppDispatcher.dispatch({
@@ -67,6 +67,6 @@ var LayerActions = {
     })
   },
 
-}
+};
 
-module.exports = LayerActions
+export default LayerActions;

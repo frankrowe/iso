@@ -1,10 +1,10 @@
-var React = require('react')
-  , FixedDataTable = require('fixed-data-table')
-  , LayerActions = require('../actions/LayerActions')
+import React from 'react';
+import FixedDataTable from 'fixed-data-table';
+import LayerActions from '../actions/LayerActions';
 
-var Table = FixedDataTable.Table
-var Column = FixedDataTable.Column
-var Cell = FixedDataTable.Cell
+let Table = FixedDataTable.Table;
+let Column = FixedDataTable.Column;
+let Cell = FixedDataTable.Cell;
 
 class PropertyCell extends React.Component {
   _getMyDataForIndex(idx, field) {
@@ -40,13 +40,13 @@ class AttributeTable extends React.Component {
     this.setTableWidth()
 
     //make equal size columns for all feature props
-    var columnWidths = {
+    let columnWidths = {
       index: 50
-    }
+    };
     this.columnLabels = _.pluck(this.props.layer.geojson.features, 'properties')
     this.columnLabels = this.columnLabels.map(function(c) { return _.keys(c) })
     this.columnLabels = _.uniq(_.flatten(this.columnLabels))
-    var columnWidth = (this.tableWidth - columnWidths.index)/this.columnLabels.length
+    let columnWidth = (this.tableWidth - columnWidths.index)/this.columnLabels.length;
     this.columnLabels.forEach((label) => {
       columnWidths[label] = columnWidth
     })
@@ -59,16 +59,16 @@ class AttributeTable extends React.Component {
     this.tableWidth = $('.work-space').innerWidth() - 2
   }
   _onColumnResizeEndCallback(newColumnWidth, columnKey) {
-    var columnWidths = this.state.columnWidths
+    let columnWidths = this.state.columnWidths;
     columnWidths[columnKey] = newColumnWidth
     this.setState({columnWidths: columnWidths})
   }
   rowClassNameGetter(rowIndex) {
-    var feature = this.props.layer.geojson.features[rowIndex]
+    let feature = this.props.layer.geojson.features[rowIndex];
     return feature.selected ? 'selected' : null
   }
   onRowClick(e, rowIndex) {
-    var feature = this.props.layer.geojson.features[rowIndex]
+    let feature = this.props.layer.geojson.features[rowIndex];
     feature.selected = !feature.selected
     LayerActions.update(this.props.layer.id, {geojson: this.props.layer.geojson})
 
@@ -118,4 +118,4 @@ class AttributeTable extends React.Component {
   }
 }
 
-module.exports = AttributeTable
+export default AttributeTable;
